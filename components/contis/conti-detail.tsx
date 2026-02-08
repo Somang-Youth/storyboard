@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon } from "@hugeicons/core-free-icons"
 import { ContiSongItem } from "@/components/contis/conti-song-item"
+import { ContiSongEditor } from "./conti-song-editor"
 import { SongPicker } from "@/components/contis/song-picker"
 import {
   removeSongFromConti,
@@ -22,6 +23,7 @@ interface ContiDetailProps {
 export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
   const router = useRouter()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [optimisticSongs, setOptimisticSongs] = useOptimistic<ContiSongWithSong[]>(conti.songs)
 
@@ -74,9 +76,8 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
     })
   }
 
-  function handleEdit(_contiSongId: string) {
-    // Will be implemented in ContiSong override editors task
-    toast.info("편집 기능은 준비 중입니다")
+  function handleEdit(contiSongId: string) {
+    setEditingId(prev => prev === contiSongId ? null : contiSongId)
   }
 
   return (
@@ -94,16 +95,25 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
       ) : (
         <div className="flex flex-col gap-2">
           {optimisticSongs.map((contiSong, index) => (
-            <ContiSongItem
-              key={contiSong.id}
-              contiSong={contiSong}
-              index={index}
-              total={optimisticSongs.length}
-              onMoveUp={() => handleMoveUp(index)}
-              onMoveDown={() => handleMoveDown(index)}
-              onRemove={() => handleRemove(contiSong.id)}
-              onEdit={() => handleEdit(contiSong.id)}
-            />
+            <>
+              <ContiSongItem
+                key={contiSong.id}
+                contiSong={contiSong}
+                index={index}
+                total={optimisticSongs.length}
+                onMoveUp={() => handleMoveUp(index)}
+                onMoveDown={() => handleMoveDown(index)}
+                onRemove={() => handleRemove(contiSong.id)}
+                onEdit={() => handleEdit(contiSong.id)}
+              />
+              {editingId === contiSong.id && (
+                <ContiSongEditor
+                  contiSong={contiSong}
+                  open={true}
+                  onOpenChange={(open) => { if (!open) setEditingId(null) }}
+                />
+              )}
+            </>
           ))}
         </div>
       )}
