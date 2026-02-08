@@ -4,6 +4,7 @@ import { getSong } from "@/lib/queries/songs"
 import { PageHeader } from "@/components/layout/page-header"
 import { SheetMusicGallery } from "@/components/songs/sheet-music-gallery"
 import { SongDeleteButton } from "@/components/songs/song-delete-button"
+import { PresetList } from "@/components/songs/preset-list"
 import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
@@ -48,6 +49,11 @@ export default async function SongDetailPage({
             </Button>
           </div>
         )}
+
+        <div>
+          <h2 className="text-lg font-semibold mb-4">프리셋</h2>
+          <PresetList songId={song.id} presets={song.presets ?? []} />
+        </div>
       </div>
     </div>
   )
