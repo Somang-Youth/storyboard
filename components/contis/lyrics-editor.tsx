@@ -6,16 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
-import { updateContiSong } from "@/lib/actions/conti-songs"
-
 interface LyricsEditorProps {
-  contiSongId: string
   initialLyrics: string[]
+  onSave: (data: { lyrics: string[] }) => Promise<{ success: boolean; error?: string }>
 }
 
 export function LyricsEditor({
-  contiSongId,
   initialLyrics,
+  onSave,
 }: LyricsEditorProps) {
   const [lyrics, setLyrics] = useState<string[]>(initialLyrics)
   const [isPending, setIsPending] = useState(false)
@@ -37,7 +35,7 @@ export function LyricsEditor({
   const handleSave = async () => {
     setIsPending(true)
     try {
-      const result = await updateContiSong(contiSongId, { lyrics })
+      const result = await onSave({ lyrics })
       if (result.success) {
         toast.success("가사가 저장되었습니다")
       } else {

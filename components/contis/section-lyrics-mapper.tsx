@@ -4,20 +4,18 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { updateContiSong } from "@/lib/actions/conti-songs"
-
 interface SectionLyricsMapperProps {
-  contiSongId: string
   sectionOrder: string[]
   lyrics: string[]
   initialMap: Record<number, number[]>
+  onSave: (data: { sectionLyricsMap: Record<number, number[]> }) => Promise<{ success: boolean; error?: string }>
 }
 
 export function SectionLyricsMapper({
-  contiSongId,
   sectionOrder,
   lyrics,
   initialMap,
+  onSave,
 }: SectionLyricsMapperProps) {
   const [sectionLyricsMap, setSectionLyricsMap] =
     useState<Record<number, number[]>>(initialMap)
@@ -44,7 +42,7 @@ export function SectionLyricsMapper({
   const handleSave = async () => {
     setIsPending(true)
     try {
-      const result = await updateContiSong(contiSongId, { sectionLyricsMap })
+      const result = await onSave({ sectionLyricsMap })
       if (result.success) {
         toast.success("섹션-가사 매핑이 저장되었습니다")
       } else {
