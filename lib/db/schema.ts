@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, timestamp, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const songs = pgTable('songs', {
   id: text('id').primaryKey(),
@@ -15,6 +15,22 @@ export const sheetMusicFiles = pgTable('sheet_music_files', {
   fileType: text('file_type').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at').notNull(),
+});
+
+export const songPresets = pgTable('song_presets', {
+  id: text('id').primaryKey(),
+  songId: text('song_id').notNull().references(() => songs.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  keys: text('keys'),
+  tempos: text('tempos'),
+  sectionOrder: text('section_order'),
+  lyrics: text('lyrics'),
+  sectionLyricsMap: text('section_lyrics_map'),
+  notes: text('notes'),
+  isDefault: boolean('is_default').notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
 });
 
 export const contis = pgTable('contis', {

@@ -46,3 +46,5 @@ export function stringifyContiSongOverrides(data: {
     ...(data.notes !== undefined && { notes: data.notes }),
   };
 }
+
+export const parseSongPresetOverrides = parseContiSongOverrides;
