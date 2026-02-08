@@ -9,7 +9,7 @@ pnpm dev          # Start dev server (http://localhost:3000)
 pnpm build        # Production build
 pnpm lint         # ESLint (flat config, Next.js core-web-vitals + typescript)
 npx drizzle-kit generate  # Generate DB migrations
-npx drizzle-kit push      # Push schema to Turso database
+npx drizzle-kit push      # Push schema to Vercel Postgres database
 ```
 
 ## Architecture
@@ -17,7 +17,7 @@ npx drizzle-kit push      # Push schema to Turso database
 Next.js 16 App Router project using React 19, Tailwind CSS v4, and TypeScript. Korean-language worship service setlist (콘티) management tool.
 
 **Tech Stack:**
-- **DB**: Turso (libSQL) with Drizzle ORM — schema in `lib/db/schema.ts`
+- **DB**: Vercel Postgres (Neon) with Drizzle ORM — schema in `lib/db/schema.ts`
 - **File Storage**: Vercel Blob for sheet music images/PDFs
 - **Auth**: Shared password with HMAC-signed cookie via Next.js middleware
 - **UI**: shadcn/ui v3 (base-nova style), @base-ui/react primitives (NOT Radix — no `asChild`, use `render` prop), @hugeicons/react icons
@@ -42,12 +42,12 @@ Next.js 16 App Router project using React 19, Tailwind CSS v4, and TypeScript. K
 
 **Path aliases:** `@/*` maps to project root.
 
-**Environment Variables:** See `.env.example` for required vars (AUTH_PASSWORD, AUTH_SECRET, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, BLOB_READ_WRITE_TOKEN).
+**Environment Variables:** See `.env.example` for required vars (AUTH_PASSWORD, AUTH_SECRET, POSTGRES_URL, BLOB_READ_WRITE_TOKEN).
 
 **Adding UI components:** `pnpm dlx shadcn@latest add <component>` — respects `components.json` config.
 
 **Important patterns:**
 - Server Actions for mutations with `'use server'` directive
 - All actions return `{ success: boolean, error?: string, data?: T }`
-- JSON columns stored as text in SQLite, parsed via helpers in `lib/db/helpers.ts`
+- JSON columns stored as text in PostgreSQL, parsed via helpers in `lib/db/helpers.ts`
 - Icons: `<HugeiconsIcon icon={IconName} strokeWidth={2} />` — never use icons as JSX directly

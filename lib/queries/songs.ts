@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { songs, sheetMusicFiles } from '@/lib/db/schema';
-import { eq, desc, like } from 'drizzle-orm';
+import { eq, desc, ilike } from 'drizzle-orm';
 import type { SongWithSheetMusic } from '@/lib/types';
 
 export async function getSongs() {
@@ -30,6 +30,6 @@ export async function searchSongs(query: string) {
   return await db
     .select()
     .from(songs)
-    .where(like(songs.name, `%${query}%`))
+    .where(ilike(songs.name, `%${query}%`))
     .orderBy(desc(songs.createdAt));
 }
