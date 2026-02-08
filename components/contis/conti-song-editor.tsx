@@ -6,6 +6,7 @@ import { KeyTempoEditor } from "./key-tempo-editor"
 import { SectionOrderEditor } from "./section-order-editor"
 import { LyricsEditor } from "./lyrics-editor"
 import { SectionLyricsMapper } from "./section-lyrics-mapper"
+import { updateContiSong } from "@/lib/actions/conti-songs"
 import type { ContiSongWithSong } from "@/lib/types"
 
 interface ContiSongEditorProps {
@@ -33,9 +34,9 @@ export function ContiSongEditor({
           <div>
             <h3 className="mb-3 text-sm font-medium">조성 및 템포</h3>
             <KeyTempoEditor
-              contiSongId={id}
               initialKeys={overrides.keys}
               initialTempos={overrides.tempos}
+              onSave={(data) => updateContiSong(id, data)}
             />
           </div>
 
@@ -44,8 +45,8 @@ export function ContiSongEditor({
           <div>
             <h3 className="mb-3 text-sm font-medium">섹션 순서</h3>
             <SectionOrderEditor
-              contiSongId={id}
               initialSectionOrder={overrides.sectionOrder}
+              onSave={(data) => updateContiSong(id, data)}
             />
           </div>
 
@@ -54,8 +55,8 @@ export function ContiSongEditor({
           <div>
             <h3 className="mb-3 text-sm font-medium">가사 페이지</h3>
             <LyricsEditor
-              contiSongId={id}
               initialLyrics={overrides.lyrics}
+              onSave={(data) => updateContiSong(id, data)}
             />
           </div>
 
@@ -64,10 +65,10 @@ export function ContiSongEditor({
           <div>
             <h3 className="mb-3 text-sm font-medium">섹션-가사 매핑</h3>
             <SectionLyricsMapper
-              contiSongId={id}
               sectionOrder={overrides.sectionOrder}
               lyrics={overrides.lyrics}
               initialMap={overrides.sectionLyricsMap}
+              onSave={(data) => updateContiSong(id, data)}
             />
           </div>
         </CardContent>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field"
+import { DatePicker } from "@/components/ui/date-picker"
 import { createConti, updateConti } from "@/lib/actions/contis"
 import type { Conti } from "@/lib/types"
 
@@ -49,25 +50,18 @@ export function ContiForm({ conti }: { conti?: Conti }) {
     <form onSubmit={handleSubmit}>
       <FieldGroup>
         <Field>
-          <FieldLabel>제목</FieldLabel>
+          <FieldLabel>제목 (선택사항)</FieldLabel>
           <Input
             name="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="콘티 제목을 입력하세요"
-            required
           />
         </Field>
 
         <Field>
           <FieldLabel>날짜</FieldLabel>
-          <Input
-            name="date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            required
-          />
+          <DatePicker value={date} onChange={setDate} />
         </Field>
 
         <Field>

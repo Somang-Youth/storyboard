@@ -28,7 +28,7 @@ export default async function ContiDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={conti.title} description={formatDate(conti.date)}>
+      <PageHeader title={conti.title || formatDate(conti.date)} description={formatDate(conti.date)}>
         <Button variant="outline" render={<Link href={`/contis/${conti.id}/edit`} />}>
           <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} data-icon="inline-start" />
           편집

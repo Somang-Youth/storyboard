@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { songs, sheetMusicFiles } from '@/lib/db/schema';
+import { songs, sheetMusicFiles, songPresets } from '@/lib/db/schema';
 import { eq, desc, ilike } from 'drizzle-orm';
 import type { SongWithSheetMusic } from '@/lib/types';
 
@@ -20,10 +20,21 @@ export async function getSong(id: string): Promise<SongWithSheetMusic | null> {
     .where(eq(sheetMusicFiles.songId, id))
     .orderBy(sheetMusicFiles.sortOrder);
 
+  const presets = await getSongPresets(id);
+
   return {
     ...song[0],
     sheetMusic,
+    presets,
   };
+}
+
+export async function getSongPresets(songId: string) {
+  return await db
+    .select()
+    .from(songPresets)
+    .where(eq(songPresets.songId, songId))
+    .orderBy(songPresets.sortOrder);
 }
 
 export async function searchSongs(query: string) {

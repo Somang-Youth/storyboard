@@ -7,11 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
-import { updateContiSong } from "@/lib/actions/conti-songs"
-
 interface SectionOrderEditorProps {
-  contiSongId: string
   initialSectionOrder: string[]
+  onSave: (data: { sectionOrder: string[] }) => Promise<{ success: boolean; error?: string }>
 }
 
 const PRESET_SECTIONS = [
@@ -24,8 +22,8 @@ const PRESET_SECTIONS = [
 ]
 
 export function SectionOrderEditor({
-  contiSongId,
   initialSectionOrder,
+  onSave,
 }: SectionOrderEditorProps) {
   const [sectionOrder, setSectionOrder] = useState<string[]>(initialSectionOrder)
   const [customSection, setCustomSection] = useState("")
@@ -51,7 +49,7 @@ export function SectionOrderEditor({
   const handleSave = async () => {
     setIsPending(true)
     try {
-      const result = await updateContiSong(contiSongId, { sectionOrder })
+      const result = await onSave({ sectionOrder })
       if (result.success) {
         toast.success("섹션 순서가 저장되었습니다")
       } else {
