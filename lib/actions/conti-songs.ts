@@ -10,7 +10,8 @@ import type { ActionResult, ContiSong, ContiSongOverrides } from '@/lib/types';
 
 export async function addSongToConti(
   contiId: string,
-  songId: string
+  songId: string,
+  initialOverrides?: Partial<ContiSongOverrides>
 ): Promise<ActionResult<ContiSong>> {
   try {
     // Get next sort order
@@ -22,17 +23,28 @@ export async function addSongToConti(
     const nextSortOrder = (maxSortOrderResult[0]?.maxOrder ?? -1) + 1;
 
     const now = new Date();
+
+    const overrides = initialOverrides
+      ? stringifyContiSongOverrides(initialOverrides)
+      : {
+          keys: '[]',
+          tempos: '[]',
+          sectionOrder: '[]',
+          lyrics: '[]',
+          sectionLyricsMap: '{}',
+        };
+
     const contiSong = {
       id: generateId(),
       contiId,
       songId,
       sortOrder: nextSortOrder,
-      keys: '[]',
-      tempos: '[]',
-      sectionOrder: '[]',
-      lyrics: '[]',
-      sectionLyricsMap: '{}',
-      notes: null,
+      keys: overrides.keys ?? '[]',
+      tempos: overrides.tempos ?? '[]',
+      sectionOrder: overrides.sectionOrder ?? '[]',
+      lyrics: overrides.lyrics ?? '[]',
+      sectionLyricsMap: overrides.sectionLyricsMap ?? '{}',
+      notes: initialOverrides?.notes ?? null,
       createdAt: now,
       updatedAt: now,
     };
