@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { addSongToConti } from "@/lib/actions/conti-songs"
+import { createSong } from "@/lib/actions/songs"
 import type { Song } from "@/lib/types"
 
 interface SongPickerProps {
@@ -56,6 +57,28 @@ export function SongPicker({
     })
   }
 
+  function handleCreateAndAdd(songName: string) {
+    startTransition(async () => {
+      const formData = new FormData()
+      formData.set("name", songName)
+      const createResult = await createSong(formData)
+
+      if (!createResult.success || !createResult.data) {
+        toast.error(createResult.error ?? "곡 생성 중 오류가 발생했습니다")
+        return
+      }
+
+      const addResult = await addSongToConti(contiId, createResult.data.id)
+      if (addResult.success) {
+        toast.success(`"${songName}" 곡이 생성되고 추가되었습니다`)
+        onOpenChange(false)
+        setSearch("")
+      } else {
+        toast.error(addResult.error ?? "곡 추가 중 오류가 발생했습니다")
+      }
+    })
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -75,9 +98,21 @@ export function SongPicker({
               이미 모든 곡이 추가되었습니다
             </p>
           ) : filteredSongs.length === 0 ? (
-            <p className="text-muted-foreground py-4 text-center text-sm">
-              검색 결과가 없습니다
-            </p>
+            <div className="flex flex-col items-center gap-2 py-4">
+              <p className="text-muted-foreground text-center text-sm">
+                검색 결과가 없습니다
+              </p>
+              {search.trim() && (
+                <button
+                  type="button"
+                  className="text-primary hover:bg-muted rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                  onClick={() => handleCreateAndAdd(search.trim())}
+                  disabled={isPending}
+                >
+                  {isPending ? "생성 중..." : `새 곡 만들기: "${search.trim()}"`}
+                </button>
+              )}
+            </div>
           ) : (
             <div className="flex flex-col gap-1">
               {filteredSongs.map((song) => (
