@@ -18,7 +18,7 @@ export function ContiCard({ conti }: { conti: Conti }) {
       <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
         <CardHeader>
           <CardDescription>{formatDate(conti.date)}</CardDescription>
-          <CardTitle>{conti.title}</CardTitle>
+          <CardTitle>{conti.title || formatDate(conti.date)}</CardTitle>
           {conti.description && (
             <CardDescription className="line-clamp-2">
               {conti.description}

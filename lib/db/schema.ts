@@ -19,7 +19,7 @@ export const sheetMusicFiles = pgTable('sheet_music_files', {
 
 export const contis = pgTable('contis', {
   id: text('id').primaryKey(),
-  title: text('title').notNull(),
+  title: text('title'),
   date: text('date').notNull(),
   description: text('description'),
   createdAt: timestamp('created_at').notNull(),

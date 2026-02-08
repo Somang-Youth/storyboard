@@ -9,7 +9,7 @@ import { z } from 'zod';
 import type { ActionResult, Conti } from '@/lib/types';
 
 const contiSchema = z.object({
-  title: z.string().min(1, '제목을 입력해주세요'),
+  title: z.string().transform(v => v.trim() || null),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '올바른 날짜 형식이 아닙니다 (YYYY-MM-DD)'),
   description: z.string().optional(),
 });
