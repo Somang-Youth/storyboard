@@ -1,8 +1,8 @@
 import { db } from '@/lib/db';
-import { contis, contiSongs, songs } from '@/lib/db/schema';
+import { contis, contiSongs, songs, sheetMusicFiles, contiPdfExports } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { parseContiSongOverrides } from '@/lib/db/helpers';
-import type { ContiWithSongs } from '@/lib/types';
+import type { ContiWithSongs, ContiWithSongsAndSheetMusic, ContiPdfExport } from '@/lib/types';
 
 export async function getContis() {
   return await db.select().from(contis).orderBy(desc(contis.date));
@@ -39,4 +39,40 @@ export async function getConti(id: string): Promise<ContiWithSongs | null> {
     ...conti[0],
     songs: songsWithOverrides,
   };
+}
+
+export async function getContiForExport(id: string): Promise<ContiWithSongsAndSheetMusic | null> {
+  const conti = await getConti(id);
+  if (!conti) return null;
+
+  // For each song, load its sheet music files
+  const songsWithSheetMusic = await Promise.all(
+    conti.songs.map(async (contiSong) => {
+      const sheetMusic = await db
+        .select()
+        .from(sheetMusicFiles)
+        .where(eq(sheetMusicFiles.songId, contiSong.songId))
+        .orderBy(sheetMusicFiles.sortOrder);
+
+      return {
+        ...contiSong,
+        sheetMusic,
+      };
+    })
+  );
+
+  return {
+    ...conti,
+    songs: songsWithSheetMusic,
+  };
+}
+
+export async function getContiPdfExport(contiId: string): Promise<ContiPdfExport | null> {
+  const result = await db
+    .select()
+    .from(contiPdfExports)
+    .where(eq(contiPdfExports.contiId, contiId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
 }
