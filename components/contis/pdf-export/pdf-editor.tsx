@@ -517,13 +517,18 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
         // Render sheet music image
         if (page.imageUrl) {
+          const scale = page.imageScale ?? 1
+          const offX = page.imageOffsetX ?? 0
+          const offY = page.imageOffsetY ?? 0
+
           const img = document.createElement('img')
           img.src = page.imageUrl
           img.style.position = 'absolute'
-          img.style.inset = '0'
-          img.style.width = '100%'
-          img.style.height = '100%'
+          img.style.width = `${100 * scale}%`
+          img.style.height = `${100 * scale}%`
           img.style.objectFit = 'contain'
+          img.style.left = `${offX}%`
+          img.style.top = `${offY}%`
           img.crossOrigin = 'anonymous'
           renderDiv.appendChild(img)
           // Wait for image to load
@@ -563,6 +568,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                 ? 'translateX(-50%)'
                 : 'none'
           el.textContent = overlay.text
+          el.style.color = overlay.color ?? '#000000'
           renderDiv.appendChild(el)
         }
 
