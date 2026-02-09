@@ -67,6 +67,11 @@ export interface PageLayout {
   imageScale?: number;
   imageOffsetX?: number;
   imageOffsetY?: number;
+  cropX?: number;
+  cropY?: number;
+  cropWidth?: number;
+  cropHeight?: number;
+  originalImageUrl?: string;
 }
 
 export interface PdfLayoutState {

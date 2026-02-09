@@ -15,6 +15,7 @@ import {
   FileExportIcon,
   Download04Icon,
   ArrowLeft01Icon,
+  CropIcon,
 } from '@hugeicons/core-free-icons'
 import { buildDefaultOverlays } from '@/lib/utils/pdf-export-helpers'
 import { saveContiPdfLayout, exportContiPdf } from '@/lib/actions/conti-pdf-exports'
@@ -39,6 +40,11 @@ interface EditorPage {
   imageScale: number
   imageOffsetX: number
   imageOffsetY: number
+  cropX: number | null
+  cropY: number | null
+  cropWidth: number | null
+  cropHeight: number | null
+  originalImageUrl: string | null
 }
 
 interface PdfEditorProps {
@@ -95,6 +101,12 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(existingExport?.pdfUrl ?? null)
   const [isPanningImage, setIsPanningImage] = useState(false)
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null)
+  const [isCropMode, setIsCropMode] = useState(false)
+  const [cropSelection, setCropSelection] = useState<{
+    startX: number; startY: number; endX: number; endY: number
+  } | null>(null)
+  const [isCropDragging, setIsCropDragging] = useState(false)
+  const [cropResizing, setCropResizing] = useState<'tl' | 'tr' | 'bl' | 'br' | 'top' | 'right' | 'bottom' | 'left' | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -108,6 +120,35 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   useEffect(() => {
     setIsMobile(window.innerWidth < 768)
   }, [])
+
+  // Helper to apply saved crop coordinates to an image
+  async function applySavedCrop(
+    originalUrl: string,
+    cropX: number,
+    cropY: number,
+    cropWidth: number,
+    cropHeight: number,
+  ): Promise<string> {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve()
+      img.onerror = () => reject(new Error('Failed to load image for crop'))
+      img.src = originalUrl
+    })
+
+    const sx = Math.round(cropX * img.naturalWidth)
+    const sy = Math.round(cropY * img.naturalHeight)
+    const sw = Math.round(cropWidth * img.naturalWidth)
+    const sh = Math.round(cropHeight * img.naturalHeight)
+
+    const canvas = document.createElement('canvas')
+    canvas.width = sw
+    canvas.height = sh
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
+    return canvas.toDataURL('image/png')
+  }
 
   // Initialize pages
   useEffect(() => {
@@ -152,6 +193,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             imageScale: saved?.imageScale ?? 1,
             imageOffsetX: saved?.imageOffsetX ?? 0,
             imageOffsetY: saved?.imageOffsetY ?? 0,
+            cropX: saved?.cropX ?? null,
+            cropY: saved?.cropY ?? null,
+            cropWidth: saved?.cropWidth ?? null,
+            cropHeight: saved?.cropHeight ?? null,
+            originalImageUrl: saved?.originalImageUrl ?? null,
           })
           continue
         }
@@ -176,6 +222,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               imageScale: saved?.imageScale ?? 1,
               imageOffsetX: saved?.imageOffsetX ?? 0,
               imageOffsetY: saved?.imageOffsetY ?? 0,
+              cropX: saved?.cropX ?? null,
+              cropY: saved?.cropY ?? null,
+              cropWidth: saved?.cropWidth ?? null,
+              cropHeight: saved?.cropHeight ?? null,
+              originalImageUrl: saved?.originalImageUrl ?? null,
             })
           } else if (file.fileType.includes('pdf')) {
             // Multiple pages per PDF
@@ -202,6 +253,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                   imageScale: saved?.imageScale ?? 1,
                   imageOffsetX: saved?.imageOffsetX ?? 0,
                   imageOffsetY: saved?.imageOffsetY ?? 0,
+                  cropX: saved?.cropX ?? null,
+                  cropY: saved?.cropY ?? null,
+                  cropWidth: saved?.cropWidth ?? null,
+                  cropHeight: saved?.cropHeight ?? null,
+                  originalImageUrl: saved?.originalImageUrl ?? null,
                 })
               }
             } catch {
@@ -223,8 +279,28 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                 imageScale: savedFallback?.imageScale ?? 1,
                 imageOffsetX: savedFallback?.imageOffsetX ?? 0,
                 imageOffsetY: savedFallback?.imageOffsetY ?? 0,
+                cropX: savedFallback?.cropX ?? null,
+                cropY: savedFallback?.cropY ?? null,
+                cropWidth: savedFallback?.cropWidth ?? null,
+                cropHeight: savedFallback?.cropHeight ?? null,
+                originalImageUrl: savedFallback?.originalImageUrl ?? null,
               })
             }
+          }
+        }
+      }
+
+      // Re-apply saved crops for image files
+      for (let idx = 0; idx < editorPages.length; idx++) {
+        const ep = editorPages[idx]
+        if (ep.cropX !== null && ep.cropY !== null && ep.cropWidth !== null && ep.cropHeight !== null && ep.originalImageUrl) {
+          try {
+            const croppedUrl = await applySavedCrop(
+              ep.originalImageUrl, ep.cropX, ep.cropY, ep.cropWidth, ep.cropHeight,
+            )
+            editorPages[idx] = { ...ep, imageUrl: croppedUrl }
+          } catch {
+            editorPages[idx] = { ...ep, imageUrl: ep.originalImageUrl, originalImageUrl: null, cropX: null, cropY: null, cropWidth: null, cropHeight: null }
           }
         }
       }
@@ -260,10 +336,20 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       if (!fileUrl) return
 
       renderPdfPageToDataUrl(fileUrl, page.pdfPageIndex + 1)
-        .then((dataUrl) => {
+        .then(async (dataUrl) => {
+          let finalUrl = dataUrl
+          if (page.cropX !== null && page.cropY !== null && page.cropWidth !== null && page.cropHeight !== null) {
+            try {
+              finalUrl = await applySavedCrop(dataUrl, page.cropX, page.cropY, page.cropWidth, page.cropHeight)
+            } catch {
+              // Fall back to uncropped
+            }
+          }
           setPages((prev) =>
             prev.map((p, i) =>
-              i === currentPageIndex ? { ...p, imageUrl: dataUrl } : p,
+              i === currentPageIndex
+                ? { ...p, imageUrl: finalUrl, originalImageUrl: page.cropX !== null ? dataUrl : null }
+                : p,
             ),
           )
         })
@@ -285,6 +371,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         imageScale: p.imageScale !== 1 ? p.imageScale : undefined,
         imageOffsetX: p.imageOffsetX !== 0 ? p.imageOffsetX : undefined,
         imageOffsetY: p.imageOffsetY !== 0 ? p.imageOffsetY : undefined,
+        cropX: p.cropX ?? undefined,
+        cropY: p.cropY ?? undefined,
+        cropWidth: p.cropWidth ?? undefined,
+        cropHeight: p.cropHeight ?? undefined,
+        originalImageUrl: (p.originalImageUrl && !p.originalImageUrl.startsWith('data:')) ? p.originalImageUrl : undefined,
       })),
       canvasWidth: containerRef.current?.clientWidth ?? 800,
       canvasHeight: containerRef.current?.clientHeight ?? 1131,
@@ -364,15 +455,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         const newPage = { ...page, ...updates }
         // Re-clamp offsets when scale changes
         if (updates.imageScale !== undefined) {
-          if (newPage.imageScale <= 1) {
-            // No panning when image is at or below original size
-            newPage.imageOffsetX = 0
-            newPage.imageOffsetY = 0
-          } else {
-            const minOffset = -(newPage.imageScale - 1) * 100
-            newPage.imageOffsetX = Math.max(minOffset, Math.min(0, newPage.imageOffsetX))
-            newPage.imageOffsetY = Math.max(minOffset, Math.min(0, newPage.imageOffsetY))
-          }
+          const rawOffset = -(newPage.imageScale - 1) * 100
+          const minOffset = Math.min(0, rawOffset)
+          const maxOffset = Math.max(0, rawOffset)
+          newPage.imageOffsetX = Math.max(minOffset, Math.min(maxOffset, newPage.imageOffsetX))
+          newPage.imageOffsetY = Math.max(minOffset, Math.min(maxOffset, newPage.imageOffsetY))
         }
         return newPage
       }),
@@ -387,14 +474,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         if (i !== currentPageIndex) return page
         const newPage = { ...page, ...updates }
         if (updates.imageScale !== undefined) {
-          if (newPage.imageScale <= 1) {
-            newPage.imageOffsetX = 0
-            newPage.imageOffsetY = 0
-          } else {
-            const minOffset = -(newPage.imageScale - 1) * 100
-            newPage.imageOffsetX = Math.max(minOffset, Math.min(0, newPage.imageOffsetX))
-            newPage.imageOffsetY = Math.max(minOffset, Math.min(0, newPage.imageOffsetY))
-          }
+          const rawOffset = -(newPage.imageScale - 1) * 100
+          const minOffset = Math.min(0, rawOffset)
+          const maxOffset = Math.max(0, rawOffset)
+          newPage.imageOffsetX = Math.max(minOffset, Math.min(maxOffset, newPage.imageOffsetX))
+          newPage.imageOffsetY = Math.max(minOffset, Math.min(maxOffset, newPage.imageOffsetY))
         }
         return newPage
       }),
@@ -412,8 +496,10 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     // Only pan if clicking on the image/background area, not on an overlay
     if (target.closest('[data-overlay]') || target.closest('[data-toolbar]')) return
 
+    if (isCropMode) return
+
     const currentPg = pages[currentPageIndex]
-    if (!currentPg || currentPg.imageScale <= 1) return
+    if (!currentPg || currentPg.imageScale === 1) return
 
     e.preventDefault()
     setIsPanningImage(true)
@@ -438,9 +524,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     const deltaXPct = ((e.clientX - panStartRef.current.x) / rect.width) * 100
     const deltaYPct = ((e.clientY - panStartRef.current.y) / rect.height) * 100
 
-    const minOffset = -(currentPg.imageScale - 1) * 100
-    const newOffX = Math.max(minOffset, Math.min(0, panStartRef.current.offX + deltaXPct))
-    const newOffY = Math.max(minOffset, Math.min(0, panStartRef.current.offY + deltaYPct))
+    const rawOffset = -(currentPg.imageScale - 1) * 100
+    const minOffset = Math.min(0, rawOffset)
+    const maxOffset = Math.max(0, rawOffset)
+    const newOffX = Math.max(minOffset, Math.min(maxOffset, panStartRef.current.offX + deltaXPct))
+    const newOffY = Math.max(minOffset, Math.min(maxOffset, panStartRef.current.offY + deltaYPct))
 
     updateImageTransformSilent({ imageOffsetX: newOffX, imageOffsetY: newOffY })
   }
@@ -450,6 +538,233 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       setIsPanningImage(false)
       triggerAutoSave()
     }
+  }
+
+  // Crop mode handlers
+  function handleCropPointerDown(e: React.PointerEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    setCropSelection({ startX: x, startY: y, endX: x, endY: y })
+    setIsCropDragging(true)
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  function handleCropPointerMove(e: React.PointerEvent) {
+    if (!isCropDragging) return
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100))
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100))
+
+    setCropSelection((prev) => prev ? { ...prev, endX: x, endY: y } : null)
+  }
+
+  function handleCropPointerUp() {
+    setIsCropDragging(false)
+    if (cropSelection) {
+      const w = Math.abs(cropSelection.endX - cropSelection.startX)
+      const h = Math.abs(cropSelection.endY - cropSelection.startY)
+      if (w < 2 || h < 2) {
+        setCropSelection(null)
+      }
+    }
+  }
+
+  function handleCropCancel() {
+    setCropSelection(null)
+  }
+
+  function handleResizePointerDown(e: React.PointerEvent, handle: 'tl' | 'tr' | 'bl' | 'br' | 'top' | 'right' | 'bottom' | 'left') {
+    e.preventDefault()
+    e.stopPropagation()
+    setCropResizing(handle)
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  function handleResizePointerMove(e: React.PointerEvent) {
+    if (!cropResizing || !cropSelection) return
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100))
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100))
+
+    const left = Math.min(cropSelection.startX, cropSelection.endX)
+    const top = Math.min(cropSelection.startY, cropSelection.endY)
+    const right = Math.max(cropSelection.startX, cropSelection.endX)
+    const bottom = Math.max(cropSelection.startY, cropSelection.endY)
+
+    let newLeft = left, newTop = top, newRight = right, newBottom = bottom
+
+    // Corner handles
+    if (cropResizing === 'tl') { newLeft = Math.min(x, right - 2); newTop = Math.min(y, bottom - 2) }
+    else if (cropResizing === 'tr') { newRight = Math.max(x, left + 2); newTop = Math.min(y, bottom - 2) }
+    else if (cropResizing === 'bl') { newLeft = Math.min(x, right - 2); newBottom = Math.max(y, top + 2) }
+    else if (cropResizing === 'br') { newRight = Math.max(x, left + 2); newBottom = Math.max(y, top + 2) }
+    // Edge handles
+    else if (cropResizing === 'top') { newTop = Math.min(y, bottom - 2) }
+    else if (cropResizing === 'bottom') { newBottom = Math.max(y, top + 2) }
+    else if (cropResizing === 'left') { newLeft = Math.min(x, right - 2) }
+    else if (cropResizing === 'right') { newRight = Math.max(x, left + 2) }
+
+    setCropSelection({ startX: newLeft, startY: newTop, endX: newRight, endY: newBottom })
+  }
+
+  function handleResizePointerUp() {
+    setCropResizing(null)
+  }
+
+  async function handleCropConfirm() {
+    if (!cropSelection || !currentPage?.imageUrl) return
+
+    const container = containerRef.current
+    if (!container) return
+
+    const selLeft = Math.min(cropSelection.startX, cropSelection.endX) / 100
+    const selTop = Math.min(cropSelection.startY, cropSelection.endY) / 100
+    const selWidth = Math.abs(cropSelection.endX - cropSelection.startX) / 100
+    const selHeight = Math.abs(cropSelection.endY - cropSelection.startY) / 100
+
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve()
+      img.onerror = () => reject(new Error('Failed to load image'))
+      img.src = currentPage.imageUrl!
+    })
+
+    const naturalW = img.naturalWidth
+    const naturalH = img.naturalHeight
+
+    const containerW = container.clientWidth
+    const containerH = container.clientHeight
+
+    const imageAspect = naturalW / naturalH
+    const containerAspect = containerW / containerH
+
+    let renderedW: number, renderedH: number, renderedX: number, renderedY: number
+
+    if (imageAspect > containerAspect) {
+      renderedW = containerW
+      renderedH = containerW / imageAspect
+      renderedX = 0
+      renderedY = (containerH - renderedH) / 2
+    } else {
+      renderedH = containerH
+      renderedW = containerH * imageAspect
+      renderedX = (containerW - renderedW) / 2
+      renderedY = 0
+    }
+
+    const scale = currentPage.imageScale
+    const offXPx = (currentPage.imageOffsetX / 100) * containerW
+    const offYPx = (currentPage.imageOffsetY / 100) * containerH
+
+    const actualX = renderedX * scale + offXPx
+    const actualY = renderedY * scale + offYPx
+    const actualW = renderedW * scale
+    const actualH = renderedH * scale
+
+    const selLeftPx = selLeft * containerW
+    const selTopPx = selTop * containerH
+    const selWidthPx = selWidth * containerW
+    const selHeightPx = selHeight * containerH
+
+    const cropNatX = ((selLeftPx - actualX) / actualW) * naturalW
+    const cropNatY = ((selTopPx - actualY) / actualH) * naturalH
+    const cropNatW = (selWidthPx / actualW) * naturalW
+    const cropNatH = (selHeightPx / actualH) * naturalH
+
+    const sx = Math.max(0, Math.round(cropNatX))
+    const sy = Math.max(0, Math.round(cropNatY))
+    const sw = Math.min(naturalW - sx, Math.round(cropNatW))
+    const sh = Math.min(naturalH - sy, Math.round(cropNatH))
+
+    if (sw <= 0 || sh <= 0) {
+      toast.error('선택 영역이 이미지 범위를 벗어났습니다')
+      setCropSelection(null)
+      return
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = sw
+    canvas.height = sh
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
+
+    const croppedDataUrl = canvas.toDataURL('image/png')
+
+    // Compute normalized crop coordinates relative to the ORIGINAL image
+    let normCropX: number, normCropY: number, normCropW: number, normCropH: number
+
+    if (currentPage.cropX !== null && currentPage.cropY !== null &&
+        currentPage.cropWidth !== null && currentPage.cropHeight !== null) {
+      // Re-crop: compose with existing crop coordinates
+      normCropX = currentPage.cropX + (sx / naturalW) * currentPage.cropWidth
+      normCropY = currentPage.cropY + (sy / naturalH) * currentPage.cropHeight
+      normCropW = (sw / naturalW) * currentPage.cropWidth
+      normCropH = (sh / naturalH) * currentPage.cropHeight
+    } else {
+      normCropX = sx / naturalW
+      normCropY = sy / naturalH
+      normCropW = sw / naturalW
+      normCropH = sh / naturalH
+    }
+
+    const originalUrl = currentPage.originalImageUrl ?? currentPage.imageUrl
+
+    setPages((prev) =>
+      prev.map((page, i) => {
+        if (i !== currentPageIndex) return page
+        return {
+          ...page,
+          imageUrl: croppedDataUrl,
+          originalImageUrl: originalUrl,
+          imageScale: 1,
+          imageOffsetX: 0,
+          imageOffsetY: 0,
+          cropX: normCropX,
+          cropY: normCropY,
+          cropWidth: normCropW,
+          cropHeight: normCropH,
+        }
+      }),
+    )
+
+    setIsCropMode(false)
+    setCropSelection(null)
+    triggerAutoSave()
+  }
+
+  function handleUndoCrop() {
+    setPages((prev) =>
+      prev.map((page, i) => {
+        if (i !== currentPageIndex) return page
+        return {
+          ...page,
+          imageUrl: page.originalImageUrl,
+          originalImageUrl: null,
+          imageScale: 1,
+          imageOffsetX: 0,
+          imageOffsetY: 0,
+          cropX: null,
+          cropY: null,
+          cropWidth: null,
+          cropHeight: null,
+        }
+      }),
+    )
+    setIsCropMode(false)
+    setCropSelection(null)
+    triggerAutoSave()
   }
 
   // Drag handlers
@@ -638,11 +953,15 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   // Navigation
   function goToPrevPage() {
     setSelectedOverlayId(null)
+    setIsCropMode(false)
+    setCropSelection(null)
     setCurrentPageIndex((i) => Math.max(0, i - 1))
   }
 
   function goToNextPage() {
     setSelectedOverlayId(null)
+    setIsCropMode(false)
+    setCropSelection(null)
     setCurrentPageIndex((i) => Math.min(pages.length - 1, i + 1))
   }
 
@@ -771,8 +1090,45 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           >
             초기화
           </Button>
+          <Button
+            variant={isCropMode ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setIsCropMode(!isCropMode)
+              setCropSelection(null)
+              setIsCropDragging(false)
+            }}
+            disabled={!currentPage?.imageUrl}
+          >
+            <HugeiconsIcon icon={CropIcon} strokeWidth={2} data-icon="inline-start" />
+            자르기
+          </Button>
+          {currentPage?.originalImageUrl && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleUndoCrop}
+            >
+              자르기 취소
+            </Button>
+          )}
         </div>
       )}
+
+      {/* Crop confirm/cancel toolbar */}
+      {isCropMode && cropSelection && !isCropDragging && (
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-sm text-muted-foreground">선택 영역을 조절한 후</span>
+          <Button size="sm" onClick={handleCropConfirm}>
+            자르기 확인
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCropCancel}>
+            취소
+          </Button>
+        </div>
+      )}
+
+      {/* Overlay edit toolbar */}
       {(() => {
         if (!selectedOverlayId || !currentPage) return null
         const overlay = currentPage.overlays.find((o) => o.id === selectedOverlayId)
@@ -806,7 +1162,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       {currentPage && (
         <div
           ref={containerRef}
-          className={`relative aspect-[1/1.414] w-full max-w-3xl mx-auto border rounded-lg overflow-hidden bg-white ${currentPage?.imageScale > 1 ? (isPanningImage ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
+          className={`relative aspect-[1/1.414] w-full max-w-3xl mx-auto border rounded-lg overflow-hidden bg-white ${currentPage?.imageScale !== 1 ? (isPanningImage ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
           onPointerDown={handleContainerPointerDown}
           onPointerMove={handleContainerPointerMove}
           onPointerUp={handleContainerPointerUp}
@@ -832,6 +1188,90 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                 ? 'PDF 페이지 로딩 중...'
                 : songName}
             </div>
+          )}
+
+          {/* Crop mode overlay */}
+          {isCropMode && currentPage?.imageUrl && (
+            <>
+              <div
+                className="absolute inset-0 z-10"
+                style={{
+                  backgroundColor: cropSelection === null ? 'rgba(0, 0, 0, 0.4)' : 'transparent',
+                  cursor: 'crosshair',
+                }}
+                onPointerDown={handleCropPointerDown}
+                onPointerMove={handleCropPointerMove}
+                onPointerUp={handleCropPointerUp}
+              />
+
+              {cropSelection && (
+                <>
+                  <div
+                    className="absolute z-20 border-2 border-white pointer-events-none"
+                    style={{
+                      left: `${Math.min(cropSelection.startX, cropSelection.endX)}%`,
+                      top: `${Math.min(cropSelection.startY, cropSelection.endY)}%`,
+                      width: `${Math.abs(cropSelection.endX - cropSelection.startX)}%`,
+                      height: `${Math.abs(cropSelection.endY - cropSelection.startY)}%`,
+                      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.4)',
+                      backgroundColor: 'transparent',
+                    }}
+                  />
+                  {/* Corner handles */}
+                  {(['tl', 'tr', 'bl', 'br'] as const).map((corner) => {
+                    const isLeft = corner === 'tl' || corner === 'bl'
+                    const isTop = corner === 'tl' || corner === 'tr'
+                    return (
+                      <div
+                        key={corner}
+                        className="absolute z-20 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-nwse-resize"
+                        style={{
+                          left: `${isLeft ? Math.min(cropSelection.startX, cropSelection.endX) : Math.max(cropSelection.startX, cropSelection.endX)}%`,
+                          top: `${isTop ? Math.min(cropSelection.startY, cropSelection.endY) : Math.max(cropSelection.startY, cropSelection.endY)}%`,
+                          transform: 'translate(-50%, -50%)',
+                          cursor: corner === 'tl' || corner === 'br' ? 'nwse-resize' : 'nesw-resize',
+                        }}
+                        onPointerDown={(e) => handleResizePointerDown(e, corner)}
+                        onPointerMove={handleResizePointerMove}
+                        onPointerUp={handleResizePointerUp}
+                      />
+                    )
+                  })}
+                  {/* Edge handles */}
+                  {(['top', 'right', 'bottom', 'left'] as const).map((edge) => {
+                    const left = Math.min(cropSelection.startX, cropSelection.endX)
+                    const top = Math.min(cropSelection.startY, cropSelection.endY)
+                    const right = Math.max(cropSelection.startX, cropSelection.endX)
+                    const bottom = Math.max(cropSelection.startY, cropSelection.endY)
+                    const midX = (left + right) / 2
+                    const midY = (top + bottom) / 2
+
+                    const pos = edge === 'top' ? { left: midX, top: top }
+                      : edge === 'right' ? { left: right, top: midY }
+                      : edge === 'bottom' ? { left: midX, top: bottom }
+                      : { left: left, top: midY }
+
+                    return (
+                      <div
+                        key={edge}
+                        className="absolute z-20 bg-white border-2 border-blue-500 rounded-sm"
+                        style={{
+                          left: `${pos.left}%`,
+                          top: `${pos.top}%`,
+                          width: edge === 'top' || edge === 'bottom' ? '12px' : '6px',
+                          height: edge === 'top' || edge === 'bottom' ? '6px' : '12px',
+                          transform: 'translate(-50%, -50%)',
+                          cursor: edge === 'top' || edge === 'bottom' ? 'ns-resize' : 'ew-resize',
+                        }}
+                        onPointerDown={(e) => handleResizePointerDown(e, edge)}
+                        onPointerMove={handleResizePointerMove}
+                        onPointerUp={handleResizePointerUp}
+                      />
+                    )
+                  })}
+                </>
+              )}
+            </>
           )}
 
           {/* Overlay elements */}
