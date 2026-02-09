@@ -20,6 +20,7 @@ import {
 import { buildDefaultOverlays, generatePdfFilename } from '@/lib/utils/pdf-export-helpers'
 import { getPdfPageCount, renderPdfPageToDataUrl } from '@/lib/utils/pdfjs'
 import { saveContiPdfLayout, exportContiPdf } from '@/lib/actions/conti-pdf-exports'
+import { saveSongPageImageFromForm, deletePageImagesForConti } from '@/lib/actions/song-page-images'
 import type {
   ContiWithSongsAndSheetMusic,
   ContiPdfExport,
@@ -980,6 +981,15 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       const pageWidth = 595.28
       const pageHeight = 841.89
 
+      const pageUploads: {
+        dataUrl: string
+        songId: string
+        pageIndex: number
+        sheetMusicFileId: string | null
+        pdfPageIndex: number | null
+        presetSnapshot: string
+      }[] = []
+
       for (let i = 0; i < pages.length; i++) {
         if (i > 0) doc.addPage()
 
@@ -1139,6 +1149,27 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         })
 
         const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
+
+        // Collect page data for per-song image storage
+        const contiSong = conti.songs[page.songIndex]
+        if (contiSong) {
+          pageUploads.push({
+            dataUrl,
+            songId: contiSong.songId,
+            pageIndex: i,
+            sheetMusicFileId: page.sheetMusicFileId,
+            pdfPageIndex: page.pdfPageIndex ?? null,
+            presetSnapshot: JSON.stringify({
+              keys: contiSong.overrides.keys,
+              tempos: contiSong.overrides.tempos,
+              sectionOrder: contiSong.overrides.sectionOrder,
+              lyrics: contiSong.overrides.lyrics,
+              sectionLyricsMap: contiSong.overrides.sectionLyricsMap,
+              notes: contiSong.overrides.notes ?? null,
+            }),
+          })
+        }
+
         doc.addImage(dataUrl, 'JPEG', 0, 0, pageWidth, pageHeight)
 
         // Clean up
@@ -1164,6 +1195,30 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         downloadLink.click()
         document.body.removeChild(downloadLink)
         URL.revokeObjectURL(blobUrl)
+
+        // Fire-and-forget: save individual page images linked to songs
+        deletePageImagesForConti(conti.id).then(() => {
+          const uploadPromises = pageUploads.map(async (pu) => {
+            const fd = new FormData()
+            const blob = await (await fetch(pu.dataUrl)).blob()
+            fd.set('file', blob, `page-${pu.pageIndex}.jpg`)
+            fd.set('songId', pu.songId)
+            fd.set('contiId', conti.id)
+            fd.set('pageIndex', String(pu.pageIndex))
+            fd.set('sheetMusicFileId', pu.sheetMusicFileId ?? '')
+            fd.set('pdfPageIndex', pu.pdfPageIndex !== null ? String(pu.pdfPageIndex) : '')
+            fd.set('presetSnapshot', pu.presetSnapshot)
+            return saveSongPageImageFromForm(fd)
+          })
+          Promise.allSettled(uploadPromises).then(results => {
+            const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success))
+            if (failed.length > 0) {
+              console.error(`[PDF Export] ${failed.length}/${results.length} page image uploads failed`)
+            }
+          })
+        }).catch(err => {
+          console.error('[PDF Export] Failed to clean up old page images:', err)
+        })
       } else {
         toast.error(result.error ?? 'PDF 생성 중 오류가 발생했습니다')
       }
