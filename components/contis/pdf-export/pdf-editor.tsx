@@ -36,6 +36,9 @@ interface EditorPage {
   /** If this page comes from a PDF file, which page of that PDF (0-based) */
   pdfPageIndex: number | null
   overlays: OverlayElement[]
+  imageScale: number
+  imageOffsetX: number
+  imageOffsetY: number
 }
 
 interface PdfEditorProps {
@@ -142,6 +145,9 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             imageUrl: null,
             pdfPageIndex: null,
             overlays: saved?.overlays ?? defaultOverlays,
+            imageScale: saved?.imageScale ?? 1,
+            imageOffsetX: saved?.imageOffsetX ?? 0,
+            imageOffsetY: saved?.imageOffsetY ?? 0,
           })
           continue
         }
@@ -163,6 +169,9 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               imageUrl: file.fileUrl,
               pdfPageIndex: null,
               overlays: saved?.overlays ?? defaultOverlays,
+              imageScale: saved?.imageScale ?? 1,
+              imageOffsetX: saved?.imageOffsetX ?? 0,
+              imageOffsetY: saved?.imageOffsetY ?? 0,
             })
           } else if (file.fileType.includes('pdf')) {
             // Multiple pages per PDF
@@ -186,6 +195,9 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                   imageUrl: null, // rendered lazily
                   pdfPageIndex: p,
                   overlays: saved?.overlays ?? defaultOverlays,
+                  imageScale: saved?.imageScale ?? 1,
+                  imageOffsetX: saved?.imageOffsetX ?? 0,
+                  imageOffsetY: saved?.imageOffsetY ?? 0,
                 })
               }
             } catch {
@@ -204,6 +216,9 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                 imageUrl: null,
                 pdfPageIndex: null,
                 overlays: savedFallback?.overlays ?? defaultOverlays,
+                imageScale: savedFallback?.imageScale ?? 1,
+                imageOffsetX: savedFallback?.imageOffsetX ?? 0,
+                imageOffsetY: savedFallback?.imageOffsetY ?? 0,
               })
             }
           }

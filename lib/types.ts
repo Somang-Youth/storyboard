@@ -56,6 +56,7 @@ export interface OverlayElement {
   x: number;
   y: number;
   fontSize: number;
+  color?: string;
 }
 
 export interface PageLayout {
@@ -63,6 +64,9 @@ export interface PageLayout {
   songIndex: number;
   sheetMusicFileId: string | null;
   overlays: OverlayElement[];
+  imageScale?: number;
+  imageOffsetX?: number;
+  imageOffsetY?: number;
 }
 
 export interface PdfLayoutState {
