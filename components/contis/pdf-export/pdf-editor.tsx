@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/layout/page-header'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -15,7 +17,7 @@ import {
   ArrowLeft01Icon,
 } from '@hugeicons/core-free-icons'
 import { buildDefaultOverlays } from '@/lib/utils/pdf-export-helpers'
-import { saveContiPdfLayout } from '@/lib/actions/conti-pdf-exports'
+import { saveContiPdfLayout, exportContiPdf } from '@/lib/actions/conti-pdf-exports'
 import type {
   ContiWithSongsAndSheetMusic,
   ContiPdfExport,
@@ -86,6 +88,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   const [loading, setLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(existingExport?.pdfUrl ?? null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -364,6 +368,117 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     toast.success('레이아웃이 저장되었습니다')
   }
 
+  // PDF Export handler
+  async function handleExport() {
+    setExporting(true)
+    try {
+      // Save current layout first
+      await performSave()
+
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      const pageWidth = 595.28
+      const pageHeight = 841.89
+
+      for (let i = 0; i < pages.length; i++) {
+        if (i > 0) doc.addPage()
+
+        // Create a temporary render container
+        const renderDiv = document.createElement('div')
+        renderDiv.style.width = `${pageWidth}px`
+        renderDiv.style.height = `${pageHeight}px`
+        renderDiv.style.position = 'relative'
+        renderDiv.style.background = 'white'
+        renderDiv.style.overflow = 'hidden'
+        document.body.appendChild(renderDiv)
+
+        const page = pages[i]
+
+        // Render sheet music image
+        if (page.imageUrl) {
+          const img = document.createElement('img')
+          img.src = page.imageUrl
+          img.style.position = 'absolute'
+          img.style.inset = '0'
+          img.style.width = '100%'
+          img.style.height = '100%'
+          img.style.objectFit = 'contain'
+          img.crossOrigin = 'anonymous'
+          renderDiv.appendChild(img)
+          // Wait for image to load
+          await new Promise<void>((resolve) => {
+            if (img.complete) { resolve(); return }
+            img.onload = () => resolve()
+            img.onerror = () => resolve()
+          })
+        } else {
+          // Metadata-only page or unrendered PDF page
+          const songName = conti.songs[page.songIndex]?.song.name ?? ''
+          const placeholder = document.createElement('div')
+          placeholder.style.position = 'absolute'
+          placeholder.style.inset = '0'
+          placeholder.style.display = 'flex'
+          placeholder.style.alignItems = 'center'
+          placeholder.style.justifyContent = 'center'
+          placeholder.style.color = '#888'
+          placeholder.style.fontSize = '18px'
+          placeholder.textContent = songName
+          renderDiv.appendChild(placeholder)
+        }
+
+        // Render overlays
+        for (const overlay of page.overlays) {
+          const el = document.createElement('div')
+          el.style.position = 'absolute'
+          el.style.left = `${overlay.x}%`
+          el.style.top = `${overlay.y}%`
+          el.style.fontSize = `${overlay.fontSize}px`
+          el.style.fontWeight = overlay.type === 'songNumber' ? '700' : '600'
+          el.style.whiteSpace = 'nowrap'
+          el.style.transform =
+            overlay.type === 'bpm'
+              ? 'translateX(-100%)'
+              : overlay.type === 'sectionOrder'
+                ? 'translateX(-50%)'
+                : 'none'
+          el.textContent = overlay.text
+          renderDiv.appendChild(el)
+        }
+
+        // Capture to canvas
+        const canvas = await html2canvas(renderDiv, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          width: pageWidth,
+          height: pageHeight,
+        })
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
+        doc.addImage(dataUrl, 'JPEG', 0, 0, pageWidth, pageHeight)
+
+        // Clean up
+        document.body.removeChild(renderDiv)
+      }
+
+      // Generate blob and upload
+      const pdfBlob = doc.output('blob')
+      const formData = new FormData()
+      formData.append('file', pdfBlob, 'conti-export.pdf')
+
+      const result = await exportContiPdf(conti.id, formData)
+      if (result.success && result.data) {
+        toast.success('PDF가 생성되었습니다')
+        setPdfUrl(result.data.pdfUrl)
+      } else {
+        toast.error(result.error ?? 'PDF 생성 중 오류가 발생했습니다')
+      }
+    } catch (error) {
+      toast.error('PDF 생성 중 오류가 발생했습니다')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   // Navigation
   function goToPrevPage() {
     setCurrentPageIndex((i) => Math.max(0, i - 1))
@@ -423,16 +538,16 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} data-icon="inline-start" />
           저장
         </Button>
-        <Button variant="outline" disabled>
+        <Button variant="outline" onClick={handleExport} disabled={exporting || pages.length === 0}>
           <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} data-icon="inline-start" />
-          PDF 내보내기
+          {exporting ? 'PDF 생성 중...' : 'PDF 내보내기'}
         </Button>
-        {existingExport?.pdfUrl && (
+        {pdfUrl && (
           <Button
             variant="outline"
             render={
               <a
-                href={existingExport.pdfUrl}
+                href={pdfUrl}
                 download
                 target="_blank"
                 rel="noopener noreferrer"
@@ -538,6 +653,15 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {exporting && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg px-8 py-6 text-center">
+            <p className="text-lg font-medium">PDF를 생성하는 중...</p>
+            <p className="text-muted-foreground text-sm mt-2">잠시만 기다려주세요</p>
+          </div>
         </div>
       )}
 
