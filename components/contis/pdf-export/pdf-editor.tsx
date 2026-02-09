@@ -93,9 +93,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [pdfUrl, setPdfUrl] = useState<string | null>(existingExport?.pdfUrl ?? null)
+  const [isPanningImage, setIsPanningImage] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const panStartRef = useRef<{ x: number; y: number; offX: number; offY: number }>({ x: 0, y: 0, offX: 0, offY: 0 })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const performSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const lastSaveRef = useRef<number>(Date.now())
@@ -278,6 +280,9 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         songIndex: p.songIndex,
         sheetMusicFileId: p.sheetMusicFileId,
         overlays: p.overlays,
+        imageScale: p.imageScale !== 1 ? p.imageScale : undefined,
+        imageOffsetX: p.imageOffsetX !== 0 ? p.imageOffsetX : undefined,
+        imageOffsetY: p.imageOffsetY !== 0 ? p.imageOffsetY : undefined,
       })),
       canvasWidth: containerRef.current?.clientWidth ?? 800,
       canvasHeight: containerRef.current?.clientHeight ?? 1131,
@@ -349,8 +354,72 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     triggerAutoSave()
   }
 
+  // Update image transform
+  function updateImageTransform(updates: Partial<{ imageScale: number; imageOffsetX: number; imageOffsetY: number }>) {
+    setPages((prev) =>
+      prev.map((page, i) => {
+        if (i !== currentPageIndex) return page
+        const newPage = { ...page, ...updates }
+        // Re-clamp offsets when scale changes
+        if (updates.imageScale !== undefined) {
+          const minOffset = -(newPage.imageScale - 1) * 100
+          newPage.imageOffsetX = Math.max(minOffset, Math.min(0, newPage.imageOffsetX))
+          newPage.imageOffsetY = Math.max(minOffset, Math.min(0, newPage.imageOffsetY))
+        }
+        return newPage
+      }),
+    )
+    triggerAutoSave()
+  }
+
+  // Container-level pointer handlers for image panning
+  function handleContainerPointerDown(e: React.PointerEvent) {
+    // Only pan if clicking on the image/background area, not on an overlay
+    const target = e.target as HTMLElement
+    if (target.closest('[data-overlay]')) return
+
+    const currentPg = pages[currentPageIndex]
+    if (!currentPg || currentPg.imageScale <= 1) return
+
+    e.preventDefault()
+    setIsPanningImage(true)
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      offX: currentPg.imageOffsetX,
+      offY: currentPg.imageOffsetY,
+    }
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  function handleContainerPointerMove(e: React.PointerEvent) {
+    if (!isPanningImage) return
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+
+    const currentPg = pages[currentPageIndex]
+    if (!currentPg) return
+
+    const deltaXPct = ((e.clientX - panStartRef.current.x) / rect.width) * 100
+    const deltaYPct = ((e.clientY - panStartRef.current.y) / rect.height) * 100
+
+    const minOffset = -(currentPg.imageScale - 1) * 100
+    const newOffX = Math.max(minOffset, Math.min(0, panStartRef.current.offX + deltaXPct))
+    const newOffY = Math.max(minOffset, Math.min(0, panStartRef.current.offY + deltaYPct))
+
+    updateImageTransform({ imageOffsetX: newOffX, imageOffsetY: newOffY })
+  }
+
+  function handleContainerPointerUp() {
+    if (isPanningImage) {
+      setIsPanningImage(false)
+    }
+  }
+
   // Drag handlers
   function handlePointerDown(e: React.PointerEvent, overlayId: string) {
+    e.stopPropagation()
     e.preventDefault()
     const container = containerRef.current
     if (!container) return
@@ -561,6 +630,34 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     ? conti.songs[currentPage.songIndex]?.song.name ?? ''
     : ''
 
+  // Image Transform Toolbar
+  function ImageTransformToolbar() {
+    if (!currentPage?.imageUrl) return null
+    return (
+      <div className="flex items-center justify-center gap-3">
+        <span className="text-sm text-muted-foreground">이미지 크기</span>
+        <input
+          type="range"
+          min="1"
+          max="3"
+          step="0.1"
+          value={currentPage.imageScale}
+          onChange={(e) => updateImageTransform({ imageScale: parseFloat(e.target.value) })}
+          className="w-32"
+        />
+        <span className="text-sm tabular-nums w-10 text-center">{currentPage.imageScale.toFixed(1)}x</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => updateImageTransform({ imageScale: 1, imageOffsetX: 0, imageOffsetY: 0 })}
+          disabled={currentPage.imageScale === 1 && currentPage.imageOffsetX === 0 && currentPage.imageOffsetY === 0}
+        >
+          초기화
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -628,18 +725,30 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         </div>
       )}
 
+      {/* Image Transform Toolbar */}
+      <ImageTransformToolbar />
+
       {/* Canvas Area */}
       {currentPage && (
         <div
           ref={containerRef}
-          className="relative aspect-[1/1.414] w-full max-w-3xl mx-auto border rounded-lg overflow-hidden bg-white"
+          className={`relative aspect-[1/1.414] w-full max-w-3xl mx-auto border rounded-lg overflow-hidden bg-white ${currentPage?.imageScale > 1 ? (isPanningImage ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
+          onPointerDown={handleContainerPointerDown}
+          onPointerMove={handleContainerPointerMove}
+          onPointerUp={handleContainerPointerUp}
         >
           {/* Sheet music background */}
           {currentPage.imageUrl ? (
             <img
               src={currentPage.imageUrl}
               alt={`악보 - ${songName}`}
-              className="absolute inset-0 w-full h-full object-contain"
+              className="absolute object-contain pointer-events-none"
+              style={{
+                width: `${100 * currentPage.imageScale}%`,
+                height: `${100 * currentPage.imageScale}%`,
+                left: `${currentPage.imageOffsetX}%`,
+                top: `${currentPage.imageOffsetY}%`,
+              }}
               draggable={false}
             />
           ) : (
@@ -654,6 +763,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           {currentPage.overlays.map((overlay) => (
             <div
               key={overlay.id}
+              data-overlay
               className={`absolute cursor-move select-none px-1.5 py-0.5 rounded transition-colors ${
                 draggingId === overlay.id
                   ? 'border-2 border-blue-500 bg-blue-50/80'
