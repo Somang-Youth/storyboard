@@ -58,3 +58,14 @@ export const contiSongs = pgTable('conti_songs', {
 }, (table) => [
   uniqueIndex('conti_song_unique').on(table.contiId, table.songId),
 ]);
+
+export const contiPdfExports = pgTable('conti_pdf_exports', {
+  id: text('id').primaryKey(),
+  contiId: text('conti_id').notNull().references(() => contis.id, { onDelete: 'cascade' }),
+  pdfUrl: text('pdf_url'),
+  layoutState: text('layout_state'),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+}, (table) => [
+  uniqueIndex('conti_pdf_export_unique').on(table.contiId),
+]);

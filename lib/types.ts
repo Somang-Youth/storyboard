@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import type { songs, sheetMusicFiles, contis, contiSongs, songPresets } from './db/schema';
+import type { songs, sheetMusicFiles, contis, contiSongs, songPresets, contiPdfExports } from './db/schema';
 
 export type Song = InferSelectModel<typeof songs>;
 export type SheetMusicFile = InferSelectModel<typeof sheetMusicFiles>;
@@ -45,4 +45,36 @@ export interface ActionResult<T = void> {
   success: boolean;
   error?: string;
   data?: T;
+}
+
+export type ContiPdfExport = InferSelectModel<typeof contiPdfExports>;
+
+export interface OverlayElement {
+  id: string;
+  type: 'songNumber' | 'sectionOrder' | 'bpm';
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+}
+
+export interface PageLayout {
+  pageIndex: number;
+  songIndex: number;
+  sheetMusicFileId: string | null;
+  overlays: OverlayElement[];
+}
+
+export interface PdfLayoutState {
+  pages: PageLayout[];
+  canvasWidth: number;
+  canvasHeight: number;
+}
+
+export interface ContiSongWithSheetMusic extends ContiSongWithSong {
+  sheetMusic: SheetMusicFile[];
+}
+
+export interface ContiWithSongsAndSheetMusic extends Conti {
+  songs: ContiSongWithSheetMusic[];
 }
