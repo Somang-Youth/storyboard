@@ -94,10 +94,12 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   const [exporting, setExporting] = useState(false)
   const [pdfUrl, setPdfUrl] = useState<string | null>(existingExport?.pdfUrl ?? null)
   const [isPanningImage, setIsPanningImage] = useState(false)
+  const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const panStartRef = useRef<{ x: number; y: number; offX: number; offY: number }>({ x: 0, y: 0, offX: 0, offY: 0 })
+  const pointerStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const performSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const lastSaveRef = useRef<number>(Date.now())
@@ -374,9 +376,14 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
   // Container-level pointer handlers for image panning
   function handleContainerPointerDown(e: React.PointerEvent) {
-    // Only pan if clicking on the image/background area, not on an overlay
     const target = e.target as HTMLElement
-    if (target.closest('[data-overlay]')) return
+    // Clear selection on background click (not overlay, not toolbar)
+    if (!target.closest('[data-overlay]') && !target.closest('[data-toolbar]')) {
+      setSelectedOverlayId(null)
+    }
+
+    // Only pan if clicking on the image/background area, not on an overlay
+    if (target.closest('[data-overlay]') || target.closest('[data-toolbar]')) return
 
     const currentPg = pages[currentPageIndex]
     if (!currentPg || currentPg.imageScale <= 1) return
@@ -421,6 +428,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   function handlePointerDown(e: React.PointerEvent, overlayId: string) {
     e.stopPropagation()
     e.preventDefault()
+    pointerStartRef.current = { x: e.clientX, y: e.clientY }
     const container = containerRef.current
     if (!container) return
     const rect = container.getBoundingClientRect()
@@ -455,14 +463,20 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     })
   }
 
-  function handlePointerUp(overlayId: string) {
+  function handlePointerUp(e: React.PointerEvent, overlayId: string) {
     if (draggingId === overlayId) {
       setDraggingId(null)
+      // If movement < 5px, treat as click (select overlay)
+      const dx = e.clientX - pointerStartRef.current.x
+      const dy = e.clientY - pointerStartRef.current.y
+      if (Math.sqrt(dx * dx + dy * dy) < 5) {
+        setSelectedOverlayId(overlayId)
+      }
     }
   }
 
   // Double-click to edit text
-  function handleDoubleClick(overlayId: string) {
+  function handleDoubleClick() {
     // We use contentEditable inline, handled in the overlay render
   }
 
@@ -589,10 +603,12 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
   // Navigation
   function goToPrevPage() {
+    setSelectedOverlayId(null)
     setCurrentPageIndex((i) => Math.max(0, i - 1))
   }
 
   function goToNextPage() {
+    setSelectedOverlayId(null)
     setCurrentPageIndex((i) => Math.min(pages.length - 1, i + 1))
   }
 
@@ -654,6 +670,38 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         >
           초기화
         </Button>
+      </div>
+    )
+  }
+
+  // Overlay Format Toolbar
+  function OverlayFormatToolbar() {
+    if (!selectedOverlayId || !currentPage) return null
+    const overlay = currentPage.overlays.find((o) => o.id === selectedOverlayId)
+    if (!overlay) return null
+
+    const typeLabel = overlay.type === 'songNumber' ? '곡 번호' : overlay.type === 'sectionOrder' ? '섹션 순서' : 'BPM'
+
+    return (
+      <div className="flex items-center justify-center gap-3" data-toolbar>
+        <span className="text-sm font-medium">{typeLabel}</span>
+        <span className="text-sm text-muted-foreground">글꼴 크기</span>
+        <input
+          type="number"
+          min={8}
+          max={72}
+          step={1}
+          value={overlay.fontSize}
+          onChange={(e) => updateOverlay(selectedOverlayId, { fontSize: parseInt(e.target.value) || 14 })}
+          className="w-16 rounded border px-2 py-1 text-sm"
+        />
+        <span className="text-sm text-muted-foreground">글꼴 색상</span>
+        <input
+          type="color"
+          value={overlay.color ?? '#000000'}
+          onChange={(e) => updateOverlay(selectedOverlayId, { color: e.target.value })}
+          className="h-8 w-8 rounded border cursor-pointer"
+        />
       </div>
     )
   }
@@ -727,6 +775,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
       {/* Image Transform Toolbar */}
       <ImageTransformToolbar />
+      <OverlayFormatToolbar />
 
       {/* Canvas Area */}
       {currentPage && (
@@ -767,13 +816,16 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               className={`absolute cursor-move select-none px-1.5 py-0.5 rounded transition-colors ${
                 draggingId === overlay.id
                   ? 'border-2 border-blue-500 bg-blue-50/80'
-                  : 'border border-transparent hover:border-gray-300 hover:bg-white/80'
+                  : selectedOverlayId === overlay.id
+                    ? 'border-2 border-blue-400 bg-blue-50/50'
+                    : 'border border-transparent hover:border-gray-300 hover:bg-white/80'
               }`}
               style={{
                 left: `${overlay.x}%`,
                 top: `${overlay.y}%`,
                 fontSize: `${overlay.fontSize}px`,
                 fontWeight: overlay.type === 'songNumber' ? 700 : 600,
+                color: overlay.color ?? '#000000',
                 transform:
                   overlay.type === 'bpm'
                     ? 'translateX(-100%)'
@@ -784,8 +836,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               }}
               onPointerDown={(e) => handlePointerDown(e, overlay.id)}
               onPointerMove={(e) => handlePointerMove(e, overlay.id)}
-              onPointerUp={() => handlePointerUp(overlay.id)}
-              onDoubleClick={() => handleDoubleClick(overlay.id)}
+              onPointerUp={(e) => handlePointerUp(e, overlay.id)}
+              onDoubleClick={() => handleDoubleClick()}
             >
               <span
                 contentEditable
