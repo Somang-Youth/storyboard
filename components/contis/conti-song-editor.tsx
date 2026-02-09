@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -12,7 +13,7 @@ import { LyricsEditor } from "./lyrics-editor"
 import { SectionLyricsMapper } from "./section-lyrics-mapper"
 import { updateContiSong, saveContiSongAsPreset } from "@/lib/actions/conti-songs"
 import { getPresetsForSong } from "@/lib/actions/song-presets"
-import type { ContiSongWithSong, SongPreset } from "@/lib/types"
+import type { ContiSongWithSong, SongPreset, ContiSongOverrides } from "@/lib/types"
 
 interface ContiSongEditorProps {
   contiSong: ContiSongWithSong
@@ -25,11 +26,35 @@ export function ContiSongEditor({
   open,
   onOpenChange,
 }: ContiSongEditorProps) {
+  const router = useRouter()
   const [showPresetSave, setShowPresetSave] = useState(false)
   const [presetName, setPresetName] = useState("")
   const [presets, setPresets] = useState<SongPreset[]>([])
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  function handleLoadPreset(preset: SongPreset) {
+    if (!confirm(`"${preset.name}" 프리셋을 불러오면 현재 설정이 덮어씌워집니다. 계속하시겠습니까?`)) {
+      return
+    }
+    startTransition(async () => {
+      const overrides: Partial<ContiSongOverrides> = {
+        keys: preset.keys ? JSON.parse(preset.keys) : [],
+        tempos: preset.tempos ? JSON.parse(preset.tempos) : [],
+        sectionOrder: preset.sectionOrder ? JSON.parse(preset.sectionOrder) : [],
+        lyrics: preset.lyrics ? JSON.parse(preset.lyrics) : [],
+        sectionLyricsMap: preset.sectionLyricsMap ? JSON.parse(preset.sectionLyricsMap) : {},
+        notes: preset.notes,
+      }
+      const result = await updateContiSong(contiSong.id, overrides)
+      if (result.success) {
+        toast.success(`"${preset.name}" 프리셋을 불러왔습니다`)
+        router.refresh()
+      } else {
+        toast.error(result.error ?? "프리셋 불러오기 중 오류가 발생했습니다")
+      }
+    })
+  }
 
   useEffect(() => {
     if (open) {
@@ -97,6 +122,27 @@ export function ContiSongEditor({
 
           <div>
             <h3 className="mb-3 text-sm font-medium">프리셋 관리</h3>
+            {presets.length > 0 && (
+              <div className="mb-3">
+                <label className="text-xs text-muted-foreground mb-1 block">프리셋 불러오기</label>
+                <div className="flex flex-col gap-1">
+                  {presets.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:opacity-50"
+                      onClick={() => handleLoadPreset(p)}
+                      disabled={isPending}
+                    >
+                      <span className="truncate font-medium">{p.name}</span>
+                      {p.isDefault && (
+                        <span className="text-xs text-muted-foreground">기본</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {!showPresetSave ? (
               <Button variant="outline" size="sm" onClick={() => setShowPresetSave(true)}>
                 프리셋으로 저장
