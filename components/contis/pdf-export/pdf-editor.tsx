@@ -94,6 +94,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const performSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
+  const lastSaveRef = useRef<number>(Date.now())
 
   // Mobile guard
   useEffect(() => {
@@ -252,17 +254,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     }
   }, [currentPageIndex, pages, conti.songs])
 
-  // Auto-save with 3s debounce
-  const triggerAutoSave = useCallback(() => {
-    setSaveStatus('unsaved')
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-    }
-    saveTimerRef.current = setTimeout(() => {
-      performSave()
-    }, 3000)
-  }, []) // performSave is stable via ref pattern below
-
+  // Auto-save with 3s debounce and 30s max interval
   const performSave = useCallback(async () => {
     setSaveStatus('saving')
     const layoutState: PdfLayoutState = {
@@ -279,13 +271,34 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     const result = await saveContiPdfLayout(conti.id, JSON.stringify(layoutState))
     if (result.success) {
       setSaveStatus('saved')
+      lastSaveRef.current = Date.now()
     } else {
       setSaveStatus('unsaved')
       toast.error(result.error ?? '저장 중 오류가 발생했습니다')
     }
   }, [pages, conti.id])
 
-  // Keep triggerAutoSave up to date with latest performSave
+  // Keep ref in sync so triggerAutoSave always calls latest performSave
+  useEffect(() => {
+    performSaveRef.current = performSave
+  }, [performSave])
+
+  const triggerAutoSave = useCallback(() => {
+    setSaveStatus('unsaved')
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+    }
+    // Force save if 30s elapsed since last save (continuous editing)
+    if (Date.now() - lastSaveRef.current > 30000) {
+      performSaveRef.current()
+      return
+    }
+    saveTimerRef.current = setTimeout(() => {
+      performSaveRef.current()
+    }, 3000)
+  }, [])
+
+  // Cleanup save timer on unmount
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) {
@@ -293,6 +306,17 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       }
     }
   }, [])
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (saveStatus === 'unsaved') {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [saveStatus])
 
   // Update overlay position
   function updateOverlay(overlayId: string, updates: Partial<OverlayElement>) {
