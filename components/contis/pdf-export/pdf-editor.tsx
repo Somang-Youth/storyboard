@@ -17,7 +17,7 @@ import {
   ArrowLeft01Icon,
   CropIcon,
 } from '@hugeicons/core-free-icons'
-import { buildDefaultOverlays } from '@/lib/utils/pdf-export-helpers'
+import { buildDefaultOverlays, generatePdfFilename } from '@/lib/utils/pdf-export-helpers'
 import { saveContiPdfLayout, exportContiPdf } from '@/lib/actions/conti-pdf-exports'
 import type {
   ContiWithSongsAndSheetMusic,
@@ -108,6 +108,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   const [isCropDragging, setIsCropDragging] = useState(false)
   const [cropResizing, setCropResizing] = useState<'tl' | 'tr' | 'bl' | 'br' | 'top' | 'right' | 'bottom' | 'left' | null>(null)
   const [imageResizeHandle, setImageResizeHandle] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null)
+  const [imageSelected, setImageSelected] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -510,6 +511,14 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     // Clear selection on background click (not overlay, not toolbar)
     if (!target.closest('[data-overlay]') && !target.closest('[data-toolbar]')) {
       setSelectedOverlayId(null)
+      // Select image when clicking on image area
+      const currentPg = pages[currentPageIndex]
+      if (currentPg?.imageUrl && !isCropMode) {
+        setImageSelected(true)
+      }
+    } else {
+      // Deselect image when clicking overlay or toolbar
+      setImageSelected(false)
     }
 
     // Only pan if clicking on the image/background area, not on an overlay
@@ -873,6 +882,12 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     triggerAutoSave()
   }
 
+  function handleCancelCropMode() {
+    setIsCropMode(false)
+    setCropSelection(null)
+    setIsCropDragging(false)
+  }
+
   // Drag handlers
   function handlePointerDown(e: React.PointerEvent, overlayId: string) {
     e.stopPropagation()
@@ -946,6 +961,17 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       // Save current layout first
       await performSave()
 
+      // Generate meaningful filename
+      const songNames = conti.songs.map(cs => cs.song.name)
+      const pdfFilename = generatePdfFilename(conti.title, conti.date, songNames)
+
+      // Ensure Pretendard font is loaded before export
+      try {
+        await document.fonts.load('16px "Pretendard Variable"')
+      } catch {
+        await document.fonts.load('16px Pretendard').catch(() => {})
+      }
+
       const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
       const pageWidth = 595.28
       const pageHeight = 841.89
@@ -957,7 +983,9 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         const renderDiv = document.createElement('div')
         renderDiv.style.width = `${pageWidth}px`
         renderDiv.style.height = `${pageHeight}px`
-        renderDiv.style.position = 'relative'
+        renderDiv.style.position = 'fixed'
+        renderDiv.style.left = '-9999px'
+        renderDiv.style.top = '-9999px'
         renderDiv.style.background = 'white'
         renderDiv.style.overflow = 'hidden'
         document.body.appendChild(renderDiv)
@@ -1066,6 +1094,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           placeholder.style.color = '#888'
           placeholder.style.fontSize = '18px'
           placeholder.textContent = songName
+          placeholder.style.fontFamily = '"Pretendard Variable", Pretendard, -apple-system, sans-serif'
           renderDiv.appendChild(placeholder)
         }
 
@@ -1086,6 +1115,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                 : 'none'
           el.textContent = overlay.text
           el.style.color = overlay.color ?? '#000000'
+          el.style.fontFamily = '"Pretendard Variable", Pretendard, -apple-system, sans-serif'
           renderDiv.appendChild(el)
         }
 
@@ -1114,12 +1144,22 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       // Generate blob and upload
       const pdfBlob = doc.output('blob')
       const formData = new FormData()
-      formData.append('file', pdfBlob, 'conti-export.pdf')
+      formData.append('file', pdfBlob, pdfFilename)
 
       const result = await exportContiPdf(conti.id, formData)
       if (result.success && result.data) {
-        toast.success('PDF가 생성되었습니다')
+        toast.success('PDF가 생성되어 다운로드됩니다')
         setPdfUrl(result.data.pdfUrl)
+
+        // Auto-download using local blob URL for guaranteed filename
+        const blobUrl = URL.createObjectURL(pdfBlob)
+        const downloadLink = document.createElement('a')
+        downloadLink.href = blobUrl
+        downloadLink.download = pdfFilename
+        document.body.appendChild(downloadLink)
+        downloadLink.click()
+        document.body.removeChild(downloadLink)
+        URL.revokeObjectURL(blobUrl)
       } else {
         toast.error(result.error ?? 'PDF 생성 중 오류가 발생했습니다')
       }
@@ -1134,6 +1174,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   // Navigation
   function goToPrevPage() {
     setSelectedOverlayId(null)
+    setImageSelected(false)
     setIsCropMode(false)
     setCropSelection(null)
     setCurrentPageIndex((i) => Math.max(0, i - 1))
@@ -1141,6 +1182,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
   function goToNextPage() {
     setSelectedOverlayId(null)
+    setImageSelected(false)
     setIsCropMode(false)
     setCropSelection(null)
     setCurrentPageIndex((i) => Math.min(pages.length - 1, i + 1))
@@ -1259,27 +1301,39 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           >
             초기화
           </Button>
-          <Button
-            variant={isCropMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => {
-              setIsCropMode(!isCropMode)
-              setCropSelection(null)
-              setIsCropDragging(false)
-              setImageResizeHandle(null)
-            }}
-            disabled={!currentPage?.imageUrl}
-          >
-            <HugeiconsIcon icon={CropIcon} strokeWidth={2} data-icon="inline-start" />
-            자르기
-          </Button>
+          {!isCropMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsCropMode(true)
+                setCropSelection(null)
+                setIsCropDragging(false)
+                setImageResizeHandle(null)
+                setImageSelected(false)
+              }}
+              disabled={!currentPage?.imageUrl}
+            >
+              <HugeiconsIcon icon={CropIcon} strokeWidth={2} data-icon="inline-start" />
+              자르기
+            </Button>
+          )}
+          {isCropMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCancelCropMode}
+            >
+              자르기 취소
+            </Button>
+          )}
           {currentPage?.originalImageUrl && (
             <Button
               variant="outline"
               size="sm"
               onClick={handleUndoCrop}
             >
-              자르기 취소
+              자르기 복원
             </Button>
           )}
         </div>
@@ -1332,17 +1386,18 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       {currentPage && (
         <div
           ref={containerRef}
-          className={`relative aspect-[1/1.414] w-full max-w-3xl mx-auto border rounded-lg overflow-hidden bg-white ${currentPage?.imageScale !== 1 ? (isPanningImage ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
+          className={`relative aspect-[1/1.414] w-full max-w-3xl mx-auto border rounded-lg bg-white ${currentPage?.imageScale !== 1 ? (isPanningImage ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
           onPointerDown={handleContainerPointerDown}
           onPointerMove={handleContainerPointerMove}
           onPointerUp={handleContainerPointerUp}
         >
+          <div className="absolute inset-0 overflow-hidden">
           {/* Sheet music background */}
           {currentPage.imageUrl ? (
             <img
               src={currentPage.imageUrl}
               alt={`악보 - ${songName}`}
-              className="absolute pointer-events-none"
+              className={`absolute pointer-events-none ${imageSelected ? 'ring-2 ring-blue-500' : ''}`}
               style={{
                 width: '100%',
                 height: '100%',
@@ -1359,30 +1414,6 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                 : songName}
             </div>
           )}
-
-          {/* Image resize corner handles */}
-          {currentPage.imageUrl && !isCropMode && (() => {
-            const bounds = getImageBounds(currentPage)
-            return (['tl', 'tr', 'bl', 'br'] as const).map((corner) => {
-              const isLeft = corner === 'tl' || corner === 'bl'
-              const isTop = corner === 'tl' || corner === 'tr'
-              return (
-                <div
-                  key={`resize-${corner}`}
-                  className="absolute z-10 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm"
-                  style={{
-                    left: `${isLeft ? bounds.left : bounds.right}%`,
-                    top: `${isTop ? bounds.top : bounds.bottom}%`,
-                    transform: 'translate(-50%, -50%)',
-                    cursor: corner === 'tl' || corner === 'br' ? 'nwse-resize' : 'nesw-resize',
-                  }}
-                  onPointerDown={(e) => handleImageResizeDown(e, corner)}
-                  onPointerMove={handleImageResizeMove}
-                  onPointerUp={handleImageResizeUp}
-                />
-              )
-            })
-          })()}
 
           {/* Crop mode overlay */}
           {isCropMode && currentPage?.imageUrl && (
@@ -1493,6 +1524,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                       ? 'translateX(-50%)'
                       : 'none',
                 whiteSpace: 'nowrap',
+                fontFamily: '"Pretendard Variable", Pretendard, -apple-system, sans-serif',
               }}
               onPointerDown={(e) => handlePointerDown(e, overlay.id)}
               onPointerMove={(e) => handlePointerMove(e, overlay.id)}
@@ -1514,6 +1546,30 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               </span>
             </div>
           ))}
+          </div>
+          {/* Image resize corner handles - OUTSIDE the clipping div */}
+          {currentPage.imageUrl && !isCropMode && imageSelected && (() => {
+            const bounds = getImageBounds(currentPage)
+            return (['tl', 'tr', 'bl', 'br'] as const).map((corner) => {
+              const isLeft = corner === 'tl' || corner === 'bl'
+              const isTop = corner === 'tl' || corner === 'tr'
+              return (
+                <div
+                  key={`resize-${corner}`}
+                  className="absolute z-10 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm"
+                  style={{
+                    left: `${isLeft ? bounds.left : bounds.right}%`,
+                    top: `${isTop ? bounds.top : bounds.bottom}%`,
+                    transform: 'translate(-50%, -50%)',
+                    cursor: corner === 'tl' || corner === 'br' ? 'nwse-resize' : 'nesw-resize',
+                  }}
+                  onPointerDown={(e) => handleImageResizeDown(e, corner)}
+                  onPointerMove={handleImageResizeMove}
+                  onPointerUp={handleImageResizeUp}
+                />
+              )
+            })
+          })()}
         </div>
       )}
 

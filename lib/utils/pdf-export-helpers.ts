@@ -59,3 +59,21 @@ export function buildDefaultOverlays(
     },
   ];
 }
+
+function formatDateForFilename(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-')
+  return `${year}년 ${month}월 ${day}일`
+}
+
+export function generatePdfFilename(
+  contiTitle: string | null,
+  contiDate: string,
+  songNames: string[],
+): string {
+  const titlePart = contiTitle?.trim() || formatDateForFilename(contiDate)
+  const songsPart = songNames.length > 0
+    ? `(${songNames.join(',')})`
+    : ''
+  const raw = `${titlePart}${songsPart}.pdf`
+  return raw.replace(/[<>:"/\\|?*]/g, '_')
+}
