@@ -29,8 +29,6 @@ export async function saveContiPdfLayout(
         .set({ layoutState, updatedAt: now })
         .where(eq(contiPdfExports.id, existing[0].id));
 
-      revalidatePath('/contis');
-
       return {
         success: true,
         data: { ...existing[0], layoutState, updatedAt: now },
@@ -48,7 +46,6 @@ export async function saveContiPdfLayout(
     };
 
     await db.insert(contiPdfExports).values(newExport);
-    revalidatePath('/contis');
 
     return {
       success: true,

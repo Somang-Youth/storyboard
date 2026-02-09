@@ -18,6 +18,7 @@ import {
   CropIcon,
 } from '@hugeicons/core-free-icons'
 import { buildDefaultOverlays, generatePdfFilename } from '@/lib/utils/pdf-export-helpers'
+import { getPdfPageCount, renderPdfPageToDataUrl } from '@/lib/utils/pdfjs'
 import { saveContiPdfLayout, exportContiPdf } from '@/lib/actions/conti-pdf-exports'
 import type {
   ContiWithSongsAndSheetMusic,
@@ -59,35 +60,6 @@ function formatDate(dateStr: string): string {
   return `${year}년 ${month}월 ${day}일`
 }
 
-async function getPdfPageCount(url: string): Promise<number> {
-  const pdfjsLib = await import('pdfjs-dist')
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
-  const doc = await pdfjsLib.getDocument(url).promise
-  const count = doc.numPages
-  doc.destroy()
-  return count
-}
-
-async function renderPdfPageToDataUrl(
-  url: string,
-  pageNum: number,
-  scale: number = 2,
-): Promise<string> {
-  const pdfjsLib = await import('pdfjs-dist')
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
-  const doc = await pdfjsLib.getDocument(url).promise
-  const page = await doc.getPage(pageNum)
-  const viewport = page.getViewport({ scale })
-  const canvas = document.createElement('canvas')
-  canvas.width = viewport.width
-  canvas.height = viewport.height
-  const ctx = canvas.getContext('2d')!
-  await page.render({ canvas, canvasContext: ctx, viewport }).promise
-  const dataUrl = canvas.toDataURL('image/png')
-  doc.destroy()
-  return dataUrl
-}
-
 // ---- Component ----
 
 export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
@@ -118,7 +90,9 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     x: number; y: number;
     scale: number; offX: number; offY: number;
     containerW: number; containerH: number;
-  }>({ x: 0, y: 0, scale: 1, offX: 0, offY: 0, containerW: 0, containerH: 0 })
+    imgStartX: number; imgStartY: number; imgSizeX: number; imgSizeY: number;
+  }>({ x: 0, y: 0, scale: 1, offX: 0, offY: 0, containerW: 0, containerH: 0, imgStartX: 0, imgStartY: 0, imgSizeX: 100, imgSizeY: 100 })
+  const imgNaturalSizeRef = useRef<{ width: number; height: number } | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const performSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const lastSaveRef = useRef<number>(Date.now())
@@ -325,10 +299,16 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   }, [conti, existingExport])
 
   // Render PDF page image lazily when navigating to a PDF page
+  // Only trigger on page navigation, not on every pages state change
+  const renderingPageRef = useRef<Set<number>>(new Set())
   useEffect(() => {
-    const page = pages[currentPageIndex]
-    if (!page) return
-    if (page.pdfPageIndex !== null && !page.imageUrl && page.sheetMusicFileId) {
+    setPages((prev) => {
+      const page = prev[currentPageIndex]
+      if (!page) return prev
+      if (page.pdfPageIndex === null || page.imageUrl || !page.sheetMusicFileId) return prev
+      if (renderingPageRef.current.has(currentPageIndex)) return prev
+      renderingPageRef.current.add(currentPageIndex)
+
       // Find the file URL from conti data
       let fileUrl: string | null = null
       for (const cs of conti.songs) {
@@ -340,8 +320,12 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         }
         if (fileUrl) break
       }
-      if (!fileUrl) return
+      if (!fileUrl) {
+        renderingPageRef.current.delete(currentPageIndex)
+        return prev
+      }
 
+      const pageIdx = currentPageIndex
       renderPdfPageToDataUrl(fileUrl, page.pdfPageIndex + 1)
         .then(async (dataUrl) => {
           let finalUrl = dataUrl
@@ -352,19 +336,24 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               // Fall back to uncropped
             }
           }
-          setPages((prev) =>
-            prev.map((p, i) =>
-              i === currentPageIndex
-                ? { ...p, imageUrl: finalUrl, originalImageUrl: page.cropX !== null ? dataUrl : null }
-                : p,
+          setPages((p) =>
+            p.map((pg, i) =>
+              i === pageIdx && !pg.imageUrl
+                ? { ...pg, imageUrl: finalUrl, originalImageUrl: page.cropX !== null ? dataUrl : null }
+                : pg,
             ),
           )
         })
-        .catch(() => {
-          // Failed to render PDF page
+        .catch((err) => {
+          console.error('[PDF Editor] Failed to render PDF page:', err)
         })
-    }
-  }, [currentPageIndex, pages, conti.songs])
+        .finally(() => {
+          renderingPageRef.current.delete(pageIdx)
+        })
+
+      return prev
+    })
+  }, [currentPageIndex, conti.songs, loading])
 
   // Auto-save with 3s debounce and 30s max interval
   const performSave = useCallback(async () => {
@@ -459,16 +448,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     setPages((prev) =>
       prev.map((page, i) => {
         if (i !== currentPageIndex) return page
-        const newPage = { ...page, ...updates }
-        // Re-clamp offsets when scale changes
-        if (updates.imageScale !== undefined) {
-          const rawOffset = -(newPage.imageScale - 1) * 100
-          const minOffset = Math.min(0, rawOffset)
-          const maxOffset = Math.max(0, rawOffset)
-          newPage.imageOffsetX = Math.max(minOffset, Math.min(maxOffset, newPage.imageOffsetX))
-          newPage.imageOffsetY = Math.max(minOffset, Math.min(maxOffset, newPage.imageOffsetY))
-        }
-        return newPage
+        return { ...page, ...updates }
       }),
     )
     triggerAutoSave()
@@ -479,29 +459,42 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     setPages((prev) =>
       prev.map((page, i) => {
         if (i !== currentPageIndex) return page
-        const newPage = { ...page, ...updates }
-        if (updates.imageScale !== undefined) {
-          const rawOffset = -(newPage.imageScale - 1) * 100
-          const minOffset = Math.min(0, rawOffset)
-          const maxOffset = Math.max(0, rawOffset)
-          newPage.imageOffsetX = Math.max(minOffset, Math.min(maxOffset, newPage.imageOffsetX))
-          newPage.imageOffsetY = Math.max(minOffset, Math.min(maxOffset, newPage.imageOffsetY))
-        }
-        return newPage
+        return { ...page, ...updates }
       }),
     )
   }
 
-  // Helper function to get image bounds
+  // Compute the visual image position within the container (% of container), accounting for object-fit: contain
+  function getContainBounds(): { startX: number; startY: number; sizeX: number; sizeY: number } {
+    const container = containerRef.current
+    const nat = imgNaturalSizeRef.current
+    if (!container || !nat || nat.width === 0 || nat.height === 0) {
+      return { startX: 0, startY: 0, sizeX: 100, sizeY: 100 }
+    }
+    const cW = container.clientWidth
+    const cH = container.clientHeight
+    const imgAspect = nat.width / nat.height
+    const containerAspect = cW / cH
+    if (imgAspect > containerAspect) {
+      const sizeYPct = (cW / imgAspect / cH) * 100
+      return { startX: 0, startY: (100 - sizeYPct) / 2, sizeX: 100, sizeY: sizeYPct }
+    } else {
+      const sizeXPct = (cH * imgAspect / cW) * 100
+      return { startX: (100 - sizeXPct) / 2, startY: 0, sizeX: sizeXPct, sizeY: 100 }
+    }
+  }
+
+  // Helper function to get image visual bounds as % of container
   function getImageBounds(page: EditorPage) {
     const s = page.imageScale
     const offX = page.imageOffsetX
     const offY = page.imageOffsetY
+    const c = getContainBounds()
     return {
-      left: offX,
-      top: offY,
-      right: offX + s * 100,
-      bottom: offY + s * 100,
+      left: s * c.startX + offX,
+      top: s * c.startY + offY,
+      right: s * (c.startX + c.sizeX) + offX,
+      bottom: s * (c.startY + c.sizeY) + offY,
     }
   }
 
@@ -511,10 +504,10 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     // Clear selection on background click (not overlay, not toolbar)
     if (!target.closest('[data-overlay]') && !target.closest('[data-toolbar]')) {
       setSelectedOverlayId(null)
-      // Select image when clicking on image area
+      // Toggle image selection
       const currentPg = pages[currentPageIndex]
       if (currentPg?.imageUrl && !isCropMode) {
-        setImageSelected(true)
+        setImageSelected((prev) => !prev)
       }
     } else {
       // Deselect image when clicking overlay or toolbar
@@ -527,7 +520,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     if (isCropMode) return
 
     const currentPg = pages[currentPageIndex]
-    if (!currentPg || currentPg.imageScale === 1) return
+    if (!currentPg) return
 
     e.preventDefault()
     setIsPanningImage(true)
@@ -553,11 +546,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     const deltaXPct = ((e.clientX - panStartRef.current.x) / rect.width) * 100
     const deltaYPct = ((e.clientY - panStartRef.current.y) / rect.height) * 100
 
-    const rawOffset = -(currentPg.imageScale - 1) * 100
-    const minOffset = Math.min(0, rawOffset)
-    const maxOffset = Math.max(0, rawOffset)
-    const newOffX = Math.max(minOffset, Math.min(maxOffset, panStartRef.current.offX + deltaXPct))
-    const newOffY = Math.max(minOffset, Math.min(maxOffset, panStartRef.current.offY + deltaYPct))
+    const newOffX = panStartRef.current.offX + deltaXPct
+    const newOffY = panStartRef.current.offY + deltaYPct
 
     updateImageTransformSilent({ imageOffsetX: newOffX, imageOffsetY: newOffY })
   }
@@ -579,6 +569,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     if (!currentPg) return
 
     const rect = container.getBoundingClientRect()
+    const c = getContainBounds()
     resizeStartRef.current = {
       x: e.clientX,
       y: e.clientY,
@@ -587,6 +578,10 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       offY: currentPg.imageOffsetY,
       containerW: rect.width,
       containerH: rect.height,
+      imgStartX: c.startX,
+      imgStartY: c.startY,
+      imgSizeX: c.sizeX,
+      imgSizeY: c.sizeY,
     }
     setImageResizeHandle(corner)
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
@@ -594,7 +589,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
   function handleImageResizeMove(e: React.PointerEvent) {
     if (!imageResizeHandle) return
-    const { scale: startScale, offX: startOffX, offY: startOffY, containerW, containerH } = resizeStartRef.current
+    const { scale: startScale, offX: startOffX, offY: startOffY, imgStartX, imgStartY, imgSizeX, imgSizeY } = resizeStartRef.current
     const container = containerRef.current
     if (!container) return
     const rect = container.getBoundingClientRect()
@@ -602,47 +597,52 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     const ptrXPct = ((e.clientX - rect.left) / rect.width) * 100
     const ptrYPct = ((e.clientY - rect.top) / rect.height) * 100
 
-    // Determine anchor corner (opposite of dragged corner)
+    // Determine anchor corner (opposite of dragged corner) using visual image bounds
     let anchorXPct: number, anchorYPct: number
+    const imgEndX = imgStartX + imgSizeX
+    const imgEndY = imgStartY + imgSizeY
     if (imageResizeHandle === 'br') {
-      anchorXPct = startOffX
-      anchorYPct = startOffY
+      anchorXPct = startScale * imgStartX + startOffX
+      anchorYPct = startScale * imgStartY + startOffY
     } else if (imageResizeHandle === 'tl') {
-      anchorXPct = startOffX + startScale * 100
-      anchorYPct = startOffY + startScale * 100
+      anchorXPct = startScale * imgEndX + startOffX
+      anchorYPct = startScale * imgEndY + startOffY
     } else if (imageResizeHandle === 'tr') {
-      anchorXPct = startOffX
-      anchorYPct = startOffY + startScale * 100
+      anchorXPct = startScale * imgStartX + startOffX
+      anchorYPct = startScale * imgEndY + startOffY
     } else {
       // bl
-      anchorXPct = startOffX + startScale * 100
-      anchorYPct = startOffY
+      anchorXPct = startScale * imgEndX + startOffX
+      anchorYPct = startScale * imgStartY + startOffY
     }
 
-    const initDist = startScale * 100
-    // Distance from anchor to current pointer
+    // Distance from anchor to current pointer, normalized by visual image size
     const currDistX = Math.abs(ptrXPct - anchorXPct)
     const currDistY = Math.abs(ptrYPct - anchorYPct)
-    const maxDist = Math.max(currDistX, currDistY)
-    if (maxDist < 1) return // avoid division by near-zero
+    const initDistX = startScale * imgSizeX
+    const initDistY = startScale * imgSizeY
+    const ratioX = initDistX > 0 ? currDistX / initDistX : 0
+    const ratioY = initDistY > 0 ? currDistY / initDistY : 0
+    const maxRatio = Math.max(ratioX, ratioY)
+    if (maxRatio < 0.01) return
 
-    const newScale = Math.max(0.3, Math.min(3.0, (maxDist / initDist) * startScale))
+    const newScale = Math.max(0.3, Math.min(3.0, maxRatio * startScale))
 
     // Compute offset so anchor corner stays fixed
     let newOffX: number, newOffY: number
     if (imageResizeHandle === 'br') {
-      newOffX = startOffX
-      newOffY = startOffY
+      newOffX = startOffX + (startScale - newScale) * imgStartX
+      newOffY = startOffY + (startScale - newScale) * imgStartY
     } else if (imageResizeHandle === 'tl') {
-      newOffX = startOffX + (startScale - newScale) * 100
-      newOffY = startOffY + (startScale - newScale) * 100
+      newOffX = startOffX + (startScale - newScale) * imgEndX
+      newOffY = startOffY + (startScale - newScale) * imgEndY
     } else if (imageResizeHandle === 'tr') {
-      newOffX = startOffX
-      newOffY = startOffY + (startScale - newScale) * 100
+      newOffX = startOffX + (startScale - newScale) * imgStartX
+      newOffY = startOffY + (startScale - newScale) * imgEndY
     } else {
       // bl
-      newOffX = startOffX + (startScale - newScale) * 100
-      newOffY = startOffY
+      newOffX = startOffX + (startScale - newScale) * imgEndX
+      newOffY = startOffY + (startScale - newScale) * imgStartY
     }
 
     updateImageTransformSilent({ imageScale: newScale, imageOffsetX: newOffX, imageOffsetY: newOffY })
@@ -1386,7 +1386,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       {currentPage && (
         <div
           ref={containerRef}
-          className={`relative aspect-[1/1.414] w-full max-w-3xl mx-auto border rounded-lg bg-white ${currentPage?.imageScale !== 1 ? (isPanningImage ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
+          className={`relative aspect-[1/1.414] w-full max-w-3xl mx-auto border rounded-lg bg-white ${isPanningImage ? 'cursor-grabbing' : 'cursor-grab'}`}
           onPointerDown={handleContainerPointerDown}
           onPointerMove={handleContainerPointerMove}
           onPointerUp={handleContainerPointerUp}
@@ -1397,7 +1397,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             <img
               src={currentPage.imageUrl}
               alt={`악보 - ${songName}`}
-              className={`absolute pointer-events-none ${imageSelected ? 'ring-2 ring-blue-500' : ''}`}
+              className="absolute pointer-events-none"
               style={{
                 width: '100%',
                 height: '100%',
@@ -1406,6 +1406,10 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                 transform: `scale(${currentPage.imageScale}) translate(${currentPage.imageOffsetX / currentPage.imageScale}%, ${currentPage.imageOffsetY / currentPage.imageScale}%)`,
               }}
               draggable={false}
+              onLoad={(e) => {
+                const img = e.currentTarget
+                imgNaturalSizeRef.current = { width: img.naturalWidth, height: img.naturalHeight }
+              }}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
@@ -1547,7 +1551,21 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             </div>
           ))}
           </div>
-          {/* Image resize corner handles - OUTSIDE the clipping div */}
+          {/* Image selection border + resize corner handles - OUTSIDE the clipping div */}
+          {currentPage.imageUrl && !isCropMode && imageSelected && (() => {
+            const bounds = getImageBounds(currentPage)
+            return (
+              <div
+                className="absolute z-10 pointer-events-none border-2 border-blue-500 rounded-sm"
+                style={{
+                  left: `${bounds.left}%`,
+                  top: `${bounds.top}%`,
+                  width: `${bounds.right - bounds.left}%`,
+                  height: `${bounds.bottom - bounds.top}%`,
+                }}
+              />
+            )
+          })()}
           {currentPage.imageUrl && !isCropMode && imageSelected && (() => {
             const bounds = getImageBounds(currentPage)
             return (['tl', 'tr', 'bl', 'br'] as const).map((corner) => {
