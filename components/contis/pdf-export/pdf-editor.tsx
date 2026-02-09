@@ -1096,6 +1096,12 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           allowTaint: false,
           width: pageWidth,
           height: pageHeight,
+          onclone: (clonedDoc) => {
+            // Remove stylesheets so html2canvas doesn't try to parse
+            // Tailwind CSS v4's lab()/oklch() color functions it can't handle.
+            // Our render div uses only inline styles, so this is safe.
+            clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach((el) => el.remove())
+          },
         })
 
         const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
