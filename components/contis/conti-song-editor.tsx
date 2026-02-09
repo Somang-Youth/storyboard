@@ -32,6 +32,7 @@ export function ContiSongEditor({
   const [presets, setPresets] = useState<SongPreset[]>([])
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [editorKey, setEditorKey] = useState(0)
 
   function handleLoadPreset(preset: SongPreset) {
     if (!confirm(`"${preset.name}" 프리셋을 불러오면 현재 설정이 덮어씌워집니다. 계속하시겠습니까?`)) {
@@ -49,6 +50,7 @@ export function ContiSongEditor({
       const result = await updateContiSong(contiSong.id, overrides)
       if (result.success) {
         toast.success(`"${preset.name}" 프리셋을 불러왔습니다`)
+        setEditorKey(k => k + 1)
         router.refresh()
       } else {
         toast.error(result.error ?? "프리셋 불러오기 중 오류가 발생했습니다")
@@ -77,49 +79,6 @@ export function ContiSongEditor({
           <CardTitle>곡 편집</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div>
-            <h3 className="mb-3 text-sm font-medium">조성 및 템포</h3>
-            <KeyTempoEditor
-              initialKeys={overrides.keys}
-              initialTempos={overrides.tempos}
-              onSave={(data) => updateContiSong(id, data)}
-            />
-          </div>
-
-          <Separator />
-
-          <div>
-            <h3 className="mb-3 text-sm font-medium">섹션 순서</h3>
-            <SectionOrderEditor
-              initialSectionOrder={overrides.sectionOrder}
-              onSave={(data) => updateContiSong(id, data)}
-            />
-          </div>
-
-          <Separator />
-
-          <div>
-            <h3 className="mb-3 text-sm font-medium">가사 페이지</h3>
-            <LyricsEditor
-              initialLyrics={overrides.lyrics}
-              onSave={(data) => updateContiSong(id, data)}
-            />
-          </div>
-
-          <Separator />
-
-          <div>
-            <h3 className="mb-3 text-sm font-medium">섹션-가사 매핑</h3>
-            <SectionLyricsMapper
-              sectionOrder={overrides.sectionOrder}
-              lyrics={overrides.lyrics}
-              initialMap={overrides.sectionLyricsMap}
-              onSave={(data) => updateContiSong(id, data)}
-            />
-          </div>
-
-          <Separator />
-
           <div>
             <h3 className="mb-3 text-sm font-medium">프리셋 관리</h3>
             {presets.length > 0 && (
@@ -210,6 +169,51 @@ export function ContiSongEditor({
                 </div>
               </div>
             )}
+          </div>
+
+          <Separator />
+
+          <div key={editorKey}>
+            <div>
+              <h3 className="mb-3 text-sm font-medium">조성 및 템포</h3>
+              <KeyTempoEditor
+                initialKeys={overrides.keys}
+                initialTempos={overrides.tempos}
+                onSave={(data) => updateContiSong(id, data)}
+              />
+            </div>
+
+            <Separator className="my-6" />
+
+            <div>
+              <h3 className="mb-3 text-sm font-medium">섹션 순서</h3>
+              <SectionOrderEditor
+                initialSectionOrder={overrides.sectionOrder}
+                onSave={(data) => updateContiSong(id, data)}
+              />
+            </div>
+
+            <Separator className="my-6" />
+
+            <div>
+              <h3 className="mb-3 text-sm font-medium">가사 페이지</h3>
+              <LyricsEditor
+                initialLyrics={overrides.lyrics}
+                onSave={(data) => updateContiSong(id, data)}
+              />
+            </div>
+
+            <Separator className="my-6" />
+
+            <div>
+              <h3 className="mb-3 text-sm font-medium">섹션-가사 매핑</h3>
+              <SectionLyricsMapper
+                sectionOrder={overrides.sectionOrder}
+                lyrics={overrides.lyrics}
+                initialMap={overrides.sectionLyricsMap}
+                onSave={(data) => updateContiSong(id, data)}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
