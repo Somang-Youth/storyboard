@@ -65,11 +65,34 @@ export function SongPicker({
     startTransition(async () => {
       const result = await getPresetsForSong(song.id)
       if (result.success && result.data && result.data.length > 0) {
-        setSelectedSong(song)
-        setPresets(result.data)
-        setShowPresetStep(true)
+        // Check for default preset
+        const defaultPreset = result.data.find(p => p.isDefault)
+        if (defaultPreset) {
+          // Auto-apply default preset
+          const overrides: Partial<ContiSongOverrides> = {
+            keys: defaultPreset.keys ? JSON.parse(defaultPreset.keys) : [],
+            tempos: defaultPreset.tempos ? JSON.parse(defaultPreset.tempos) : [],
+            sectionOrder: defaultPreset.sectionOrder ? JSON.parse(defaultPreset.sectionOrder) : [],
+            lyrics: defaultPreset.lyrics ? JSON.parse(defaultPreset.lyrics) : [],
+            sectionLyricsMap: defaultPreset.sectionLyricsMap ? JSON.parse(defaultPreset.sectionLyricsMap) : {},
+            notes: defaultPreset.notes,
+          }
+          const addResult = await addSongToConti(contiId, song.id, overrides)
+          if (addResult.success) {
+            toast.success(`"${defaultPreset.name}" 프리셋이 적용되었습니다`)
+            onOpenChange(false)
+            resetState()
+          } else {
+            toast.error(addResult.error ?? "곡 추가 중 오류가 발생했습니다")
+          }
+        } else {
+          // No default -- show preset picker (existing behavior)
+          setSelectedSong(song)
+          setPresets(result.data)
+          setShowPresetStep(true)
+        }
       } else {
-        // No presets -- add directly (current behavior)
+        // No presets -- add directly (existing behavior)
         handleSelect(song.id)
       }
     })
