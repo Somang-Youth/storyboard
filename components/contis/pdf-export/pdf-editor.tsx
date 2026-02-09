@@ -970,21 +970,63 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           const offX = page.imageOffsetX ?? 0
           const offY = page.imageOffsetY ?? 0
 
-          const img = document.createElement('img')
-          img.src = page.imageUrl
-          img.style.position = 'absolute'
-          img.style.width = '100%'
-          img.style.height = '100%'
-          img.style.objectFit = 'contain'
-          img.style.transformOrigin = '0 0'
-          img.style.transform = `scale(${scale}) translate(${offX / scale}%, ${offY / scale}%)`
-          img.crossOrigin = 'anonymous'
-          renderDiv.appendChild(img)
-          // Wait for image to load
+          // Load the source image
+          const srcImg = new Image()
+          srcImg.crossOrigin = 'anonymous'
+          srcImg.src = page.imageUrl
+          await new Promise<void>((resolve, reject) => {
+            if (srcImg.complete && srcImg.naturalWidth > 0) { resolve(); return }
+            srcImg.onload = () => resolve()
+            srcImg.onerror = () => reject(new Error('Image load failed'))
+          })
+
+          // Calculate "contain" dimensions within pageWidth x pageHeight
+          const imgAspect = srcImg.naturalWidth / srcImg.naturalHeight
+          const pageAspect = pageWidth / pageHeight
+          let drawWidth: number, drawHeight: number, drawX: number, drawY: number
+          if (imgAspect > pageAspect) {
+            drawWidth = pageWidth
+            drawHeight = pageWidth / imgAspect
+            drawX = 0
+            drawY = (pageHeight - drawHeight) / 2
+          } else {
+            drawHeight = pageHeight
+            drawWidth = pageHeight * imgAspect
+            drawX = (pageWidth - drawWidth) / 2
+            drawY = 0
+          }
+
+          // Apply scale and offset
+          // CSS transform: scale(S) translate(offX/S%, offY/S%)
+          // Resolves to: visualPos = S * containPos + (off/100) * containerSize
+          const scaledWidth = drawWidth * scale
+          const scaledHeight = drawHeight * scale
+          const finalX = drawX * scale + (offX / 100) * pageWidth
+          const finalY = drawY * scale + (offY / 100) * pageHeight
+
+          // Pre-render to a canvas at 2x for quality
+          const preCanvas = document.createElement('canvas')
+          preCanvas.width = pageWidth * 2
+          preCanvas.height = pageHeight * 2
+          const preCtx = preCanvas.getContext('2d')!
+          preCtx.scale(2, 2)
+          preCtx.drawImage(srcImg, finalX, finalY, scaledWidth, scaledHeight)
+
+          // Insert as a flat image into the render div
+          const flatImg = document.createElement('img')
+          flatImg.src = preCanvas.toDataURL('image/png')
+          flatImg.style.position = 'absolute'
+          flatImg.style.top = '0'
+          flatImg.style.left = '0'
+          flatImg.style.width = `${pageWidth}px`
+          flatImg.style.height = `${pageHeight}px`
+          renderDiv.appendChild(flatImg)
+
+          // Wait for the flat image to load
           await new Promise<void>((resolve) => {
-            if (img.complete) { resolve(); return }
-            img.onload = () => resolve()
-            img.onerror = () => resolve()
+            if (flatImg.complete) { resolve(); return }
+            flatImg.onload = () => resolve()
+            flatImg.onerror = () => resolve()
           })
         } else {
           // Metadata-only page or unrendered PDF page
