@@ -107,11 +107,17 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   } | null>(null)
   const [isCropDragging, setIsCropDragging] = useState(false)
   const [cropResizing, setCropResizing] = useState<'tl' | 'tr' | 'bl' | 'br' | 'top' | 'right' | 'bottom' | 'left' | null>(null)
+  const [imageResizeHandle, setImageResizeHandle] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const panStartRef = useRef<{ x: number; y: number; offX: number; offY: number }>({ x: 0, y: 0, offX: 0, offY: 0 })
   const pointerStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const resizeStartRef = useRef<{
+    x: number; y: number;
+    scale: number; offX: number; offY: number;
+    containerW: number; containerH: number;
+  }>({ x: 0, y: 0, scale: 1, offX: 0, offY: 0, containerW: 0, containerH: 0 })
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const performSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const lastSaveRef = useRef<number>(Date.now())
@@ -485,6 +491,19 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     )
   }
 
+  // Helper function to get image bounds
+  function getImageBounds(page: EditorPage) {
+    const s = page.imageScale
+    const offX = page.imageOffsetX
+    const offY = page.imageOffsetY
+    return {
+      left: offX,
+      top: offY,
+      right: offX + s * 100,
+      bottom: offY + s * 100,
+    }
+  }
+
   // Container-level pointer handlers for image panning
   function handleContainerPointerDown(e: React.PointerEvent) {
     const target = e.target as HTMLElement
@@ -513,6 +532,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   }
 
   function handleContainerPointerMove(e: React.PointerEvent) {
+    if (imageResizeHandle) return
     if (!isPanningImage) return
     const container = containerRef.current
     if (!container) return
@@ -536,6 +556,92 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   function handleContainerPointerUp() {
     if (isPanningImage) {
       setIsPanningImage(false)
+      triggerAutoSave()
+    }
+  }
+
+  // Corner handle resize handlers
+  function handleImageResizeDown(e: React.PointerEvent, corner: 'tl' | 'tr' | 'bl' | 'br') {
+    e.preventDefault()
+    e.stopPropagation()
+    const container = containerRef.current
+    if (!container) return
+    const currentPg = pages[currentPageIndex]
+    if (!currentPg) return
+
+    const rect = container.getBoundingClientRect()
+    resizeStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scale: currentPg.imageScale,
+      offX: currentPg.imageOffsetX,
+      offY: currentPg.imageOffsetY,
+      containerW: rect.width,
+      containerH: rect.height,
+    }
+    setImageResizeHandle(corner)
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  function handleImageResizeMove(e: React.PointerEvent) {
+    if (!imageResizeHandle) return
+    const { scale: startScale, offX: startOffX, offY: startOffY, containerW, containerH } = resizeStartRef.current
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+
+    const ptrXPct = ((e.clientX - rect.left) / rect.width) * 100
+    const ptrYPct = ((e.clientY - rect.top) / rect.height) * 100
+
+    // Determine anchor corner (opposite of dragged corner)
+    let anchorXPct: number, anchorYPct: number
+    if (imageResizeHandle === 'br') {
+      anchorXPct = startOffX
+      anchorYPct = startOffY
+    } else if (imageResizeHandle === 'tl') {
+      anchorXPct = startOffX + startScale * 100
+      anchorYPct = startOffY + startScale * 100
+    } else if (imageResizeHandle === 'tr') {
+      anchorXPct = startOffX
+      anchorYPct = startOffY + startScale * 100
+    } else {
+      // bl
+      anchorXPct = startOffX + startScale * 100
+      anchorYPct = startOffY
+    }
+
+    const initDist = startScale * 100
+    // Distance from anchor to current pointer
+    const currDistX = Math.abs(ptrXPct - anchorXPct)
+    const currDistY = Math.abs(ptrYPct - anchorYPct)
+    const maxDist = Math.max(currDistX, currDistY)
+    if (maxDist < 1) return // avoid division by near-zero
+
+    const newScale = Math.max(0.3, Math.min(3.0, (maxDist / initDist) * startScale))
+
+    // Compute offset so anchor corner stays fixed
+    let newOffX: number, newOffY: number
+    if (imageResizeHandle === 'br') {
+      newOffX = startOffX
+      newOffY = startOffY
+    } else if (imageResizeHandle === 'tl') {
+      newOffX = startOffX + (startScale - newScale) * 100
+      newOffY = startOffY + (startScale - newScale) * 100
+    } else if (imageResizeHandle === 'tr') {
+      newOffX = startOffX
+      newOffY = startOffY + (startScale - newScale) * 100
+    } else {
+      // bl
+      newOffX = startOffX + (startScale - newScale) * 100
+      newOffY = startOffY
+    }
+
+    updateImageTransformSilent({ imageScale: newScale, imageOffsetX: newOffX, imageOffsetY: newOffY })
+  }
+
+  function handleImageResizeUp() {
+    if (imageResizeHandle) {
+      setImageResizeHandle(null)
       triggerAutoSave()
     }
   }
@@ -1069,19 +1175,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       {/* Image Transform Toolbar */}
       {currentPage?.imageUrl && (
         <div className="flex items-center justify-center gap-3">
-          <span className="text-sm text-muted-foreground">이미지 크기</span>
-          <input
-            type="range"
-            min="0.3"
-            max="3"
-            step="0.1"
-            value={currentPage.imageScale}
-            onChange={(e) => updateImageTransformSilent({ imageScale: parseFloat(e.target.value) })}
-            onPointerUp={() => triggerAutoSave()}
-            onTouchEnd={() => triggerAutoSave()}
-            className="w-32"
-          />
-          <span className="text-sm tabular-nums w-10 text-center">{currentPage.imageScale.toFixed(1)}x</span>
+          <span className="text-sm tabular-nums text-muted-foreground">{currentPage.imageScale.toFixed(1)}x</span>
           <Button
             variant="outline"
             size="sm"
@@ -1097,6 +1191,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               setIsCropMode(!isCropMode)
               setCropSelection(null)
               setIsCropDragging(false)
+              setImageResizeHandle(null)
             }}
             disabled={!currentPage?.imageUrl}
           >
@@ -1189,6 +1284,30 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                 : songName}
             </div>
           )}
+
+          {/* Image resize corner handles */}
+          {currentPage.imageUrl && !isCropMode && (() => {
+            const bounds = getImageBounds(currentPage)
+            return (['tl', 'tr', 'bl', 'br'] as const).map((corner) => {
+              const isLeft = corner === 'tl' || corner === 'bl'
+              const isTop = corner === 'tl' || corner === 'tr'
+              return (
+                <div
+                  key={`resize-${corner}`}
+                  className="absolute z-10 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm"
+                  style={{
+                    left: `${isLeft ? bounds.left : bounds.right}%`,
+                    top: `${isTop ? bounds.top : bounds.bottom}%`,
+                    transform: 'translate(-50%, -50%)',
+                    cursor: corner === 'tl' || corner === 'br' ? 'nwse-resize' : 'nesw-resize',
+                  }}
+                  onPointerDown={(e) => handleImageResizeDown(e, corner)}
+                  onPointerMove={handleImageResizeMove}
+                  onPointerUp={handleImageResizeUp}
+                />
+              )
+            })
+          })()}
 
           {/* Crop mode overlay */}
           {isCropMode && currentPage?.imageUrl && (
