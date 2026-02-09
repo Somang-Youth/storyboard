@@ -364,9 +364,15 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         const newPage = { ...page, ...updates }
         // Re-clamp offsets when scale changes
         if (updates.imageScale !== undefined) {
-          const minOffset = -(newPage.imageScale - 1) * 100
-          newPage.imageOffsetX = Math.max(minOffset, Math.min(0, newPage.imageOffsetX))
-          newPage.imageOffsetY = Math.max(minOffset, Math.min(0, newPage.imageOffsetY))
+          if (newPage.imageScale <= 1) {
+            // No panning when image is at or below original size
+            newPage.imageOffsetX = 0
+            newPage.imageOffsetY = 0
+          } else {
+            const minOffset = -(newPage.imageScale - 1) * 100
+            newPage.imageOffsetX = Math.max(minOffset, Math.min(0, newPage.imageOffsetX))
+            newPage.imageOffsetY = Math.max(minOffset, Math.min(0, newPage.imageOffsetY))
+          }
         }
         return newPage
       }),
@@ -381,9 +387,14 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         if (i !== currentPageIndex) return page
         const newPage = { ...page, ...updates }
         if (updates.imageScale !== undefined) {
-          const minOffset = -(newPage.imageScale - 1) * 100
-          newPage.imageOffsetX = Math.max(minOffset, Math.min(0, newPage.imageOffsetX))
-          newPage.imageOffsetY = Math.max(minOffset, Math.min(0, newPage.imageOffsetY))
+          if (newPage.imageScale <= 1) {
+            newPage.imageOffsetX = 0
+            newPage.imageOffsetY = 0
+          } else {
+            const minOffset = -(newPage.imageScale - 1) * 100
+            newPage.imageOffsetX = Math.max(minOffset, Math.min(0, newPage.imageOffsetX))
+            newPage.imageOffsetY = Math.max(minOffset, Math.min(0, newPage.imageOffsetY))
+          }
         }
         return newPage
       }),
@@ -742,7 +753,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           <span className="text-sm text-muted-foreground">이미지 크기</span>
           <input
             type="range"
-            min="1"
+            min="0.3"
             max="3"
             step="0.1"
             value={currentPage.imageScale}
