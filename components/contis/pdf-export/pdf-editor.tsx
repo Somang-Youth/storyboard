@@ -961,6 +961,10 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       // Save current layout first
       await performSave()
 
+      // Use container dimensions so overlay font sizes match preview exactly
+      const canvasWidth = containerRef.current?.clientWidth ?? 768
+      const canvasHeight = containerRef.current?.clientHeight ?? Math.round(768 * 1.414)
+
       // Generate meaningful filename
       const songNames = conti.songs.map(cs => cs.song.name)
       const pdfFilename = generatePdfFilename(conti.title, conti.date, songNames)
@@ -981,8 +985,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
         // Create a temporary render container
         const renderDiv = document.createElement('div')
-        renderDiv.style.width = `${pageWidth}px`
-        renderDiv.style.height = `${pageHeight}px`
+        renderDiv.style.width = `${canvasWidth}px`
+        renderDiv.style.height = `${canvasHeight}px`
         renderDiv.style.position = 'fixed'
         renderDiv.style.left = '-9999px'
         renderDiv.style.top = '-9999px'
@@ -1034,19 +1038,19 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             srcImg.onerror = () => reject(new Error('Image load failed'))
           })
 
-          // Calculate "contain" dimensions within pageWidth x pageHeight
+          // Calculate "contain" dimensions within canvasWidth x canvasHeight
           const imgAspect = srcImg.naturalWidth / srcImg.naturalHeight
-          const pageAspect = pageWidth / pageHeight
+          const pageAspect = canvasWidth / canvasHeight
           let drawWidth: number, drawHeight: number, drawX: number, drawY: number
           if (imgAspect > pageAspect) {
-            drawWidth = pageWidth
-            drawHeight = pageWidth / imgAspect
+            drawWidth = canvasWidth
+            drawHeight = canvasWidth / imgAspect
             drawX = 0
-            drawY = (pageHeight - drawHeight) / 2
+            drawY = (canvasHeight - drawHeight) / 2
           } else {
-            drawHeight = pageHeight
-            drawWidth = pageHeight * imgAspect
-            drawX = (pageWidth - drawWidth) / 2
+            drawHeight = canvasHeight
+            drawWidth = canvasHeight * imgAspect
+            drawX = (canvasWidth - drawWidth) / 2
             drawY = 0
           }
 
@@ -1055,13 +1059,13 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           // Resolves to: visualPos = S * containPos + (off/100) * containerSize
           const scaledWidth = drawWidth * scale
           const scaledHeight = drawHeight * scale
-          const finalX = drawX * scale + (offX / 100) * pageWidth
-          const finalY = drawY * scale + (offY / 100) * pageHeight
+          const finalX = drawX * scale + (offX / 100) * canvasWidth
+          const finalY = drawY * scale + (offY / 100) * canvasHeight
 
           // Pre-render to a canvas at 2x for quality
           const preCanvas = document.createElement('canvas')
-          preCanvas.width = pageWidth * 2
-          preCanvas.height = pageHeight * 2
+          preCanvas.width = canvasWidth * 2
+          preCanvas.height = canvasHeight * 2
           const preCtx = preCanvas.getContext('2d')!
           preCtx.scale(2, 2)
           preCtx.drawImage(srcImg, finalX, finalY, scaledWidth, scaledHeight)
@@ -1072,8 +1076,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           flatImg.style.position = 'absolute'
           flatImg.style.top = '0'
           flatImg.style.left = '0'
-          flatImg.style.width = `${pageWidth}px`
-          flatImg.style.height = `${pageHeight}px`
+          flatImg.style.width = `${canvasWidth}px`
+          flatImg.style.height = `${canvasHeight}px`
           renderDiv.appendChild(flatImg)
 
           // Wait for the flat image to load
@@ -1124,8 +1128,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           scale: 2,
           useCORS: true,
           allowTaint: false,
-          width: pageWidth,
-          height: pageHeight,
+          width: canvasWidth,
+          height: canvasHeight,
           onclone: (clonedDoc) => {
             // Remove stylesheets so html2canvas doesn't try to parse
             // Tailwind CSS v4's lab()/oklch() color functions it can't handle.
