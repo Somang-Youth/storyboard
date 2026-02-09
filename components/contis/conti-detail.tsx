@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useOptimistic } from "react"
+import { Fragment, useState, useTransition, useOptimistic } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -95,9 +95,8 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
       ) : (
         <div className="flex flex-col gap-2">
           {optimisticSongs.map((contiSong, index) => (
-            <>
+            <Fragment key={contiSong.id}>
               <ContiSongItem
-                key={contiSong.id}
                 contiSong={contiSong}
                 index={index}
                 total={optimisticSongs.length}
@@ -113,7 +112,7 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
                   onOpenChange={(open) => { if (!open) setEditingId(null) }}
                 />
               )}
-            </>
+            </Fragment>
           ))}
         </div>
       )}
