@@ -962,7 +962,33 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         renderDiv.style.overflow = 'hidden'
         document.body.appendChild(renderDiv)
 
-        const page = pages[i]
+        let page = pages[i]
+
+        // If this is a PDF page that hasn't been rendered yet, render it now
+        if (page.imageUrl === null && page.pdfPageIndex !== null && page.sheetMusicFileId) {
+          let fileUrl: string | null = null
+          for (const cs of conti.songs) {
+            for (const sm of cs.sheetMusic) {
+              if (sm.id === page.sheetMusicFileId) {
+                fileUrl = sm.fileUrl
+                break
+              }
+            }
+            if (fileUrl) break
+          }
+          if (fileUrl) {
+            try {
+              const renderedUrl = await renderPdfPageToDataUrl(fileUrl, page.pdfPageIndex + 1)
+              if (page.cropX !== null && page.cropY !== null && page.cropWidth !== null && page.cropHeight !== null) {
+                page = { ...page, imageUrl: await applySavedCrop(renderedUrl, page.cropX, page.cropY, page.cropWidth, page.cropHeight) }
+              } else {
+                page = { ...page, imageUrl: renderedUrl }
+              }
+            } catch (err) {
+              console.error(`[PDF Export] Failed to render PDF page ${page.pdfPageIndex} for file ${page.sheetMusicFileId}:`, err)
+            }
+          }
+        }
 
         // Render sheet music image
         if (page.imageUrl) {
@@ -1092,6 +1118,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         toast.error(result.error ?? 'PDF 생성 중 오류가 발생했습니다')
       }
     } catch (error) {
+      console.error('[PDF Export] Export failed:', error)
       toast.error('PDF 생성 중 오류가 발생했습니다')
     } finally {
       setExporting(false)
