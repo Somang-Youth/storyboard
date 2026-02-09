@@ -374,6 +374,22 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     triggerAutoSave()
   }
 
+  // Update image transform without triggering auto-save (for continuous drag/slider)
+  function updateImageTransformSilent(updates: Partial<{ imageScale: number; imageOffsetX: number; imageOffsetY: number }>) {
+    setPages((prev) =>
+      prev.map((page, i) => {
+        if (i !== currentPageIndex) return page
+        const newPage = { ...page, ...updates }
+        if (updates.imageScale !== undefined) {
+          const minOffset = -(newPage.imageScale - 1) * 100
+          newPage.imageOffsetX = Math.max(minOffset, Math.min(0, newPage.imageOffsetX))
+          newPage.imageOffsetY = Math.max(minOffset, Math.min(0, newPage.imageOffsetY))
+        }
+        return newPage
+      }),
+    )
+  }
+
   // Container-level pointer handlers for image panning
   function handleContainerPointerDown(e: React.PointerEvent) {
     const target = e.target as HTMLElement
@@ -415,12 +431,13 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     const newOffX = Math.max(minOffset, Math.min(0, panStartRef.current.offX + deltaXPct))
     const newOffY = Math.max(minOffset, Math.min(0, panStartRef.current.offY + deltaYPct))
 
-    updateImageTransform({ imageOffsetX: newOffX, imageOffsetY: newOffY })
+    updateImageTransformSilent({ imageOffsetX: newOffX, imageOffsetY: newOffY })
   }
 
   function handleContainerPointerUp() {
     if (isPanningImage) {
       setIsPanningImage(false)
+      triggerAutoSave()
     }
   }
 
@@ -524,11 +541,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           const img = document.createElement('img')
           img.src = page.imageUrl
           img.style.position = 'absolute'
-          img.style.width = `${100 * scale}%`
-          img.style.height = `${100 * scale}%`
+          img.style.width = '100%'
+          img.style.height = '100%'
           img.style.objectFit = 'contain'
-          img.style.left = `${offX}%`
-          img.style.top = `${offY}%`
+          img.style.transformOrigin = '0 0'
+          img.style.transform = `scale(${scale}) translate(${offX / scale}%, ${offY / scale}%)`
           img.crossOrigin = 'anonymous'
           renderDiv.appendChild(img)
           // Wait for image to load
@@ -652,66 +669,6 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     ? conti.songs[currentPage.songIndex]?.song.name ?? ''
     : ''
 
-  // Image Transform Toolbar
-  function ImageTransformToolbar() {
-    if (!currentPage?.imageUrl) return null
-    return (
-      <div className="flex items-center justify-center gap-3">
-        <span className="text-sm text-muted-foreground">이미지 크기</span>
-        <input
-          type="range"
-          min="1"
-          max="3"
-          step="0.1"
-          value={currentPage.imageScale}
-          onChange={(e) => updateImageTransform({ imageScale: parseFloat(e.target.value) })}
-          className="w-32"
-        />
-        <span className="text-sm tabular-nums w-10 text-center">{currentPage.imageScale.toFixed(1)}x</span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => updateImageTransform({ imageScale: 1, imageOffsetX: 0, imageOffsetY: 0 })}
-          disabled={currentPage.imageScale === 1 && currentPage.imageOffsetX === 0 && currentPage.imageOffsetY === 0}
-        >
-          초기화
-        </Button>
-      </div>
-    )
-  }
-
-  // Overlay Format Toolbar
-  function OverlayFormatToolbar() {
-    if (!selectedOverlayId || !currentPage) return null
-    const overlay = currentPage.overlays.find((o) => o.id === selectedOverlayId)
-    if (!overlay) return null
-
-    const typeLabel = overlay.type === 'songNumber' ? '곡 번호' : overlay.type === 'sectionOrder' ? '섹션 순서' : 'BPM'
-
-    return (
-      <div className="flex items-center justify-center gap-3" data-toolbar>
-        <span className="text-sm font-medium">{typeLabel}</span>
-        <span className="text-sm text-muted-foreground">글꼴 크기</span>
-        <input
-          type="number"
-          min={8}
-          max={72}
-          step={1}
-          value={overlay.fontSize}
-          onChange={(e) => updateOverlay(selectedOverlayId, { fontSize: parseInt(e.target.value) || 14 })}
-          className="w-16 rounded border px-2 py-1 text-sm"
-        />
-        <span className="text-sm text-muted-foreground">글꼴 색상</span>
-        <input
-          type="color"
-          value={overlay.color ?? '#000000'}
-          onChange={(e) => updateOverlay(selectedOverlayId, { color: e.target.value })}
-          className="h-8 w-8 rounded border cursor-pointer"
-        />
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -780,8 +737,59 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
       )}
 
       {/* Image Transform Toolbar */}
-      <ImageTransformToolbar />
-      <OverlayFormatToolbar />
+      {currentPage?.imageUrl && (
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-sm text-muted-foreground">이미지 크기</span>
+          <input
+            type="range"
+            min="1"
+            max="3"
+            step="0.1"
+            value={currentPage.imageScale}
+            onChange={(e) => updateImageTransformSilent({ imageScale: parseFloat(e.target.value) })}
+            onPointerUp={() => triggerAutoSave()}
+            onTouchEnd={() => triggerAutoSave()}
+            className="w-32"
+          />
+          <span className="text-sm tabular-nums w-10 text-center">{currentPage.imageScale.toFixed(1)}x</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => updateImageTransform({ imageScale: 1, imageOffsetX: 0, imageOffsetY: 0 })}
+            disabled={currentPage.imageScale === 1 && currentPage.imageOffsetX === 0 && currentPage.imageOffsetY === 0}
+          >
+            초기화
+          </Button>
+        </div>
+      )}
+      {(() => {
+        if (!selectedOverlayId || !currentPage) return null
+        const overlay = currentPage.overlays.find((o) => o.id === selectedOverlayId)
+        if (!overlay) return null
+        const typeLabel = overlay.type === 'songNumber' ? '곡 번호' : overlay.type === 'sectionOrder' ? '섹션 순서' : 'BPM'
+        return (
+          <div className="flex items-center justify-center gap-3" data-toolbar>
+            <span className="text-sm font-medium">{typeLabel}</span>
+            <span className="text-sm text-muted-foreground">글꼴 크기</span>
+            <input
+              type="number"
+              min={8}
+              max={72}
+              step={1}
+              value={overlay.fontSize}
+              onChange={(e) => updateOverlay(selectedOverlayId, { fontSize: parseInt(e.target.value) || 14 })}
+              className="w-16 rounded border px-2 py-1 text-sm"
+            />
+            <span className="text-sm text-muted-foreground">글꼴 색상</span>
+            <input
+              type="color"
+              value={overlay.color ?? '#000000'}
+              onChange={(e) => updateOverlay(selectedOverlayId, { color: e.target.value })}
+              className="h-8 w-8 rounded border cursor-pointer"
+            />
+          </div>
+        )
+      })()}
 
       {/* Canvas Area */}
       {currentPage && (
@@ -797,12 +805,13 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             <img
               src={currentPage.imageUrl}
               alt={`악보 - ${songName}`}
-              className="absolute object-contain pointer-events-none"
+              className="absolute pointer-events-none"
               style={{
-                width: `${100 * currentPage.imageScale}%`,
-                height: `${100 * currentPage.imageScale}%`,
-                left: `${currentPage.imageOffsetX}%`,
-                top: `${currentPage.imageOffsetY}%`,
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                transformOrigin: '0 0',
+                transform: `scale(${currentPage.imageScale}) translate(${currentPage.imageOffsetX / currentPage.imageScale}%, ${currentPage.imageOffsetY / currentPage.imageScale}%)`,
               }}
               draggable={false}
             />
