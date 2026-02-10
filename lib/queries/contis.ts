@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { contis, contiSongs, songs, sheetMusicFiles, contiPdfExports } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { parseContiSongOverrides } from '@/lib/db/helpers';
 import type { ContiWithSongs, ContiWithSongsAndSheetMusic, ContiPdfExport } from '@/lib/types';
 
@@ -32,6 +32,7 @@ export async function getConti(id: string): Promise<ContiWithSongs | null> {
       lyrics: row.conti_songs.lyrics,
       sectionLyricsMap: row.conti_songs.sectionLyricsMap,
       notes: row.conti_songs.notes,
+      sheetMusicFileIds: row.conti_songs.sheetMusicFileIds,
     }),
   }));
 
@@ -45,26 +46,34 @@ export async function getContiForExport(id: string): Promise<ContiWithSongsAndSh
   const conti = await getConti(id);
   if (!conti) return null;
 
-  // For each song, load its sheet music files
   const songsWithSheetMusic = await Promise.all(
     conti.songs.map(async (contiSong) => {
-      const sheetMusic = await db
-        .select()
-        .from(sheetMusicFiles)
-        .where(eq(sheetMusicFiles.songId, contiSong.songId))
-        .orderBy(sheetMusicFiles.sortOrder);
+      const selectedIds = contiSong.overrides.sheetMusicFileIds;
 
-      return {
-        ...contiSong,
-        sheetMusic,
-      };
+      let sheetMusic;
+      if (selectedIds && selectedIds.length > 0) {
+        // Use selected sheet music only, preserving selection order
+        sheetMusic = await db
+          .select()
+          .from(sheetMusicFiles)
+          .where(inArray(sheetMusicFiles.id, selectedIds));
+        // Sort by the order in selectedIds
+        const idOrder = new Map(selectedIds.map((smId, i) => [smId, i]));
+        sheetMusic.sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
+      } else {
+        // Fallback: all sheet music for the song
+        sheetMusic = await db
+          .select()
+          .from(sheetMusicFiles)
+          .where(eq(sheetMusicFiles.songId, contiSong.songId))
+          .orderBy(sheetMusicFiles.sortOrder);
+      }
+
+      return { ...contiSong, sheetMusic };
     })
   );
 
-  return {
-    ...conti,
-    songs: songsWithSheetMusic,
-  };
+  return { ...conti, songs: songsWithSheetMusic };
 }
 
 export async function getContiPdfExport(contiId: string): Promise<ContiPdfExport | null> {

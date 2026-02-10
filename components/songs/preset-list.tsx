@@ -18,16 +18,17 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon, Delete01Icon, PencilEdit01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import { deleteSongPreset, setDefaultPreset } from "@/lib/actions/song-presets"
 import { PresetEditor } from "./preset-editor"
-import type { SongPreset } from "@/lib/types"
+import type { SongPresetWithSheetMusic, SheetMusicFile } from "@/lib/types"
 
 interface PresetListProps {
   songId: string
-  presets: SongPreset[]
+  presets: SongPresetWithSheetMusic[]
+  sheetMusic: SheetMusicFile[]
 }
 
-export function PresetList({ songId, presets }: PresetListProps) {
+export function PresetList({ songId, presets, sheetMusic }: PresetListProps) {
   const [editorOpen, setEditorOpen] = useState(false)
-  const [editingPreset, setEditingPreset] = useState<SongPreset | undefined>()
+  const [editingPreset, setEditingPreset] = useState<SongPresetWithSheetMusic | undefined>()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingPresetId, setDeletingPresetId] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
@@ -37,7 +38,7 @@ export function PresetList({ songId, presets }: PresetListProps) {
     setEditorOpen(true)
   }
 
-  const handleEditClick = (preset: SongPreset) => {
+  const handleEditClick = (preset: SongPresetWithSheetMusic) => {
     setEditingPreset(preset)
     setEditorOpen(true)
   }
@@ -179,6 +180,7 @@ export function PresetList({ songId, presets }: PresetListProps) {
       <PresetEditor
         songId={songId}
         preset={editingPreset}
+        sheetMusic={sheetMusic}
         open={editorOpen}
         onOpenChange={setEditorOpen}
       />

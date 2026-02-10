@@ -57,7 +57,7 @@ export default async function SongDetailPage({
 
         <div>
           <h2 className="text-xl font-semibold mb-4">프리셋</h2>
-          <PresetList songId={song.id} presets={song.presets ?? []} />
+          <PresetList songId={song.id} presets={song.presets ?? []} sheetMusic={song.sheetMusic} />
         </div>
       </div>
     </div>

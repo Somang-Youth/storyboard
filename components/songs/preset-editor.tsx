@@ -18,16 +18,18 @@ import {
 import { OverrideEditorFields } from "@/components/shared/override-editor-fields"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { createSongPreset, updateSongPreset } from "@/lib/actions/song-presets"
-import type { SongPreset } from "@/lib/types"
+import { SheetMusicSelector } from "@/components/shared/sheet-music-selector"
+import type { SongPresetWithSheetMusic, SheetMusicFile } from "@/lib/types"
 
 interface PresetEditorProps {
   songId: string
-  preset?: SongPreset
+  preset?: SongPresetWithSheetMusic
+  sheetMusic: SheetMusicFile[]
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEditorProps) {
+export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }: PresetEditorProps) {
   const [name, setName] = useState("")
   const [keys, setKeys] = useState<string[]>([])
   const [tempos, setTempos] = useState<number[]>([])
@@ -37,6 +39,7 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
   const [notes, setNotes] = useState<string | null>(null)
   const [isDefault, setIsDefault] = useState(false)
   const [isPending, setIsPending] = useState(false)
+  const [sheetMusicFileIds, setSheetMusicFileIds] = useState<string[]>([])
 
   // Unsaved changes tracking
   const { isDirty, markDirty, reset: resetDirty } = useUnsavedChanges(preset)
@@ -63,6 +66,7 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
         setSectionLyricsMap(parseJsonField<Record<number, number[]>>(preset.sectionLyricsMap, {}))
         setNotes(preset.notes)
         setIsDefault(preset.isDefault)
+        setSheetMusicFileIds(preset.sheetMusicFileIds ?? [])
       } else {
         setName("")
         setKeys([])
@@ -72,6 +76,7 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
         setSectionLyricsMap({})
         setNotes(null)
         setIsDefault(false)
+        setSheetMusicFileIds([])
       }
       resetDirty()
     }
@@ -94,6 +99,7 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
         sectionLyricsMap,
         notes: notes?.trim() || null,
         isDefault,
+        sheetMusicFileIds,
       }
 
       const result = preset
@@ -199,6 +205,18 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
             onSectionLyricsMapChange={handleSectionLyricsMapChange}
             onNotesChange={handleNotesChange}
           />
+
+          {sheetMusic.length > 0 && (
+            <div className="space-y-3">
+              <label className="text-base font-medium">악보 선택</label>
+              <SheetMusicSelector
+                songId={songId}
+                selectedFileIds={sheetMusicFileIds}
+                onSelectionChange={(ids) => { setSheetMusicFileIds(ids); markDirty() }}
+                availableFiles={sheetMusic}
+              />
+            </div>
+          )}
 
           <div className="flex items-center gap-3">
             <input

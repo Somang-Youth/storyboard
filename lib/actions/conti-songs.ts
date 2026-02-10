@@ -46,6 +46,7 @@ export async function addSongToConti(
       lyrics: overrides.lyrics ?? '[]',
       sectionLyricsMap: overrides.sectionLyricsMap ?? '{}',
       notes: initialOverrides?.notes ?? null,
+      sheetMusicFileIds: overrides.sheetMusicFileIds ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -160,6 +161,7 @@ export async function saveContiSongAsPreset(
         lyrics: overrides.lyrics,
         sectionLyricsMap: overrides.sectionLyricsMap,
         notes: overrides.notes,
+        sheetMusicFileIds: overrides.sheetMusicFileIds ?? [],
       });
     } else {
       result = await createSongPreset(cs.songId, {
@@ -170,6 +172,7 @@ export async function saveContiSongAsPreset(
         lyrics: overrides.lyrics,
         sectionLyricsMap: overrides.sectionLyricsMap,
         notes: overrides.notes,
+        sheetMusicFileIds: overrides.sheetMusicFileIds ?? [],
         isDefault: false,
       });
     }

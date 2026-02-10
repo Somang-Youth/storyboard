@@ -21,6 +21,10 @@ import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { updateContiSong, saveContiSongAsPreset } from "@/lib/actions/conti-songs"
 import { getPresetsForSong } from "@/lib/actions/song-presets"
 import type { ContiSongWithSong, SongPreset } from "@/lib/types"
+import { SheetMusicSelector } from "@/components/shared/sheet-music-selector"
+import { getSheetMusicForSong } from "@/lib/actions/sheet-music"
+import { getPresetSheetMusicFileIds } from "@/lib/actions/song-presets"
+import type { SheetMusicFile } from "@/lib/types"
 
 interface ContiSongEditorProps {
   contiSong: ContiSongWithSong
@@ -58,6 +62,8 @@ export function ContiSongEditor({
   const [presets, setPresets] = useState<SongPreset[]>([])
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
   const [editorKey, setEditorKey] = useState(0)
+  const [sheetMusicFileIds, setSheetMusicFileIds] = useState<string[] | null>(null)
+  const [songSheetMusic, setSongSheetMusic] = useState<SheetMusicFile[]>([])
 
   // Initialize state from contiSong when drawer opens
   useEffect(() => {
@@ -68,6 +74,7 @@ export function ContiSongEditor({
       setLyrics(overrides.lyrics)
       setSectionLyricsMap(overrides.sectionLyricsMap)
       setNotes(overrides.notes)
+      setSheetMusicFileIds(overrides.sheetMusicFileIds)
       resetDirty()
       setEditorKey(k => k + 1)
     }
@@ -81,6 +88,15 @@ export function ContiSongEditor({
         if (result.success && result.data) {
           setPresets(result.data)
         }
+      })
+    }
+  }, [open, contiSong.songId])
+
+  // Fetch sheet music for this song when drawer opens
+  useEffect(() => {
+    if (open) {
+      getSheetMusicForSong(contiSong.songId).then(result => {
+        if (result.success && result.data) setSongSheetMusic(result.data)
       })
     }
   }, [open, contiSong.songId])
@@ -117,7 +133,7 @@ export function ContiSongEditor({
     setIsSaving(true)
     try {
       const result = await updateContiSong(id, {
-        keys, tempos, sectionOrder, lyrics, sectionLyricsMap, notes,
+        keys, tempos, sectionOrder, lyrics, sectionLyricsMap, notes, sheetMusicFileIds,
       })
       if (result.success) {
         toast.success("곡 설정이 저장되었습니다")
@@ -141,7 +157,7 @@ export function ContiSongEditor({
   }
 
   // Preset load — updates local state only (no server action)
-  function handleLoadPreset(preset: SongPreset) {
+  async function handleLoadPreset(preset: SongPreset) {
     if (!confirm(`"${preset.name}" 프리셋을 불러오면 현재 설정이 덮어씌워집니다. 계속하시겠습니까?`)) {
       return
     }
@@ -151,6 +167,9 @@ export function ContiSongEditor({
     setLyrics(preset.lyrics ? JSON.parse(preset.lyrics) : [])
     setSectionLyricsMap(preset.sectionLyricsMap ? JSON.parse(preset.sectionLyricsMap) : {})
     setNotes(preset.notes)
+    // Load preset's sheet music selection
+    const fileIds = await getPresetSheetMusicFileIds(preset.id)
+    setSheetMusicFileIds(fileIds.length > 0 ? fileIds : null)
     setEditorKey(k => k + 1)
     markDirty()
     toast.success(`"${preset.name}" 프리셋을 불러왔습니다`)
@@ -278,6 +297,24 @@ export function ContiSongEditor({
               </div>
             )}
           </div>
+
+          {songSheetMusic.length > 0 && (
+            <>
+              <div className="space-y-3">
+                <label className="text-base font-medium">악보 선택</label>
+                <p className="text-sm text-muted-foreground">
+                  PDF 내보내기에 포함할 악보를 선택하세요. 선택하지 않으면 모든 악보가 포함됩니다.
+                </p>
+                <SheetMusicSelector
+                  songId={contiSong.songId}
+                  selectedFileIds={sheetMusicFileIds ?? []}
+                  onSelectionChange={(ids) => { setSheetMusicFileIds(ids.length > 0 ? ids : null); markDirty() }}
+                  availableFiles={songSheetMusic}
+                />
+              </div>
+              <div className="border-t" />
+            </>
+          )}
 
           <div className="border-t" />
 

@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
-import { songs, sheetMusicFiles, songPresets } from '@/lib/db/schema';
+import { songs, sheetMusicFiles, songPresets, presetSheetMusic } from '@/lib/db/schema';
 import { eq, desc, ilike } from 'drizzle-orm';
-import type { SongWithSheetMusic } from '@/lib/types';
+import type { SongWithSheetMusic, SongPresetWithSheetMusic } from '@/lib/types';
 
 export async function getSongs() {
   return await db.select().from(songs).orderBy(desc(songs.createdAt));
@@ -20,7 +20,7 @@ export async function getSong(id: string): Promise<SongWithSheetMusic | null> {
     .where(eq(sheetMusicFiles.songId, id))
     .orderBy(sheetMusicFiles.sortOrder);
 
-  const presets = await getSongPresets(id);
+  const presets = await getSongPresetsWithSheetMusic(id);
 
   return {
     ...song[0],
@@ -43,4 +43,25 @@ export async function searchSongs(query: string) {
     .from(songs)
     .where(ilike(songs.name, `%${query}%`))
     .orderBy(desc(songs.createdAt));
+}
+
+export async function getSongPresetsWithSheetMusic(songId: string): Promise<SongPresetWithSheetMusic[]> {
+  const presets = await getSongPresets(songId);
+
+  const presetsWithSheetMusic = await Promise.all(
+    presets.map(async (preset) => {
+      const sheetMusicRows = await db
+        .select({ sheetMusicFileId: presetSheetMusic.sheetMusicFileId })
+        .from(presetSheetMusic)
+        .where(eq(presetSheetMusic.presetId, preset.id))
+        .orderBy(presetSheetMusic.sortOrder);
+
+      return {
+        ...preset,
+        sheetMusicFileIds: sheetMusicRows.map(r => r.sheetMusicFileId),
+      };
+    })
+  );
+
+  return presetsWithSheetMusic;
 }

@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { addSongToConti } from "@/lib/actions/conti-songs"
 import { createSong } from "@/lib/actions/songs"
-import { getPresetsForSong } from "@/lib/actions/song-presets"
+import { getPresetsForSong, getPresetSheetMusicFileIds } from "@/lib/actions/song-presets"
 import type { Song, SongPreset, ContiSongOverrides } from "@/lib/types"
 
 interface SongPickerProps {
@@ -69,6 +69,7 @@ export function SongPicker({
         const defaultPreset = result.data.find(p => p.isDefault)
         if (defaultPreset) {
           // Auto-apply default preset
+          const sheetMusicFileIds = await getPresetSheetMusicFileIds(defaultPreset.id)
           const overrides: Partial<ContiSongOverrides> = {
             keys: defaultPreset.keys ? JSON.parse(defaultPreset.keys) : [],
             tempos: defaultPreset.tempos ? JSON.parse(defaultPreset.tempos) : [],
@@ -76,6 +77,7 @@ export function SongPicker({
             lyrics: defaultPreset.lyrics ? JSON.parse(defaultPreset.lyrics) : [],
             sectionLyricsMap: defaultPreset.sectionLyricsMap ? JSON.parse(defaultPreset.sectionLyricsMap) : {},
             notes: defaultPreset.notes,
+            sheetMusicFileIds: sheetMusicFileIds.length > 0 ? sheetMusicFileIds : null,
           }
           const addResult = await addSongToConti(contiId, song.id, overrides)
           if (addResult.success) {
@@ -103,6 +105,7 @@ export function SongPicker({
     startTransition(async () => {
       let overrides: Partial<ContiSongOverrides> | undefined
       if (preset) {
+        const sheetMusicFileIds = await getPresetSheetMusicFileIds(preset.id)
         overrides = {
           keys: preset.keys ? JSON.parse(preset.keys) : [],
           tempos: preset.tempos ? JSON.parse(preset.tempos) : [],
@@ -110,6 +113,7 @@ export function SongPicker({
           lyrics: preset.lyrics ? JSON.parse(preset.lyrics) : [],
           sectionLyricsMap: preset.sectionLyricsMap ? JSON.parse(preset.sectionLyricsMap) : {},
           notes: preset.notes,
+          sheetMusicFileIds: sheetMusicFileIds.length > 0 ? sheetMusicFileIds : null,
         }
       }
       const result = await addSongToConti(contiId, selectedSong.id, overrides)
