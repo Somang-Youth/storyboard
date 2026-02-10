@@ -32,7 +32,7 @@ export interface SongPresetData {
 
 export interface SongWithSheetMusic extends Song {
   sheetMusic: SheetMusicFile[];
-  presets?: SongPreset[];
+  presets?: SongPresetWithSheetMusic[];
 }
 
 export interface SongPresetWithSheetMusic extends SongPreset {

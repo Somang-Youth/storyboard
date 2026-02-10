@@ -20,7 +20,7 @@ export async function getSong(id: string): Promise<SongWithSheetMusic | null> {
     .where(eq(sheetMusicFiles.songId, id))
     .orderBy(sheetMusicFiles.sortOrder);
 
-  const presets = await getSongPresets(id);
+  const presets = await getSongPresetsWithSheetMusic(id);
 
   return {
     ...song[0],
