@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, PlayListIcon } from "@hugeicons/core-free-icons"
 import { ContiSongItem } from "@/components/contis/conti-song-item"
 import { ContiSongEditor } from "./conti-song-editor"
 import { SongPicker } from "@/components/contis/song-picker"
+import { YouTubeImportDialog } from "@/components/contis/youtube-import-dialog"
 import {
   removeSongFromConti,
   reorderContiSongs,
@@ -23,6 +24,7 @@ interface ContiDetailProps {
 export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
   const router = useRouter()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [youtubeImportOpen, setYoutubeImportOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [optimisticSongs, setOptimisticSongs] = useOptimistic<ContiSongWithSong[]>(conti.songs)
@@ -117,15 +119,24 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
         </div>
       )}
 
-      <Button
-        variant="outline"
-        onClick={() => setPickerOpen(true)}
-        disabled={isPending}
-        className="self-start"
-      >
-        <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
-        곡 추가
-      </Button>
+      <div className="flex items-center gap-2 self-start">
+        <Button
+          variant="outline"
+          onClick={() => setPickerOpen(true)}
+          disabled={isPending}
+        >
+          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
+          곡 추가
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setYoutubeImportOpen(true)}
+          disabled={isPending}
+        >
+          <HugeiconsIcon icon={PlayListIcon} strokeWidth={2} data-icon="inline-start" />
+          YouTube에서 가져오기
+        </Button>
+      </div>
 
       <SongPicker
         contiId={conti.id}
@@ -133,6 +144,14 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
         songs={allSongs}
         open={pickerOpen}
         onOpenChange={setPickerOpen}
+      />
+
+      <YouTubeImportDialog
+        contiId={conti.id}
+        existingSongIds={existingSongIds}
+        allSongs={allSongs}
+        open={youtubeImportOpen}
+        onOpenChange={setYoutubeImportOpen}
       />
     </div>
   )
