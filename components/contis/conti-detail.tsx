@@ -81,19 +81,19 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {conti.description && (
         <p className="text-muted-foreground text-base">{conti.description}</p>
       )}
 
       {optimisticSongs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-12 text-center">
           <p className="text-muted-foreground text-base">
             이 콘티에 곡이 없습니다. 곡을 추가해주세요.
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           {optimisticSongs.map((contiSong, index) => (
             <Fragment key={contiSong.id}>
               <ContiSongItem

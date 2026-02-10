@@ -180,18 +180,18 @@ export function ContiSongEditor({
           </div>
         }
       >
-        <div className="space-y-8">
+        <div className="space-y-6">
           <div>
-            <h3 className="mb-4 text-base font-medium">프리셋 관리</h3>
+            <h3 className="mb-3 text-base font-medium">프리셋 관리</h3>
             {presets.length > 0 && (
-              <div className="mb-4">
-                <label className="text-sm text-muted-foreground mb-1.5 block">프리셋 불러오기</label>
-                <div className="flex flex-col gap-1.5">
+              <div className="mb-3">
+                <label className="text-sm text-muted-foreground mb-1 block">프리셋 불러오기</label>
+                <div className="flex flex-col gap-1">
                   {presets.map(p => (
                     <button
                       key={p.id}
                       type="button"
-                      className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-base transition-colors disabled:opacity-50"
+                      className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base transition-colors disabled:opacity-50"
                       onClick={() => handleLoadPreset(p)}
                       disabled={isSaving}
                     >
@@ -209,12 +209,12 @@ export function ContiSongEditor({
                 프리셋으로 저장
               </Button>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {presets.length > 0 && (
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-1">
                     <label className="text-sm text-muted-foreground">기존 프리셋 업데이트</label>
                     <select
-                      className="rounded border px-3 py-1.5 text-base"
+                      className="rounded border px-2 py-1 text-base"
                       value={selectedPresetId ?? ""}
                       onChange={(e) => {
                         const val = e.target.value || null
@@ -239,7 +239,7 @@ export function ContiSongEditor({
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
                 />
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <Button
                     size="sm"
                     disabled={!presetName.trim() || isPresetSaving}

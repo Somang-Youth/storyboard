@@ -65,9 +65,9 @@ export function KeyTempoEditor({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <label className="text-base font-medium">조성 (키)</label>
           <Button size="xs" onClick={() => addKey()}>
             <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
@@ -75,7 +75,7 @@ export function KeyTempoEditor({
           </Button>
         </div>
 
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-1.5">
           {COMMON_KEYS.map((key) => (
             <Badge
               key={key}
@@ -88,9 +88,9 @@ export function KeyTempoEditor({
           ))}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {keys.map((key, index) => (
-            <div key={index} className="flex items-center gap-3">
+            <div key={index} className="flex items-center gap-2">
               <Input
                 value={key}
                 onChange={(e) => updateKey(index, e.target.value)}
@@ -116,7 +116,7 @@ export function KeyTempoEditor({
       </div>
 
       <div>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <label className="text-base font-medium">템포 (BPM)</label>
           <Button size="xs" onClick={addTempo}>
             <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
@@ -124,9 +124,9 @@ export function KeyTempoEditor({
           </Button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {tempos.map((tempo, index) => (
-            <div key={index} className="flex items-center gap-3">
+            <div key={index} className="flex items-center gap-2">
               <Input
                 type="number"
                 value={tempo}

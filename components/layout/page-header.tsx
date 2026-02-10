@@ -24,11 +24,11 @@ export function PageHeader({ title, description, backHref, children }: PageHeade
         <div>
           <h1 className="text-3xl font-bold">{title}</h1>
           {description && (
-            <p className="text-muted-foreground mt-1.5">{description}</p>
+            <p className="text-muted-foreground mt-1">{description}</p>
           )}
         </div>
       </div>
-      {children && <div className="flex items-center gap-3">{children}</div>}
+      {children && <div className="flex items-center gap-2">{children}</div>}
     </div>
   )
 }

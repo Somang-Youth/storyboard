@@ -154,7 +154,7 @@ export function SongPicker({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetState(); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>곡 추가</DialogTitle>
         </DialogHeader>
@@ -165,15 +165,15 @@ export function SongPicker({
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <div className="max-h-80 overflow-y-auto">
+        <div className="max-h-64 overflow-y-auto">
           {showPresetStep ? (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-base font-medium mb-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-base font-medium mb-2">
                 프리셋 선택: {selectedSong?.name}
               </p>
               <button
                 type="button"
-                className="hover:bg-muted flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-base transition-colors disabled:opacity-50"
+                className="hover:bg-muted flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-base transition-colors disabled:opacity-50"
                 onClick={() => handlePresetSelect(null)}
                 disabled={isPending}
               >
@@ -183,7 +183,7 @@ export function SongPicker({
                 <button
                   key={preset.id}
                   type="button"
-                  className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-base transition-colors disabled:opacity-50"
+                  className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base transition-colors disabled:opacity-50"
                   onClick={() => handlePresetSelect(preset)}
                   disabled={isPending}
                 >
@@ -195,7 +195,7 @@ export function SongPicker({
               ))}
               <button
                 type="button"
-                className="text-muted-foreground hover:bg-muted mt-1 rounded-lg px-4 py-3 text-left text-sm transition-colors"
+                className="text-muted-foreground hover:bg-muted mt-1 rounded-lg px-3 py-2 text-left text-sm transition-colors"
                 onClick={() => setShowPresetStep(false)}
                 disabled={isPending}
               >
@@ -205,18 +205,18 @@ export function SongPicker({
           ) : (
             <>
               {availableSongs.length === 0 ? (
-                <p className="text-muted-foreground py-6 text-center text-base">
+                <p className="text-muted-foreground py-4 text-center text-base">
                   이미 모든 곡이 추가되었습니다
                 </p>
               ) : filteredSongs.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-6">
+                <div className="flex flex-col items-center gap-2 py-4">
                   <p className="text-muted-foreground text-center text-base">
                     검색 결과가 없습니다
                   </p>
                   {search.trim() && (
                     <button
                       type="button"
-                      className="text-primary hover:bg-muted rounded-lg px-4 py-3 text-base font-medium transition-colors disabled:opacity-50"
+                      className="text-primary hover:bg-muted rounded-lg px-3 py-2 text-base font-medium transition-colors disabled:opacity-50"
                       onClick={() => handleCreateAndAdd(search.trim())}
                       disabled={isPending}
                     >
@@ -225,12 +225,12 @@ export function SongPicker({
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1">
                   {filteredSongs.map((song) => (
                     <button
                       key={song.id}
                       type="button"
-                      className="hover:bg-muted flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-base transition-colors disabled:opacity-50"
+                      className="hover:bg-muted flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-base transition-colors disabled:opacity-50"
                       onClick={() => handleSongClick(song)}
                       disabled={isPending}
                     >

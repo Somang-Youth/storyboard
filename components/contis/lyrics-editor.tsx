@@ -45,7 +45,7 @@ export function LyricsEditor({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-base font-medium">가사 페이지</div>
         <Button size="xs" onClick={addPage}>
@@ -54,9 +54,9 @@ export function LyricsEditor({
         </Button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {lyrics.map((lyric, index) => (
-          <div key={index} className="space-y-2">
+          <div key={index} className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-muted-foreground text-sm font-medium">
                 페이지 {index + 1}

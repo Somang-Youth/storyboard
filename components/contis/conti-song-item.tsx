@@ -49,16 +49,16 @@ export function ContiSongItem({
       : null
 
   return (
-    <div className="ring-foreground/10 bg-card flex items-center gap-4 rounded-xl p-4 ring-1 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onEdit}>
-      <div className="text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-medium">
+    <div className="ring-foreground/10 bg-card flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onEdit}>
+      <div className="text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-medium">
         {index + 1}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-center gap-2">
           <span className="truncate text-base font-medium">{song.name}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {overrides.keys.length > 0 &&
             overrides.keys.map((key) => (
               <Badge key={key} variant="secondary">
@@ -79,7 +79,7 @@ export function ContiSongItem({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      <div className="flex shrink-0 items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
         <Button
           variant="ghost"
           size="icon-sm"

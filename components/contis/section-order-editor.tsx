@@ -56,7 +56,7 @@ function SortableItem({ item, index, onRemove }: SortableItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`ring-foreground/10 flex items-center gap-3 rounded-lg bg-muted px-4 py-2 ring-1 ${
+      className={`ring-foreground/10 flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5 ring-1 ${
         isDragging ? 'opacity-50 shadow-lg' : ''
       }`}
     >
@@ -148,10 +148,10 @@ export function SectionOrderEditor({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <div className="mb-3 text-base font-medium">프리셋 섹션</div>
-        <div className="flex flex-wrap gap-2">
+        <div className="mb-2 text-base font-medium">프리셋 섹션</div>
+        <div className="flex flex-wrap gap-1.5">
           {PRESET_SECTIONS.map((preset) => (
             <Badge
               key={preset.value}
@@ -166,8 +166,8 @@ export function SectionOrderEditor({
       </div>
 
       <div>
-        <div className="mb-3 text-base font-medium">커스텀 섹션</div>
-        <div className="flex gap-3">
+        <div className="mb-2 text-base font-medium">커스텀 섹션</div>
+        <div className="flex gap-2">
           <Input
             value={customSection}
             onChange={(e) => setCustomSection(e.target.value)}
@@ -187,7 +187,7 @@ export function SectionOrderEditor({
       </div>
 
       <div>
-        <div className="mb-3 text-base font-medium">섹션 순서</div>
+        <div className="mb-2 text-base font-medium">섹션 순서</div>
         {items.length > 0 ? (
           <DndContext
             sensors={sensors}
@@ -198,7 +198,7 @@ export function SectionOrderEditor({
               items={items.map(item => item.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 {items.map((item, index) => (
                   <SortableItem
                     key={item.id}

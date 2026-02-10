@@ -1280,7 +1280,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   // Mobile guard
   if (isMobile) {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 py-24 text-center">
+      <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
         <p className="text-muted-foreground text-xl">
           이 기능은 PC에서 사용해주세요
         </p>
@@ -1311,7 +1311,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   return (
     <div className="flex flex-col gap-4">
       {/* Consolidated Toolbar */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-3">
         {/* Left: Song name */}
         <span className="text-base font-medium text-muted-foreground truncate min-w-0">
           {songName}
@@ -1431,7 +1431,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
       {/* Crop confirm/cancel toolbar */}
       {isCropMode && cropSelection && !isCropDragging && (
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-3">
           <span className="text-base text-muted-foreground">선택 영역을 조절한 후</span>
           <Button size="sm" onClick={handleCropConfirm}>
             자르기 확인
@@ -1449,7 +1449,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         if (!overlay) return null
         const typeLabel = overlay.type === 'songNumber' ? '곡 번호' : overlay.type === 'sectionOrder' ? '섹션 순서' : overlay.type === 'bpm' ? 'BPM' : '텍스트'
         return (
-          <div className="flex items-center justify-center gap-4" data-toolbar>
+          <div className="flex items-center justify-center gap-3" data-toolbar>
             <span className="text-base font-medium">{typeLabel}</span>
             <span className="text-base text-muted-foreground">글꼴 크기</span>
             <input
@@ -1459,14 +1459,14 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               step={1}
               value={overlay.fontSize}
               onChange={(e) => updateOverlay(selectedOverlayId, { fontSize: parseInt(e.target.value) || 14 })}
-              className="w-20 rounded border px-3 py-1.5 text-base"
+              className="w-16 rounded border px-2 py-1 text-base"
             />
             <span className="text-base text-muted-foreground">글꼴 색상</span>
             <input
               type="color"
               value={overlay.color ?? '#000000'}
               onChange={(e) => updateOverlay(selectedOverlayId, { color: e.target.value })}
-              className="h-10 w-10 rounded border cursor-pointer"
+              className="h-8 w-8 rounded border cursor-pointer"
             />
             {overlay.type === 'custom' && (
               <Button
@@ -1620,7 +1620,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             <div
               key={overlay.id}
               data-overlay
-              className={`absolute cursor-move select-none px-2 py-1 rounded transition-colors ${
+              className={`absolute cursor-move select-none px-1.5 py-0.5 rounded transition-colors ${
                 draggingId === overlay.id
                   ? 'border-2 border-blue-500 bg-blue-50/80'
                   : selectedOverlayId === overlay.id

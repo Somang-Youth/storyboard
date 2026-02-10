@@ -11,7 +11,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main className="ml-80 flex-1 p-8 min-w-0">{children}</main>
+      <main className="ml-64 flex-1 p-6 min-w-0">{children}</main>
       <aside
         ref={portalRef}
         className={cn(
