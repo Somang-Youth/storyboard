@@ -11,7 +11,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, backHref, children }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
+    <div className="flex items-start justify-between gap-3 mb-4">
       <div className="flex items-start gap-2">
         {backHref && (
           <Link
