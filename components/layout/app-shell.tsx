@@ -1,12 +1,15 @@
-"use client"
+"use client";
 
-import { Sidebar } from "@/components/layout/sidebar"
-import { DrawerProvider, useDrawerPortal } from "@/components/ui/drawer-context"
-import { SidebarHeaderProvider } from "@/components/layout/sidebar-header-context"
-import { cn } from "@/lib/utils"
+import { Sidebar } from "@/components/layout/sidebar";
+import {
+  DrawerProvider,
+  useDrawerPortal,
+} from "@/components/ui/drawer-context";
+import { SidebarHeaderProvider } from "@/components/layout/sidebar-header-context";
+import { cn } from "@/lib/utils";
 
 function AppShellInner({ children }: { children: React.ReactNode }) {
-  const { portalRef, isOpen } = useDrawerPortal()
+  const { portalRef, isOpen } = useDrawerPortal();
 
   return (
     <div className="flex min-h-screen">
@@ -24,11 +27,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           "md:sticky md:inset-auto md:top-0 md:z-auto md:h-screen md:max-h-none md:rounded-none md:border-l md:shadow-none",
           "md:transition-[width] md:duration-300 md:ease-in-out",
           "md:translate-y-0 md:pointer-events-auto",
-          isOpen ? "md:w-[384px]" : "md:w-0 md:border-l-0"
+          isOpen ? "md:w-[256px]" : "md:w-0 md:border-l-0",
         )}
       />
     </div>
-  )
+  );
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -38,5 +41,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <AppShellInner>{children}</AppShellInner>
       </SidebarHeaderProvider>
     </DrawerProvider>
-  )
+  );
 }
