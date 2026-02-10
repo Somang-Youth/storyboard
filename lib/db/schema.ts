@@ -33,6 +33,15 @@ export const songPresets = pgTable('song_presets', {
   updatedAt: timestamp('updated_at').notNull(),
 });
 
+export const presetSheetMusic = pgTable('preset_sheet_music', {
+  id: text('id').primaryKey(),
+  presetId: text('preset_id').notNull().references(() => songPresets.id, { onDelete: 'cascade' }),
+  sheetMusicFileId: text('sheet_music_file_id').notNull().references(() => sheetMusicFiles.id, { onDelete: 'cascade' }),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, (table) => [
+  uniqueIndex('preset_sheet_music_unique').on(table.presetId, table.sheetMusicFileId),
+]);
+
 export const contis = pgTable('contis', {
   id: text('id').primaryKey(),
   title: text('title'),
@@ -53,6 +62,7 @@ export const contiSongs = pgTable('conti_songs', {
   lyrics: text('lyrics'),
   sectionLyricsMap: text('section_lyrics_map'),
   notes: text('notes'),
+  sheetMusicFileIds: text('sheet_music_file_ids'),  // JSON string[] | null
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
 }, (table) => [
