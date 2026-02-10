@@ -84,7 +84,7 @@ export function PresetList({ songId, presets }: PresetListProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Button size="sm" onClick={handleCreateClick}>
           <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
@@ -93,11 +93,11 @@ export function PresetList({ songId, presets }: PresetListProps) {
       </div>
 
       {presets.length === 0 ? (
-        <p className="text-muted-foreground text-sm text-center py-8">
+        <p className="text-muted-foreground text-base text-center py-12">
           프리셋이 없습니다
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {presets.map((preset) => {
             const keys = parseJsonField<string[]>(preset.keys, [])
             const tempos = parseJsonField<number[]>(preset.tempos, [])
@@ -105,18 +105,18 @@ export function PresetList({ songId, presets }: PresetListProps) {
             return (
               <div
                 key={preset.id}
-                className="ring-foreground/10 rounded-lg bg-muted/30 p-4 ring-1"
+                className="ring-foreground/10 rounded-lg bg-muted/30 p-6 ring-1"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-3">
                       <h3 className="font-medium">{preset.name}</h3>
                       {preset.isDefault && (
                         <Badge variant="secondary">기본</Badge>
                       )}
                     </div>
 
-                    <div className="text-muted-foreground text-sm space-y-1">
+                    <div className="text-muted-foreground text-base space-y-1.5">
                       {keys.length > 0 && (
                         <div>
                           <span className="font-medium">조성:</span>{" "}
@@ -138,7 +138,7 @@ export function PresetList({ songId, presets }: PresetListProps) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     {!preset.isDefault && (
                       <Button
                         size="icon-sm"

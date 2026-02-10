@@ -47,20 +47,20 @@ export function LyricsEditor({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">가사 페이지</div>
+        <div className="text-base font-medium">가사 페이지</div>
         <Button size="xs" onClick={addPage}>
           <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
           페이지 추가
         </Button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {lyrics.map((lyric, index) => (
-          <div key={index} className="space-y-1.5">
+          <div key={index} className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-muted-foreground text-xs font-medium">
+              <label className="text-muted-foreground text-sm font-medium">
                 페이지 {index + 1}
               </label>
               <Button
@@ -81,7 +81,7 @@ export function LyricsEditor({
           </div>
         ))}
         {lyrics.length === 0 && (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-base">
             가사 페이지를 추가하세요
           </p>
         )}

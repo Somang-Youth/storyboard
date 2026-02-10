@@ -22,36 +22,36 @@ export function SongList({ songs }: SongListProps) {
   const showSearchEmptyState = !showEmptyState && filteredSongs.length === 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="relative">
         <HugeiconsIcon
           icon={SearchIcon}
           strokeWidth={2}
-          className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+          className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground"
         />
         <Input
           type="text"
           placeholder="곡 이름 검색..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
+          className="pl-12"
         />
       </div>
 
       {showEmptyState && (
-        <div className="text-center text-muted-foreground py-8">
+        <div className="text-center text-muted-foreground py-12">
           곡이 없습니다
         </div>
       )}
 
       {showSearchEmptyState && (
-        <div className="text-center text-muted-foreground py-8">
+        <div className="text-center text-muted-foreground py-12">
           검색 결과가 없습니다
         </div>
       )}
 
       {!showEmptyState && !showSearchEmptyState && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredSongs.map((song) => (
             <SongCard key={song.id} song={song} />
           ))}

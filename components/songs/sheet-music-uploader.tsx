@@ -86,7 +86,7 @@ export function SheetMusicUploader({ songId }: SheetMusicUploaderProps) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+      className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
         isDragging ? 'border-primary' : 'hover:border-primary/50'
       } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
     >
@@ -99,13 +99,13 @@ export function SheetMusicUploader({ songId }: SheetMusicUploaderProps) {
         onChange={handleFileChange}
         disabled={isUploading}
       />
-      <div className="flex flex-col items-center gap-2">
-        <HugeiconsIcon icon={Upload04Icon} className="size-8 text-muted-foreground" />
+      <div className="flex flex-col items-center gap-3">
+        <HugeiconsIcon icon={Upload04Icon} className="size-10 text-muted-foreground" />
         <div>
-          <p className="text-sm font-medium">
+          <p className="text-base font-medium">
             {isUploading ? '업로드 중...' : '악보 파일을 드래그하거나 클릭하여 업로드'}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1.5">
             PNG, JPG, WebP, PDF (최대 10MB)
           </p>
         </div>

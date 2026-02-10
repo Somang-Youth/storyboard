@@ -34,14 +34,14 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-64 fixed left-0 top-0 h-screen border-r bg-card flex flex-col">
-      <div className="p-4 border-b">
-        <Link href="/" className="text-lg font-bold">
+    <aside className="w-80 fixed left-0 top-0 h-screen border-r bg-card flex flex-col">
+      <div className="p-6 border-b">
+        <Link href="/" className="text-xl font-bold">
           Storyboard
         </Link>
       </div>
 
-      <nav className="flex-1 p-2 space-y-1">
+      <nav className="flex-1 p-3 space-y-1.5">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href)
           return (
@@ -49,23 +49,23 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-4 py-3 text-base font-medium transition-colors",
                 isActive
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <HugeiconsIcon icon={item.icon} strokeWidth={2} className="size-4" />
+              <HugeiconsIcon icon={item.icon} strokeWidth={2} className="size-5" />
               {item.label}
             </Link>
           )
         })}
       </nav>
 
-      <div className="p-2 border-t">
+      <div className="p-3 border-t">
         <Button
           variant="ghost"
-          className="w-full justify-start gap-2"
+          className="w-full justify-start gap-3"
           onClick={handleLogout}
         >
           <HugeiconsIcon icon={Logout01Icon} strokeWidth={2} />

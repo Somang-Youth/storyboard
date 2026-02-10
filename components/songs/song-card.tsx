@@ -18,7 +18,7 @@ export function SongCard({ song }: SongCardProps) {
       <Card className="hover:border-primary/50 transition-colors cursor-pointer">
         <CardHeader>
           <CardTitle>{song.name}</CardTitle>
-          <p className="text-sm text-muted-foreground">{formattedDate}</p>
+          <p className="text-base text-muted-foreground">{formattedDate}</p>
         </CardHeader>
       </Card>
     </Link>

@@ -1250,8 +1250,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   // Mobile guard
   if (isMobile) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-        <p className="text-muted-foreground text-lg">
+      <div className="flex flex-col items-center justify-center gap-6 py-24 text-center">
+        <p className="text-muted-foreground text-xl">
           이 기능은 PC에서 사용해주세요
         </p>
         <Button variant="outline" render={<Link href={`/contis/${conti.id}`} />}>
@@ -1264,11 +1264,11 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-8">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-            <div className="h-4 w-32 bg-muted animate-pulse rounded mt-2" />
+            <div className="h-10 w-56 bg-muted animate-pulse rounded" />
+            <div className="h-5 w-36 bg-muted animate-pulse rounded mt-3" />
           </div>
         </div>
         <div className="aspect-[1/1.414] w-full max-w-3xl mx-auto bg-muted animate-pulse rounded-lg" />
@@ -1282,13 +1282,13 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     : ''
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       {/* Header */}
       <PageHeader
         title="PDF 내보내기"
         description={`${conti.title || formatDate(conti.date)} - ${songName}`}
       >
-        <span className="text-muted-foreground text-sm">
+        <span className="text-muted-foreground text-base">
           {saveStatus === 'saved' && '저장됨'}
           {saveStatus === 'saving' && '저장 중...'}
           {saveStatus === 'unsaved' && '저장되지 않음'}
@@ -1325,7 +1325,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
       {/* Page Navigation */}
       {pages.length > 0 && (
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-6">
           <Button
             variant="outline"
             size="icon"
@@ -1334,7 +1334,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           >
             <HugeiconsIcon icon={ArrowLeftIcon} strokeWidth={2} />
           </Button>
-          <span className="text-sm text-muted-foreground tabular-nums">
+          <span className="text-base text-muted-foreground tabular-nums">
             {currentPageIndex + 1} / {pages.length}
           </span>
           <Button
@@ -1350,8 +1350,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
       {/* Image Transform Toolbar */}
       {currentPage?.imageUrl && (
-        <div className="flex items-center justify-center gap-3">
-          <span className="text-sm tabular-nums text-muted-foreground">{currentPage.imageScale.toFixed(1)}x</span>
+        <div className="flex items-center justify-center gap-4">
+          <span className="text-base tabular-nums text-muted-foreground">{currentPage.imageScale.toFixed(1)}x</span>
           <Button
             variant="outline"
             size="sm"
@@ -1400,8 +1400,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
       {/* Crop confirm/cancel toolbar */}
       {isCropMode && cropSelection && !isCropDragging && (
-        <div className="flex items-center justify-center gap-3">
-          <span className="text-sm text-muted-foreground">선택 영역을 조절한 후</span>
+        <div className="flex items-center justify-center gap-4">
+          <span className="text-base text-muted-foreground">선택 영역을 조절한 후</span>
           <Button size="sm" onClick={handleCropConfirm}>
             자르기 확인
           </Button>
@@ -1418,9 +1418,9 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         if (!overlay) return null
         const typeLabel = overlay.type === 'songNumber' ? '곡 번호' : overlay.type === 'sectionOrder' ? '섹션 순서' : 'BPM'
         return (
-          <div className="flex items-center justify-center gap-3" data-toolbar>
-            <span className="text-sm font-medium">{typeLabel}</span>
-            <span className="text-sm text-muted-foreground">글꼴 크기</span>
+          <div className="flex items-center justify-center gap-4" data-toolbar>
+            <span className="text-base font-medium">{typeLabel}</span>
+            <span className="text-base text-muted-foreground">글꼴 크기</span>
             <input
               type="number"
               min={8}
@@ -1428,14 +1428,14 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               step={1}
               value={overlay.fontSize}
               onChange={(e) => updateOverlay(selectedOverlayId, { fontSize: parseInt(e.target.value) || 14 })}
-              className="w-16 rounded border px-2 py-1 text-sm"
+              className="w-20 rounded border px-3 py-1.5 text-base"
             />
-            <span className="text-sm text-muted-foreground">글꼴 색상</span>
+            <span className="text-base text-muted-foreground">글꼴 색상</span>
             <input
               type="color"
               value={overlay.color ?? '#000000'}
               onChange={(e) => updateOverlay(selectedOverlayId, { color: e.target.value })}
-              className="h-8 w-8 rounded border cursor-pointer"
+              className="h-10 w-10 rounded border cursor-pointer"
             />
           </div>
         )
@@ -1512,7 +1512,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                     return (
                       <div
                         key={corner}
-                        className="absolute z-20 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm cursor-nwse-resize"
+                        className="absolute z-20 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm cursor-nwse-resize"
                         style={{
                           left: `${isLeft ? Math.min(cropSelection.startX, cropSelection.endX) : Math.max(cropSelection.startX, cropSelection.endX)}%`,
                           top: `${isTop ? Math.min(cropSelection.startY, cropSelection.endY) : Math.max(cropSelection.startY, cropSelection.endY)}%`,
@@ -1567,7 +1567,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             <div
               key={overlay.id}
               data-overlay
-              className={`absolute cursor-move select-none px-1.5 py-0.5 rounded transition-colors ${
+              className={`absolute cursor-move select-none px-2 py-1 rounded transition-colors ${
                 draggingId === overlay.id
                   ? 'border-2 border-blue-500 bg-blue-50/80'
                   : selectedOverlayId === overlay.id
@@ -1633,7 +1633,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               return (
                 <div
                   key={`resize-${corner}`}
-                  className="absolute z-10 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm"
+                  className="absolute z-10 w-4 h-4 bg-white border-2 border-blue-500 rounded-sm"
                   style={{
                     left: `${isLeft ? bounds.left : bounds.right}%`,
                     top: `${isTop ? bounds.top : bounds.bottom}%`,
@@ -1652,16 +1652,16 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
       {exporting && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg px-8 py-6 text-center">
-            <p className="text-lg font-medium">PDF를 생성하는 중...</p>
-            <p className="text-muted-foreground text-sm mt-2">잠시만 기다려주세요</p>
+          <div className="bg-white rounded-lg px-10 py-8 text-center">
+            <p className="text-xl font-medium">PDF를 생성하는 중...</p>
+            <p className="text-muted-foreground text-base mt-3">잠시만 기다려주세요</p>
           </div>
         </div>
       )}
 
       {pages.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-12 text-center">
-          <p className="text-muted-foreground text-sm">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
+          <p className="text-muted-foreground text-base">
             이 콘티에 악보가 없습니다. 먼저 곡에 악보를 추가해주세요.
           </p>
         </div>

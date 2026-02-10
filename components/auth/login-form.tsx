@@ -42,13 +42,13 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-lg">
       <CardHeader>
         <CardTitle>로그인</CardTitle>
         <CardDescription>비밀번호를 입력하세요</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <Field>
             <FieldLabel htmlFor="password">비밀번호</FieldLabel>
             <Input

@@ -16,7 +16,7 @@ export default async function EditContiPage({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <PageHeader title="콘티 편집" />
       <ContiForm conti={conti} />
     </div>

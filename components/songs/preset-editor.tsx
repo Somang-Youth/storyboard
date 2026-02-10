@@ -129,14 +129,14 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{preset ? "프리셋 편집" : "프리셋 추가"}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <label htmlFor="preset-name" className="text-sm font-medium">
+        <div className="space-y-8">
+          <div className="space-y-3">
+            <label htmlFor="preset-name" className="text-base font-medium">
               프리셋 이름 <span className="text-destructive">*</span>
             </label>
             <Input
@@ -148,8 +148,8 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
             />
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold">조성 및 템포</h3>
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold">조성 및 템포</h3>
             <KeyTempoEditor
               initialKeys={keys}
               initialTempos={tempos}
@@ -157,24 +157,24 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
             />
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold">섹션 순서</h3>
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold">섹션 순서</h3>
             <SectionOrderEditor
               initialSectionOrder={sectionOrder}
               onSave={handleSectionOrderSave}
             />
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold">가사</h3>
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold">가사</h3>
             <LyricsEditor
               initialLyrics={lyrics}
               onSave={handleLyricsSave}
             />
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold">섹션-가사 매핑</h3>
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold">섹션-가사 매핑</h3>
             <SectionLyricsMapper
               sectionOrder={sectionOrder}
               lyrics={lyrics}
@@ -183,8 +183,8 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
             />
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="preset-notes" className="text-sm font-medium">
+          <div className="space-y-3">
+            <label htmlFor="preset-notes" className="text-base font-medium">
               메모
             </label>
             <Textarea
@@ -196,20 +196,20 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <input
               type="checkbox"
               id="preset-default"
               checked={isDefault}
               onChange={(e) => setIsDefault(e.target.checked)}
-              className="size-4 cursor-pointer rounded"
+              className="size-5 cursor-pointer rounded"
             />
-            <label htmlFor="preset-default" className="text-sm cursor-pointer">
+            <label htmlFor="preset-default" className="text-base cursor-pointer">
               기본 프리셋으로 설정
             </label>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="flex justify-end gap-3 pt-6">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               취소
             </Button>

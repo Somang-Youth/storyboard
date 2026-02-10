@@ -61,10 +61,10 @@ export function SectionOrderEditor({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <div className="mb-2 text-sm font-medium">프리셋 섹션</div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="mb-3 text-base font-medium">프리셋 섹션</div>
+        <div className="flex flex-wrap gap-2">
           {PRESET_SECTIONS.map((preset) => (
             <Badge
               key={preset.value}
@@ -79,8 +79,8 @@ export function SectionOrderEditor({
       </div>
 
       <div>
-        <div className="mb-2 text-sm font-medium">커스텀 섹션</div>
-        <div className="flex gap-2">
+        <div className="mb-3 text-base font-medium">커스텀 섹션</div>
+        <div className="flex gap-3">
           <Input
             value={customSection}
             onChange={(e) => setCustomSection(e.target.value)}
@@ -100,18 +100,18 @@ export function SectionOrderEditor({
       </div>
 
       <div>
-        <div className="mb-2 text-sm font-medium">섹션 순서</div>
+        <div className="mb-3 text-base font-medium">섹션 순서</div>
         {sectionOrder.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {sectionOrder.map((section, index) => (
               <div
                 key={index}
-                className="ring-foreground/10 flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5 ring-1"
+                className="ring-foreground/10 flex items-center gap-3 rounded-lg bg-muted px-4 py-2 ring-1"
               >
-                <span className="text-muted-foreground text-xs font-medium">
+                <span className="text-muted-foreground text-sm font-medium">
                   {index}
                 </span>
-                <span className="text-sm">{section}</span>
+                <span className="text-base">{section}</span>
                 <button
                   onClick={() => removeSection(index)}
                   className="text-muted-foreground hover:text-foreground ml-1"
@@ -120,14 +120,14 @@ export function SectionOrderEditor({
                   <HugeiconsIcon
                     icon={Delete01Icon}
                     strokeWidth={2}
-                    className="size-3.5"
+                    className="size-5"
                   />
                 </button>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">섹션을 추가하세요</p>
+          <p className="text-muted-foreground text-base">섹션을 추가하세요</p>
         )}
       </div>
 
