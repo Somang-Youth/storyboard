@@ -72,7 +72,7 @@ export function Drawer({
   if (!mounted || !portalRef.current) return null;
 
   const drawerContent = (
-    <div className="flex h-full min-w-0 md:min-w-[256px] flex-col">
+    <div className="flex h-full min-w-0 md:min-w-[20%] flex-col">
       {/* Mobile drag handle */}
       <div className="flex justify-center pt-3 pb-2 md:hidden">
         <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
