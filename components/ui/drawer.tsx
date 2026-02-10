@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -11,12 +11,13 @@ import { useDrawerPortal } from "./drawer-context"
 interface DrawerProps {
   open: boolean
   onClose: () => void
+  onBeforeClose?: () => boolean
   title: string
   footer?: React.ReactNode
   children: React.ReactNode
 }
 
-export function Drawer({ open, onClose, title, footer, children }: DrawerProps) {
+export function Drawer({ open, onClose, onBeforeClose, title, footer, children }: DrawerProps) {
   const { portalRef, setIsOpen } = useDrawerPortal()
   const [mounted, setMounted] = useState(false)
 
@@ -40,19 +41,26 @@ export function Drawer({ open, onClose, title, footer, children }: DrawerProps) 
     }
   }, [open])
 
+  const handleClose = useCallback(() => {
+    if (onBeforeClose && !onBeforeClose()) {
+      return
+    }
+    onClose()
+  }, [onBeforeClose, onClose])
+
   // ESC key handler
   useEffect(() => {
     if (!open) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose()
+        handleClose()
       }
     }
 
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [open, onClose])
+  }, [open, handleClose])
 
   if (!mounted || !portalRef.current) return null
 
@@ -69,7 +77,7 @@ export function Drawer({ open, onClose, title, footer, children }: DrawerProps) 
         <Button
           variant="ghost"
           size="icon"
-          onClick={onClose}
+          onClick={handleClose}
           className="size-9 rounded-full"
         >
           <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-5" />
@@ -99,7 +107,7 @@ export function Drawer({ open, onClose, title, footer, children }: DrawerProps) 
           "fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 md:hidden",
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden="true"
       />
 

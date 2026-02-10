@@ -1,25 +1,36 @@
 "use client"
 
-import { useState } from "react"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
+import { useState, useRef, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 interface SectionLyricsMapperProps {
   sectionOrder: string[]
   lyrics: string[]
   initialMap: Record<number, number[]>
-  onSave: (data: { sectionLyricsMap: Record<number, number[]> }) => Promise<{ success: boolean; error?: string }>
+  onChange: (data: { sectionLyricsMap: Record<number, number[]> }) => void
 }
 
 export function SectionLyricsMapper({
   sectionOrder,
   lyrics,
   initialMap,
-  onSave,
+  onChange,
 }: SectionLyricsMapperProps) {
   const [sectionLyricsMap, setSectionLyricsMap] =
     useState<Record<number, number[]>>(initialMap)
-  const [isPending, setIsPending] = useState(false)
+
+  const onChangeRef = useRef(onChange)
+  useEffect(() => {
+    onChangeRef.current = onChange
+  })
+
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    onChangeRef.current({ sectionLyricsMap })
+  }, [sectionLyricsMap])
 
   const toggleLyricsForSection = (sectionIndex: number, lyricsIndex: number) => {
     const currentLyrics = sectionLyricsMap[sectionIndex] || []
@@ -36,20 +47,6 @@ export function SectionLyricsMapper({
         ...sectionLyricsMap,
         [sectionIndex]: newLyrics,
       })
-    }
-  }
-
-  const handleSave = async () => {
-    setIsPending(true)
-    try {
-      const result = await onSave({ sectionLyricsMap })
-      if (result.success) {
-        toast.success("섹션-가사 매핑이 저장되었습니다")
-      } else {
-        toast.error(result.error)
-      }
-    } finally {
-      setIsPending(false)
     }
   }
 
@@ -143,10 +140,6 @@ export function SectionLyricsMapper({
           })}
         </div>
       </div>
-
-      <Button onClick={handleSave} disabled={isPending} className="w-full">
-        저장
-      </Button>
     </div>
   )
 }

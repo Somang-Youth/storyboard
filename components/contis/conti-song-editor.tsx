@@ -1,18 +1,26 @@
 "use client"
 
-import { useState, useTransition, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Drawer } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { KeyTempoEditor } from "./key-tempo-editor"
-import { SectionOrderEditor } from "./section-order-editor"
-import { LyricsEditor } from "./lyrics-editor"
-import { SectionLyricsMapper } from "./section-lyrics-mapper"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog"
+import { OverrideEditorFields } from "@/components/shared/override-editor-fields"
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { updateContiSong, saveContiSongAsPreset } from "@/lib/actions/conti-songs"
 import { getPresetsForSong } from "@/lib/actions/song-presets"
-import type { ContiSongWithSong, SongPreset, ContiSongOverrides } from "@/lib/types"
+import type { ContiSongWithSong, SongPreset } from "@/lib/types"
 
 interface ContiSongEditorProps {
   contiSong: ContiSongWithSong
@@ -26,37 +34,47 @@ export function ContiSongEditor({
   onOpenChange,
 }: ContiSongEditorProps) {
   const router = useRouter()
+  const { id, overrides } = contiSong
+
+  // Local state for all override fields (batch save)
+  const [keys, setKeys] = useState<string[]>(overrides.keys)
+  const [tempos, setTempos] = useState<number[]>(overrides.tempos)
+  const [sectionOrder, setSectionOrder] = useState<string[]>(overrides.sectionOrder)
+  const [lyrics, setLyrics] = useState<string[]>(overrides.lyrics)
+  const [sectionLyricsMap, setSectionLyricsMap] = useState<Record<number, number[]>>(overrides.sectionLyricsMap)
+  const [notes, setNotes] = useState<string | null>(overrides.notes)
+
+  // Unsaved changes tracking
+  const { isDirty, markDirty, reset: resetDirty } = useUnsavedChanges(overrides)
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+
+  // Pending states
+  const [isSaving, setIsSaving] = useState(false)
+  const [isPresetSaving, setIsPresetSaving] = useState(false)
+
+  // Preset management
   const [showPresetSave, setShowPresetSave] = useState(false)
   const [presetName, setPresetName] = useState("")
   const [presets, setPresets] = useState<SongPreset[]>([])
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
   const [editorKey, setEditorKey] = useState(0)
 
-  function handleLoadPreset(preset: SongPreset) {
-    if (!confirm(`"${preset.name}" 프리셋을 불러오면 현재 설정이 덮어씌워집니다. 계속하시겠습니까?`)) {
-      return
+  // Initialize state from contiSong when drawer opens
+  useEffect(() => {
+    if (open) {
+      setKeys(overrides.keys)
+      setTempos(overrides.tempos)
+      setSectionOrder(overrides.sectionOrder)
+      setLyrics(overrides.lyrics)
+      setSectionLyricsMap(overrides.sectionLyricsMap)
+      setNotes(overrides.notes)
+      resetDirty()
+      setEditorKey(k => k + 1)
     }
-    startTransition(async () => {
-      const overrides: Partial<ContiSongOverrides> = {
-        keys: preset.keys ? JSON.parse(preset.keys) : [],
-        tempos: preset.tempos ? JSON.parse(preset.tempos) : [],
-        sectionOrder: preset.sectionOrder ? JSON.parse(preset.sectionOrder) : [],
-        lyrics: preset.lyrics ? JSON.parse(preset.lyrics) : [],
-        sectionLyricsMap: preset.sectionLyricsMap ? JSON.parse(preset.sectionLyricsMap) : {},
-        notes: preset.notes,
-      }
-      const result = await updateContiSong(contiSong.id, overrides)
-      if (result.success) {
-        toast.success(`"${preset.name}" 프리셋을 불러왔습니다`)
-        setEditorKey(k => k + 1)
-        router.refresh()
-      } else {
-        toast.error(result.error ?? "프리셋 불러오기 중 오류가 발생했습니다")
-      }
-    })
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contiSong.id])
 
+  // Fetch presets when drawer opens
   useEffect(() => {
     if (open) {
       getPresetsForSong(contiSong.songId).then(result => {
@@ -67,157 +85,242 @@ export function ContiSongEditor({
     }
   }, [open, contiSong.songId])
 
-  const { id, overrides } = contiSong
+  // onChange handlers that update state AND mark dirty
+  const handleKeysTemposChange = (data: { keys: string[]; tempos: number[] }) => {
+    setKeys(data.keys)
+    setTempos(data.tempos)
+    markDirty()
+  }
+
+  const handleSectionOrderChange = (data: { sectionOrder: string[] }) => {
+    setSectionOrder(data.sectionOrder)
+    markDirty()
+  }
+
+  const handleLyricsChange = (data: { lyrics: string[] }) => {
+    setLyrics(data.lyrics)
+    markDirty()
+  }
+
+  const handleSectionLyricsMapChange = (data: { sectionLyricsMap: Record<number, number[]> }) => {
+    setSectionLyricsMap(data.sectionLyricsMap)
+    markDirty()
+  }
+
+  const handleNotesChange = (newNotes: string | null) => {
+    setNotes(newNotes)
+    markDirty()
+  }
+
+  // Batch save
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const result = await updateContiSong(id, {
+        keys, tempos, sectionOrder, lyrics, sectionLyricsMap, notes,
+      })
+      if (result.success) {
+        toast.success("곡 설정이 저장되었습니다")
+        resetDirty()
+        router.refresh()
+      } else {
+        toast.error(result.error)
+      }
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Close with unsaved changes check
+  const handleClose = () => {
+    if (isDirty) {
+      setShowUnsavedDialog(true)
+    } else {
+      onOpenChange(false)
+    }
+  }
+
+  // Preset load — updates local state only (no server action)
+  function handleLoadPreset(preset: SongPreset) {
+    if (!confirm(`"${preset.name}" 프리셋을 불러오면 현재 설정이 덮어씌워집니다. 계속하시겠습니까?`)) {
+      return
+    }
+    setKeys(preset.keys ? JSON.parse(preset.keys) : [])
+    setTempos(preset.tempos ? JSON.parse(preset.tempos) : [])
+    setSectionOrder(preset.sectionOrder ? JSON.parse(preset.sectionOrder) : [])
+    setLyrics(preset.lyrics ? JSON.parse(preset.lyrics) : [])
+    setSectionLyricsMap(preset.sectionLyricsMap ? JSON.parse(preset.sectionLyricsMap) : {})
+    setNotes(preset.notes)
+    setEditorKey(k => k + 1)
+    markDirty()
+    toast.success(`"${preset.name}" 프리셋을 불러왔습니다`)
+  }
 
   return (
-    <Drawer
-      open={open}
-      onClose={() => onOpenChange(false)}
-      title="곡 편집"
-      footer={
-        <Button className="w-full" variant="outline" onClick={() => onOpenChange(false)}>
-          닫기
-        </Button>
-      }
-    >
-      <div className="space-y-8">
-        <div>
-          <h3 className="mb-4 text-base font-medium">프리셋 관리</h3>
-          {presets.length > 0 && (
-            <div className="mb-4">
-              <label className="text-sm text-muted-foreground mb-1.5 block">프리셋 불러오기</label>
-              <div className="flex flex-col gap-1.5">
-                {presets.map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-base transition-colors disabled:opacity-50"
-                    onClick={() => handleLoadPreset(p)}
-                    disabled={isPending}
-                  >
-                    <span className="truncate font-medium">{p.name}</span>
-                    {p.isDefault && (
-                      <span className="text-sm text-muted-foreground">기본</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {!showPresetSave ? (
-            <Button variant="outline" size="sm" onClick={() => setShowPresetSave(true)}>
-              프리셋으로 저장
+    <>
+      <Drawer
+        open={open}
+        onClose={() => onOpenChange(false)}
+        onBeforeClose={() => {
+          if (isDirty) {
+            setShowUnsavedDialog(true)
+            return false
+          }
+          return true
+        }}
+        title="곡 편집"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={handleClose}>
+              취소
             </Button>
-          ) : (
-            <div className="space-y-4">
-              {presets.length > 0 && (
+            <Button className="flex-1" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "저장 중..." : "저장"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-8">
+          <div>
+            <h3 className="mb-4 text-base font-medium">프리셋 관리</h3>
+            {presets.length > 0 && (
+              <div className="mb-4">
+                <label className="text-sm text-muted-foreground mb-1.5 block">프리셋 불러오기</label>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-sm text-muted-foreground">기존 프리셋 업데이트</label>
-                  <select
-                    className="rounded border px-3 py-1.5 text-base"
-                    value={selectedPresetId ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value || null
-                      setSelectedPresetId(val)
-                      if (val) {
-                        const preset = presets.find(p => p.id === val)
-                        if (preset) setPresetName(preset.name)
-                      } else {
-                        setPresetName("")
-                      }
-                    }}
-                  >
-                    <option value="">새 프리셋 만들기</option>
-                    {presets.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}{p.isDefault ? " (기본)" : ""}</option>
-                    ))}
-                  </select>
+                  {presets.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-base transition-colors disabled:opacity-50"
+                      onClick={() => handleLoadPreset(p)}
+                      disabled={isSaving}
+                    >
+                      <span className="truncate font-medium">{p.name}</span>
+                      {p.isDefault && (
+                        <span className="text-sm text-muted-foreground">기본</span>
+                      )}
+                    </button>
+                  ))}
                 </div>
-              )}
-              <Input
-                placeholder="프리셋 이름"
-                value={presetName}
-                onChange={(e) => setPresetName(e.target.value)}
-              />
-              <div className="flex gap-3">
-                <Button
-                  size="sm"
-                  disabled={!presetName.trim() || isPending}
-                  onClick={() => {
-                    startTransition(async () => {
-                      const result = await saveContiSongAsPreset(
+              </div>
+            )}
+            {!showPresetSave ? (
+              <Button variant="outline" size="sm" onClick={() => setShowPresetSave(true)}>
+                프리셋으로 저장
+              </Button>
+            ) : (
+              <div className="space-y-4">
+                {presets.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm text-muted-foreground">기존 프리셋 업데이트</label>
+                    <select
+                      className="rounded border px-3 py-1.5 text-base"
+                      value={selectedPresetId ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value || null
+                        setSelectedPresetId(val)
+                        if (val) {
+                          const preset = presets.find(p => p.id === val)
+                          if (preset) setPresetName(preset.name)
+                        } else {
+                          setPresetName("")
+                        }
+                      }}
+                    >
+                      <option value="">새 프리셋 만들기</option>
+                      {presets.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}{p.isDefault ? " (기본)" : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <Input
+                  placeholder="프리셋 이름"
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                />
+                <div className="flex gap-3">
+                  <Button
+                    size="sm"
+                    disabled={!presetName.trim() || isPresetSaving}
+                    onClick={() => {
+                      if (isDirty) {
+                        toast.error("먼저 저장을 눌러 변경사항을 반영한 후 프리셋으로 저장하세요.")
+                        return
+                      }
+                      setIsPresetSaving(true)
+                      saveContiSongAsPreset(
                         contiSong.id,
                         presetName.trim(),
                         selectedPresetId ?? undefined
-                      )
-                      if (result.success) {
-                        toast.success(selectedPresetId ? "프리셋이 업데이트되었습니다" : "새 프리셋이 저장되었습니다")
-                        setShowPresetSave(false)
-                        setPresetName("")
-                        setSelectedPresetId(null)
-                        const refreshed = await getPresetsForSong(contiSong.songId)
-                        if (refreshed.success && refreshed.data) setPresets(refreshed.data)
-                      } else {
-                        toast.error(result.error ?? "프리셋 저장 중 오류가 발생했습니다")
-                      }
-                    })
-                  }}
-                >
-                  {isPending ? "저장 중..." : (selectedPresetId ? "프리셋 업데이트" : "프리셋 저장")}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => { setShowPresetSave(false); setPresetName(""); setSelectedPresetId(null) }}>
-                  취소
-                </Button>
+                      ).then(async (result) => {
+                        if (result.success) {
+                          toast.success(selectedPresetId ? "프리셋이 업데이트되었습니다" : "새 프리셋이 저장되었습니다")
+                          setShowPresetSave(false)
+                          setPresetName("")
+                          setSelectedPresetId(null)
+                          const refreshed = await getPresetsForSong(contiSong.songId)
+                          if (refreshed.success && refreshed.data) setPresets(refreshed.data)
+                        } else {
+                          toast.error(result.error ?? "프리셋 저장 중 오류가 발생했습니다")
+                        }
+                      }).finally(() => {
+                        setIsPresetSaving(false)
+                      })
+                    }}
+                  >
+                    {isPresetSaving ? "저장 중..." : (selectedPresetId ? "프리셋 업데이트" : "프리셋 저장")}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setShowPresetSave(false); setPresetName(""); setSelectedPresetId(null) }}>
+                    취소
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        <div className="border-t" />
-
-        <div key={editorKey}>
-          <div>
-            <h3 className="mb-4 text-base font-medium">조성 및 템포</h3>
-            <KeyTempoEditor
-              initialKeys={overrides.keys}
-              initialTempos={overrides.tempos}
-              onSave={(data) => updateContiSong(id, data)}
-            />
+            )}
           </div>
 
-          <div className="border-t my-8" />
+          <div className="border-t" />
 
-          <div>
-            <h3 className="mb-4 text-base font-medium">섹션 순서</h3>
-            <SectionOrderEditor
-              initialSectionOrder={overrides.sectionOrder}
-              onSave={(data) => updateContiSong(id, data)}
-            />
-          </div>
-
-          <div className="border-t my-8" />
-
-          <div>
-            <h3 className="mb-4 text-base font-medium">가사 페이지</h3>
-            <LyricsEditor
-              initialLyrics={overrides.lyrics}
-              onSave={(data) => updateContiSong(id, data)}
-            />
-          </div>
-
-          <div className="border-t my-8" />
-
-          <div>
-            <h3 className="mb-4 text-base font-medium">섹션-가사 매핑</h3>
-            <SectionLyricsMapper
-              sectionOrder={overrides.sectionOrder}
-              lyrics={overrides.lyrics}
-              initialMap={overrides.sectionLyricsMap}
-              onSave={(data) => updateContiSong(id, data)}
+          <div key={editorKey}>
+            <OverrideEditorFields
+              keys={keys}
+              tempos={tempos}
+              sectionOrder={sectionOrder}
+              lyrics={lyrics}
+              sectionLyricsMap={sectionLyricsMap}
+              notes={notes}
+              onKeysTemposChange={handleKeysTemposChange}
+              onSectionOrderChange={handleSectionOrderChange}
+              onLyricsChange={handleLyricsChange}
+              onSectionLyricsMapChange={handleSectionLyricsMapChange}
+              onNotesChange={handleNotesChange}
             />
           </div>
         </div>
-      </div>
-    </Drawer>
+      </Drawer>
+
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>저장하지 않은 변경사항</AlertDialogTitle>
+            <AlertDialogDescription>
+              저장하지 않은 변경사항이 있습니다. 저장하지 않고 닫으시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowUnsavedDialog(false)}>
+              계속 편집
+            </AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => {
+              setShowUnsavedDialog(false)
+              resetDirty()
+              onOpenChange(false)
+            }}>
+              저장하지 않고 닫기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { toast } from "sonner"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -15,7 +14,7 @@ import { nanoid } from 'nanoid'
 
 interface SectionOrderEditorProps {
   initialSectionOrder: string[]
-  onSave: (data: { sectionOrder: string[] }) => Promise<{ success: boolean; error?: string }>
+  onChange: (data: { sectionOrder: string[] }) => void
 }
 
 interface SectionItem {
@@ -93,13 +92,26 @@ function SortableItem({ item, index, onRemove }: SortableItemProps) {
 
 export function SectionOrderEditor({
   initialSectionOrder,
-  onSave,
+  onChange,
 }: SectionOrderEditorProps) {
   const [items, setItems] = useState<SectionItem[]>(
     initialSectionOrder.map(name => ({ id: nanoid(), name }))
   )
   const [customSection, setCustomSection] = useState("")
-  const [isPending, setIsPending] = useState(false)
+
+  const onChangeRef = useRef(onChange)
+  useEffect(() => {
+    onChangeRef.current = onChange
+  })
+
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    onChangeRef.current({ sectionOrder: items.map(i => i.name) })
+  }, [items])
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -132,20 +144,6 @@ export function SectionOrderEditor({
         const newIndex = items.findIndex(item => item.id === over.id)
         return arrayMove(items, oldIndex, newIndex)
       })
-    }
-  }
-
-  const handleSave = async () => {
-    setIsPending(true)
-    try {
-      const result = await onSave({ sectionOrder: items.map(i => i.name) })
-      if (result.success) {
-        toast.success("섹션 순서가 저장되었습니다")
-      } else {
-        toast.error(result.error)
-      }
-    } finally {
-      setIsPending(false)
     }
   }
 
@@ -216,10 +214,6 @@ export function SectionOrderEditor({
           <p className="text-muted-foreground text-base">섹션을 추가하세요</p>
         )}
       </div>
-
-      <Button onClick={handleSave} disabled={isPending} className="w-full">
-        저장
-      </Button>
     </div>
   )
 }

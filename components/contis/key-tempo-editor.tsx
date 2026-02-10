@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { toast } from "sonner"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +9,7 @@ import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
 interface KeyTempoEditorProps {
   initialKeys: string[]
   initialTempos: number[]
-  onSave: (data: { keys: string[]; tempos: number[] }) => Promise<{ success: boolean; error?: string }>
+  onChange: (data: { keys: string[]; tempos: number[] }) => void
 }
 
 const COMMON_KEYS = ["C", "D", "E", "F", "G", "A", "B"]
@@ -18,11 +17,24 @@ const COMMON_KEYS = ["C", "D", "E", "F", "G", "A", "B"]
 export function KeyTempoEditor({
   initialKeys,
   initialTempos,
-  onSave,
+  onChange,
 }: KeyTempoEditorProps) {
   const [keys, setKeys] = useState<string[]>(initialKeys)
   const [tempos, setTempos] = useState<number[]>(initialTempos)
-  const [isPending, setIsPending] = useState(false)
+
+  const onChangeRef = useRef(onChange)
+  useEffect(() => {
+    onChangeRef.current = onChange
+  })
+
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    onChangeRef.current({ keys, tempos })
+  }, [keys, tempos])
 
   const addKey = (key?: string) => {
     setKeys([...keys, key ?? ""])
@@ -50,20 +62,6 @@ export function KeyTempoEditor({
     const newTempos = [...tempos]
     newTempos[index] = value
     setTempos(newTempos)
-  }
-
-  const handleSave = async () => {
-    setIsPending(true)
-    try {
-      const result = await onSave({ keys, tempos })
-      if (result.success) {
-        toast.success("조성 및 템포가 저장되었습니다")
-      } else {
-        toast.error(result.error)
-      }
-    } finally {
-      setIsPending(false)
-    }
   }
 
   return (
@@ -153,10 +151,6 @@ export function KeyTempoEditor({
           )}
         </div>
       </div>
-
-      <Button onClick={handleSave} disabled={isPending} className="w-full">
-        저장
-      </Button>
     </div>
   )
 }
