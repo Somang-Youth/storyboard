@@ -1,11 +1,12 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import type { songs, sheetMusicFiles, contis, contiSongs, songPresets, contiPdfExports, songPageImages } from './db/schema';
+import type { songs, sheetMusicFiles, contis, contiSongs, songPresets, contiPdfExports, songPageImages, presetSheetMusic } from './db/schema';
 
 export type Song = InferSelectModel<typeof songs>;
 export type SheetMusicFile = InferSelectModel<typeof sheetMusicFiles>;
 export type Conti = InferSelectModel<typeof contis>;
 export type ContiSong = InferSelectModel<typeof contiSongs>;
 export type SongPreset = InferSelectModel<typeof songPresets>;
+export type PresetSheetMusic = InferSelectModel<typeof presetSheetMusic>;
 
 export interface ContiSongOverrides {
   keys: string[];
@@ -14,6 +15,7 @@ export interface ContiSongOverrides {
   lyrics: string[];
   sectionLyricsMap: Record<number, number[]>;
   notes: string | null;
+  sheetMusicFileIds: string[] | null;  // null = use all
 }
 
 export interface SongPresetData {
@@ -25,11 +27,16 @@ export interface SongPresetData {
   sectionLyricsMap: Record<number, number[]>;
   notes: string | null;
   isDefault: boolean;
+  sheetMusicFileIds?: string[];  // references to sheet_music_files.id
 }
 
 export interface SongWithSheetMusic extends Song {
   sheetMusic: SheetMusicFile[];
   presets?: SongPreset[];
+}
+
+export interface SongPresetWithSheetMusic extends SongPreset {
+  sheetMusicFileIds: string[];
 }
 
 export interface ContiSongWithSong extends ContiSong {

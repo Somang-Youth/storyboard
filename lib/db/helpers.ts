@@ -18,6 +18,7 @@ export function parseContiSongOverrides(raw: {
   lyrics: string | null;
   sectionLyricsMap: string | null;
   notes: string | null;
+  sheetMusicFileIds?: string | null;
 }) {
   return {
     keys: parseJsonColumn<string[]>(raw.keys, []),
@@ -26,6 +27,7 @@ export function parseContiSongOverrides(raw: {
     lyrics: parseJsonColumn<string[]>(raw.lyrics, []),
     sectionLyricsMap: parseJsonColumn<Record<number, number[]>>(raw.sectionLyricsMap, {}),
     notes: raw.notes,
+    sheetMusicFileIds: raw.sheetMusicFileIds ? parseJsonColumn<string[]>(raw.sheetMusicFileIds, []) : null,
   };
 }
 
@@ -36,6 +38,7 @@ export function stringifyContiSongOverrides(data: {
   lyrics?: string[];
   sectionLyricsMap?: Record<number, number[]>;
   notes?: string | null;
+  sheetMusicFileIds?: string[] | null;
 }) {
   return {
     ...(data.keys !== undefined && { keys: stringifyJsonColumn(data.keys) }),
@@ -44,6 +47,9 @@ export function stringifyContiSongOverrides(data: {
     ...(data.lyrics !== undefined && { lyrics: stringifyJsonColumn(data.lyrics) }),
     ...(data.sectionLyricsMap !== undefined && { sectionLyricsMap: stringifyJsonColumn(data.sectionLyricsMap) }),
     ...(data.notes !== undefined && { notes: data.notes }),
+    ...(data.sheetMusicFileIds !== undefined && {
+      sheetMusicFileIds: data.sheetMusicFileIds ? stringifyJsonColumn(data.sheetMusicFileIds) : null
+    }),
   };
 }
 
