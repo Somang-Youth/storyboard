@@ -31,7 +31,7 @@ export default async function ContiDetailPage({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <PageHeader title={conti.title || formatDate(conti.date)} description={formatDate(conti.date)}>
         <Button variant="outline" render={<Link href={`/contis/${conti.id}/export`} />}>
           <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} data-icon="inline-start" />

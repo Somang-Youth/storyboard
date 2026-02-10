@@ -108,7 +108,7 @@ export function SheetMusicGallery({ files, editable = false }: SheetMusicGallery
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
         {items.map((item, idx) => (
           <div
             key={`${item.file.id}-${item.pdfPage ?? 'img'}`}
@@ -128,11 +128,11 @@ export function SheetMusicGallery({ files, editable = false }: SheetMusicGallery
                 />
               ) : (
                 <div className="aspect-[1/1.414] flex items-center justify-center bg-muted animate-pulse">
-                  <span className="text-xs text-muted-foreground">로딩 중...</span>
+                  <span className="text-sm text-muted-foreground">로딩 중...</span>
                 </div>
               )}
               {item.pdfPage !== null && item.pdfTotalPages !== null && item.pdfTotalPages > 1 && (
-                <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-sm px-2 py-1 rounded">
                   {item.pdfPage}/{item.pdfTotalPages}
                 </div>
               )}
@@ -145,7 +145,7 @@ export function SheetMusicGallery({ files, editable = false }: SheetMusicGallery
                     <Button
                       variant="destructive"
                       size="icon-xs"
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={(e) => e.stopPropagation()}
                     />
                   }
@@ -175,14 +175,14 @@ export function SheetMusicGallery({ files, editable = false }: SheetMusicGallery
       </div>
 
       <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle>
               {selectedItem?.file.fileName}
               {selectedItem?.pdfPage != null && ` - ${selectedItem.pdfPage}페이지`}
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-4">
+          <div className="mt-6">
             {selectedItem && selectedItem.thumbnailUrl && (
               <img
                 src={selectedItem.thumbnailUrl}

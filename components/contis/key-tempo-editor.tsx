@@ -67,17 +67,17 @@ export function KeyTempoEditor({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <label className="text-sm font-medium">조성 (키)</label>
+        <div className="mb-3 flex items-center justify-between">
+          <label className="text-base font-medium">조성 (키)</label>
           <Button size="xs" onClick={() => addKey()}>
             <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
             추가
           </Button>
         </div>
 
-        <div className="mb-2 flex flex-wrap gap-1.5">
+        <div className="mb-3 flex flex-wrap gap-2">
           {COMMON_KEYS.map((key) => (
             <Badge
               key={key}
@@ -90,9 +90,9 @@ export function KeyTempoEditor({
           ))}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           {keys.map((key, index) => (
-            <div key={index} className="flex items-center gap-2">
+            <div key={index} className="flex items-center gap-3">
               <Input
                 value={key}
                 onChange={(e) => updateKey(index, e.target.value)}
@@ -110,7 +110,7 @@ export function KeyTempoEditor({
             </div>
           ))}
           {keys.length === 0 && (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-base">
               조성을 추가하세요
             </p>
           )}
@@ -118,17 +118,17 @@ export function KeyTempoEditor({
       </div>
 
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <label className="text-sm font-medium">템포 (BPM)</label>
+        <div className="mb-3 flex items-center justify-between">
+          <label className="text-base font-medium">템포 (BPM)</label>
           <Button size="xs" onClick={addTempo}>
             <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
             추가
           </Button>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           {tempos.map((tempo, index) => (
-            <div key={index} className="flex items-center gap-2">
+            <div key={index} className="flex items-center gap-3">
               <Input
                 type="number"
                 value={tempo}
@@ -147,7 +147,7 @@ export function KeyTempoEditor({
             </div>
           ))}
           {tempos.length === 0 && (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-base">
               템포를 추가하세요
             </p>
           )}

@@ -75,7 +75,7 @@ export function ContiForm({ conti }: { conti?: Conti }) {
           />
         </Field>
 
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex items-center gap-3 pt-3">
           <Button type="submit" disabled={isPending}>
             {isPending ? "저장 중..." : "저장"}
           </Button>

@@ -31,18 +31,18 @@ export default async function SongDetailPage({
         <SongDeleteButton songId={song.id} songName={song.name} />
       </PageHeader>
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         {song.sheetMusic.length > 0 ? (
           <div>
-            <h2 className="text-lg font-semibold mb-4">악보</h2>
+            <h2 className="text-xl font-semibold mb-6">악보</h2>
             <SheetMusicGallery files={song.sheetMusic} />
           </div>
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
+          <div className="text-center py-16 text-muted-foreground">
             <p>등록된 악보가 없습니다</p>
             <Button
               variant="outline"
-              className="mt-4"
+              className="mt-6"
               render={<Link href={`/songs/${song.id}/edit`} />}
             >
               악보 추가하기
@@ -51,7 +51,7 @@ export default async function SongDetailPage({
         )}
 
         <div>
-          <h2 className="text-lg font-semibold mb-4">프리셋</h2>
+          <h2 className="text-xl font-semibold mb-6">프리셋</h2>
           <PresetList songId={song.id} presets={song.presets ?? []} />
         </div>
       </div>

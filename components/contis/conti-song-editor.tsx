@@ -78,24 +78,24 @@ export function ContiSongEditor({
         <CardHeader>
           <CardTitle>곡 편집</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-8">
           <div>
-            <h3 className="mb-3 text-sm font-medium">프리셋 관리</h3>
+            <h3 className="mb-4 text-base font-medium">프리셋 관리</h3>
             {presets.length > 0 && (
-              <div className="mb-3">
-                <label className="text-xs text-muted-foreground mb-1 block">프리셋 불러오기</label>
-                <div className="flex flex-col gap-1">
+              <div className="mb-4">
+                <label className="text-sm text-muted-foreground mb-1.5 block">프리셋 불러오기</label>
+                <div className="flex flex-col gap-1.5">
                   {presets.map(p => (
                     <button
                       key={p.id}
                       type="button"
-                      className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:opacity-50"
+                      className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-base transition-colors disabled:opacity-50"
                       onClick={() => handleLoadPreset(p)}
                       disabled={isPending}
                     >
                       <span className="truncate font-medium">{p.name}</span>
                       {p.isDefault && (
-                        <span className="text-xs text-muted-foreground">기본</span>
+                        <span className="text-sm text-muted-foreground">기본</span>
                       )}
                     </button>
                   ))}
@@ -107,12 +107,12 @@ export function ContiSongEditor({
                 프리셋으로 저장
               </Button>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {presets.length > 0 && (
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-muted-foreground">기존 프리셋 업데이트</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm text-muted-foreground">기존 프리셋 업데이트</label>
                     <select
-                      className="rounded border px-2 py-1 text-sm"
+                      className="rounded border px-3 py-1.5 text-base"
                       value={selectedPresetId ?? ""}
                       onChange={(e) => {
                         const val = e.target.value || null
@@ -137,7 +137,7 @@ export function ContiSongEditor({
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
                 />
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Button
                     size="sm"
                     disabled={!presetName.trim() || isPending}
@@ -175,7 +175,7 @@ export function ContiSongEditor({
 
           <div key={editorKey}>
             <div>
-              <h3 className="mb-3 text-sm font-medium">조성 및 템포</h3>
+              <h3 className="mb-4 text-base font-medium">조성 및 템포</h3>
               <KeyTempoEditor
                 initialKeys={overrides.keys}
                 initialTempos={overrides.tempos}
@@ -183,30 +183,30 @@ export function ContiSongEditor({
               />
             </div>
 
-            <Separator className="my-6" />
+            <Separator className="my-8" />
 
             <div>
-              <h3 className="mb-3 text-sm font-medium">섹션 순서</h3>
+              <h3 className="mb-4 text-base font-medium">섹션 순서</h3>
               <SectionOrderEditor
                 initialSectionOrder={overrides.sectionOrder}
                 onSave={(data) => updateContiSong(id, data)}
               />
             </div>
 
-            <Separator className="my-6" />
+            <Separator className="my-8" />
 
             <div>
-              <h3 className="mb-3 text-sm font-medium">가사 페이지</h3>
+              <h3 className="mb-4 text-base font-medium">가사 페이지</h3>
               <LyricsEditor
                 initialLyrics={overrides.lyrics}
                 onSave={(data) => updateContiSong(id, data)}
               />
             </div>
 
-            <Separator className="my-6" />
+            <Separator className="my-8" />
 
             <div>
-              <h3 className="mb-3 text-sm font-medium">섹션-가사 매핑</h3>
+              <h3 className="mb-4 text-base font-medium">섹션-가사 매핑</h3>
               <SectionLyricsMapper
                 sectionOrder={overrides.sectionOrder}
                 lyrics={overrides.lyrics}
