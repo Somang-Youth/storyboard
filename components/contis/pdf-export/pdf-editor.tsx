@@ -16,7 +16,10 @@ import {
   Download04Icon,
   ArrowLeft01Icon,
   CropIcon,
+  TextFontIcon,
+  Delete01Icon,
 } from '@hugeicons/core-free-icons'
+import { nanoid } from 'nanoid'
 import { buildDefaultOverlays, generatePdfFilename } from '@/lib/utils/pdf-export-helpers'
 import { getPdfPageCount, renderPdfPageToDataUrl } from '@/lib/utils/pdfjs'
 import { saveContiPdfLayout, exportContiPdf } from '@/lib/actions/conti-pdf-exports'
@@ -892,6 +895,10 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   // Drag handlers
   function handlePointerDown(e: React.PointerEvent, overlayId: string) {
     e.stopPropagation()
+
+    // Allow contentEditable text editing
+    if ((e.target as HTMLElement).isContentEditable) return
+
     e.preventDefault()
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
     const container = containerRef.current
@@ -1119,7 +1126,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
           el.style.left = `${overlay.x}%`
           el.style.top = `${overlay.y}%`
           el.style.fontSize = `${overlay.fontSize}px`
-          el.style.fontWeight = overlay.type === 'songNumber' ? '700' : '600'
+          el.style.fontWeight = overlay.type === 'songNumber' ? '700' : overlay.type === 'custom' ? '400' : '600'
           el.style.whiteSpace = 'nowrap'
           el.style.transform =
             overlay.type === 'bpm'
@@ -1254,10 +1261,12 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         <p className="text-muted-foreground text-xl">
           이 기능은 PC에서 사용해주세요
         </p>
-        <Button variant="outline" render={<Link href={`/contis/${conti.id}`} />}>
-          <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} data-icon="inline-start" />
-          돌아가기
-        </Button>
+        <Link
+          href={`/contis/${conti.id}`}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-8" />
+        </Link>
       </div>
     )
   }
@@ -1282,11 +1291,12 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     : ''
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
       {/* Header */}
       <PageHeader
         title="PDF 내보내기"
         description={`${conti.title || formatDate(conti.date)} - ${songName}`}
+        backHref={`/contis/${conti.id}`}
       >
         <span className="text-muted-foreground text-base">
           {saveStatus === 'saved' && '저장됨'}
@@ -1317,84 +1327,84 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             PDF 다운로드
           </Button>
         )}
-        <Button variant="outline" render={<Link href={`/contis/${conti.id}`} />}>
-          <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} data-icon="inline-start" />
-          돌아가기
-        </Button>
       </PageHeader>
 
-      {/* Page Navigation */}
-      {pages.length > 0 && (
-        <div className="flex items-center justify-center gap-6">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={goToPrevPage}
-            disabled={currentPageIndex === 0}
-          >
-            <HugeiconsIcon icon={ArrowLeftIcon} strokeWidth={2} />
-          </Button>
-          <span className="text-base text-muted-foreground tabular-nums">
-            {currentPageIndex + 1} / {pages.length}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={goToNextPage}
-            disabled={currentPageIndex === pages.length - 1}
-          >
-            <HugeiconsIcon icon={ArrowRightIcon} strokeWidth={2} />
-          </Button>
-        </div>
-      )}
-
-      {/* Image Transform Toolbar */}
-      {currentPage?.imageUrl && (
-        <div className="flex items-center justify-center gap-4">
-          <span className="text-base tabular-nums text-muted-foreground">{currentPage.imageScale.toFixed(1)}x</span>
+      {/* Toolbar */}
+      {currentPage && (
+        <div className="-mt-2 flex items-center justify-center gap-4">
+          {currentPage.imageUrl && (
+            <>
+              <span className="text-base tabular-nums text-muted-foreground">{currentPage.imageScale.toFixed(1)}x</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateImageTransform({ imageScale: 1, imageOffsetX: 0, imageOffsetY: 0 })}
+                disabled={currentPage.imageScale === 1 && currentPage.imageOffsetX === 0 && currentPage.imageOffsetY === 0}
+              >
+                초기화
+              </Button>
+              {!isCropMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsCropMode(true)
+                    setCropSelection(null)
+                    setIsCropDragging(false)
+                    setImageResizeHandle(null)
+                    setImageSelected(false)
+                  }}
+                  disabled={!currentPage.imageUrl}
+                >
+                  <HugeiconsIcon icon={CropIcon} strokeWidth={2} data-icon="inline-start" />
+                  자르기
+                </Button>
+              )}
+              {isCropMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelCropMode}
+                >
+                  자르기 취소
+                </Button>
+              )}
+              {currentPage.originalImageUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUndoCrop}
+                >
+                  자르기 복원
+                </Button>
+              )}
+            </>
+          )}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => updateImageTransform({ imageScale: 1, imageOffsetX: 0, imageOffsetY: 0 })}
-            disabled={currentPage.imageScale === 1 && currentPage.imageOffsetX === 0 && currentPage.imageOffsetY === 0}
+            onClick={() => {
+              const newOverlay: OverlayElement = {
+                id: nanoid(),
+                type: 'custom',
+                text: '텍스트',
+                x: 50,
+                y: 50,
+                fontSize: 16,
+                color: '#000000',
+              }
+              setPages((prev) =>
+                prev.map((page, i) => {
+                  if (i !== currentPageIndex) return page
+                  return { ...page, overlays: [...page.overlays, newOverlay] }
+                }),
+              )
+              triggerAutoSave()
+            }}
           >
-            초기화
+            <HugeiconsIcon icon={TextFontIcon} strokeWidth={2} data-icon="inline-start" />
+            텍스트 추가
           </Button>
-          {!isCropMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setIsCropMode(true)
-                setCropSelection(null)
-                setIsCropDragging(false)
-                setImageResizeHandle(null)
-                setImageSelected(false)
-              }}
-              disabled={!currentPage?.imageUrl}
-            >
-              <HugeiconsIcon icon={CropIcon} strokeWidth={2} data-icon="inline-start" />
-              자르기
-            </Button>
-          )}
-          {isCropMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCancelCropMode}
-            >
-              자르기 취소
-            </Button>
-          )}
-          {currentPage?.originalImageUrl && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleUndoCrop}
-            >
-              자르기 복원
-            </Button>
-          )}
         </div>
       )}
 
@@ -1416,7 +1426,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
         if (!selectedOverlayId || !currentPage) return null
         const overlay = currentPage.overlays.find((o) => o.id === selectedOverlayId)
         if (!overlay) return null
-        const typeLabel = overlay.type === 'songNumber' ? '곡 번호' : overlay.type === 'sectionOrder' ? '섹션 순서' : 'BPM'
+        const typeLabel = overlay.type === 'songNumber' ? '곡 번호' : overlay.type === 'sectionOrder' ? '섹션 순서' : overlay.type === 'bpm' ? 'BPM' : '텍스트'
         return (
           <div className="flex items-center justify-center gap-4" data-toolbar>
             <span className="text-base font-medium">{typeLabel}</span>
@@ -1437,6 +1447,28 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               onChange={(e) => updateOverlay(selectedOverlayId, { color: e.target.value })}
               className="h-10 w-10 rounded border cursor-pointer"
             />
+            {overlay.type === 'custom' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setPages((prev) =>
+                    prev.map((page, i) => {
+                      if (i !== currentPageIndex) return page
+                      return {
+                        ...page,
+                        overlays: page.overlays.filter((o) => o.id !== selectedOverlayId),
+                      }
+                    }),
+                  )
+                  setSelectedOverlayId(null)
+                  triggerAutoSave()
+                }}
+              >
+                <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} data-icon="inline-start" />
+                삭제
+              </Button>
+            )}
           </div>
         )
       })()}
@@ -1578,7 +1610,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                 left: `${overlay.x}%`,
                 top: `${overlay.y}%`,
                 fontSize: `${overlay.fontSize}px`,
-                fontWeight: overlay.type === 'songNumber' ? 700 : 600,
+                fontWeight: overlay.type === 'songNumber' ? 700 : overlay.type === 'custom' ? 400 : 600,
                 color: overlay.color ?? '#000000',
                 transform:
                   overlay.type === 'bpm'
@@ -1647,6 +1679,31 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               )
             })
           })()}
+        </div>
+      )}
+
+      {/* Page Navigation */}
+      {pages.length > 0 && (
+        <div className="flex items-center justify-center gap-6">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={goToPrevPage}
+            disabled={currentPageIndex === 0}
+          >
+            <HugeiconsIcon icon={ArrowLeftIcon} strokeWidth={2} />
+          </Button>
+          <span className="text-base text-muted-foreground tabular-nums">
+            {currentPageIndex + 1} / {pages.length}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={goToNextPage}
+            disabled={currentPageIndex === pages.length - 1}
+          >
+            <HugeiconsIcon icon={ArrowRightIcon} strokeWidth={2} />
+          </Button>
         </div>
       )}
 
