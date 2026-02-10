@@ -95,3 +95,9 @@ export interface ContiSongWithSheetMusic extends ContiSongWithSong {
 export interface ContiWithSongsAndSheetMusic extends Conti {
   songs: ContiSongWithSheetMusic[];
 }
+
+export interface YouTubePlaylistItem {
+  title: string
+  videoId: string
+  position: number
+}
