@@ -20,14 +20,14 @@ export default async function EditSongPage({
   return (
     <div>
       <PageHeader title="곡 편집" />
-      <div className="space-y-11">
+      <div className="space-y-8">
         <SongForm song={song} />
 
         <div>
-          <h2 className="text-xl font-semibold mb-6">악보 관리</h2>
+          <h2 className="text-xl font-semibold mb-4">악보 관리</h2>
           <SheetMusicUploader songId={song.id} />
           {song.sheetMusic.length > 0 && (
-            <div className="mt-8">
+            <div className="mt-6">
               <SheetMusicGallery
                 files={song.sheetMusic}
                 editable

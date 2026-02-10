@@ -4,17 +4,19 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import { Drawer } from "@/components/ui/drawer"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { KeyTempoEditor } from "@/components/contis/key-tempo-editor"
-import { SectionOrderEditor } from "@/components/contis/section-order-editor"
-import { LyricsEditor } from "@/components/contis/lyrics-editor"
-import { SectionLyricsMapper } from "@/components/contis/section-lyrics-mapper"
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog"
+import { OverrideEditorFields } from "@/components/shared/override-editor-fields"
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { createSongPreset, updateSongPreset } from "@/lib/actions/song-presets"
 import type { SongPreset } from "@/lib/types"
 
@@ -36,6 +38,10 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
   const [isDefault, setIsDefault] = useState(false)
   const [isPending, setIsPending] = useState(false)
 
+  // Unsaved changes tracking
+  const { isDirty, markDirty, reset: resetDirty } = useUnsavedChanges(preset)
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+
   const parseJsonField = <T,>(field: string | null, fallback: T): T => {
     if (!field) return fallback
     try {
@@ -45,7 +51,7 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
     }
   }
 
-  // Initialize form when preset changes or dialog opens
+  // Initialize form when preset changes or drawer opens
   useEffect(() => {
     if (open) {
       if (preset) {
@@ -58,7 +64,6 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
         setNotes(preset.notes)
         setIsDefault(preset.isDefault)
       } else {
-        // Reset to empty state for create mode
         setName("")
         setKeys([])
         setTempos([])
@@ -68,8 +73,9 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
         setNotes(null)
         setIsDefault(false)
       }
+      resetDirty()
     }
-  }, [preset, open])
+  }, [preset, open, resetDirty])
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -96,6 +102,7 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
 
       if (result.success) {
         toast.success(preset ? "프리셋이 수정되었습니다" : "프리셋이 생성되었습니다")
+        resetDirty()
         onOpenChange(false)
       } else {
         toast.error(result.error)
@@ -105,35 +112,66 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
     }
   }
 
-  // Local state update handlers (NOT server actions)
-  const handleKeyTempoSave = async (data: { keys: string[]; tempos: number[] }) => {
+  // Close with unsaved changes check
+  const handleClose = () => {
+    if (isDirty) {
+      setShowUnsavedDialog(true)
+    } else {
+      onOpenChange(false)
+    }
+  }
+
+  // onChange handlers that update state AND mark dirty
+  const handleKeysTemposChange = (data: { keys: string[]; tempos: number[] }) => {
     setKeys(data.keys)
     setTempos(data.tempos)
-    return { success: true }
+    markDirty()
   }
 
-  const handleSectionOrderSave = async (data: { sectionOrder: string[] }) => {
+  const handleSectionOrderChange = (data: { sectionOrder: string[] }) => {
     setSectionOrder(data.sectionOrder)
-    return { success: true }
+    markDirty()
   }
 
-  const handleLyricsSave = async (data: { lyrics: string[] }) => {
+  const handleLyricsChange = (data: { lyrics: string[] }) => {
     setLyrics(data.lyrics)
-    return { success: true }
+    markDirty()
   }
 
-  const handleSectionLyricsMapSave = async (data: { sectionLyricsMap: Record<number, number[]> }) => {
+  const handleSectionLyricsMapChange = (data: { sectionLyricsMap: Record<number, number[]> }) => {
     setSectionLyricsMap(data.sectionLyricsMap)
-    return { success: true }
+    markDirty()
+  }
+
+  const handleNotesChange = (newNotes: string | null) => {
+    setNotes(newNotes)
+    markDirty()
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{preset ? "프리셋 편집" : "프리셋 추가"}</DialogTitle>
-        </DialogHeader>
-
+    <>
+      <Drawer
+        open={open}
+        onClose={() => onOpenChange(false)}
+        onBeforeClose={() => {
+          if (isDirty) {
+            setShowUnsavedDialog(true)
+            return false
+          }
+          return true
+        }}
+        title={preset ? "프리셋 편집" : "프리셋 추가"}
+        footer={
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={handleClose}>
+              취소
+            </Button>
+            <Button className="flex-1" onClick={handleSave} disabled={isPending}>
+              {isPending ? "저장 중..." : "저장"}
+            </Button>
+          </div>
+        }
+      >
         <div className="space-y-8">
           <div className="space-y-3">
             <label htmlFor="preset-name" className="text-base font-medium">
@@ -142,83 +180,63 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
             <Input
               id="preset-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); markDirty() }}
               placeholder="예: 주일 예배"
               required
             />
           </div>
 
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold">조성 및 템포</h3>
-            <KeyTempoEditor
-              initialKeys={keys}
-              initialTempos={tempos}
-              onSave={handleKeyTempoSave}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold">섹션 순서</h3>
-            <SectionOrderEditor
-              initialSectionOrder={sectionOrder}
-              onSave={handleSectionOrderSave}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold">가사</h3>
-            <LyricsEditor
-              initialLyrics={lyrics}
-              onSave={handleLyricsSave}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold">섹션-가사 매핑</h3>
-            <SectionLyricsMapper
-              sectionOrder={sectionOrder}
-              lyrics={lyrics}
-              initialMap={sectionLyricsMap}
-              onSave={handleSectionLyricsMapSave}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <label htmlFor="preset-notes" className="text-base font-medium">
-              메모
-            </label>
-            <Textarea
-              id="preset-notes"
-              value={notes || ""}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="프리셋에 대한 추가 정보를 입력하세요..."
-              rows={3}
-            />
-          </div>
+          <OverrideEditorFields
+            keys={keys}
+            tempos={tempos}
+            sectionOrder={sectionOrder}
+            lyrics={lyrics}
+            sectionLyricsMap={sectionLyricsMap}
+            notes={notes}
+            onKeysTemposChange={handleKeysTemposChange}
+            onSectionOrderChange={handleSectionOrderChange}
+            onLyricsChange={handleLyricsChange}
+            onSectionLyricsMapChange={handleSectionLyricsMapChange}
+            onNotesChange={handleNotesChange}
+          />
 
           <div className="flex items-center gap-3">
             <input
               type="checkbox"
               id="preset-default"
               checked={isDefault}
-              onChange={(e) => setIsDefault(e.target.checked)}
+              onChange={(e) => { setIsDefault(e.target.checked); markDirty() }}
               className="size-5 cursor-pointer rounded"
             />
             <label htmlFor="preset-default" className="text-base cursor-pointer">
               기본 프리셋으로 설정
             </label>
           </div>
-
-          <div className="flex justify-end gap-3 pt-6">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              취소
-            </Button>
-            <Button onClick={handleSave} disabled={isPending}>
-              {isPending ? "저장 중..." : "저장"}
-            </Button>
-          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </Drawer>
+
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>저장하지 않은 변경사항</AlertDialogTitle>
+            <AlertDialogDescription>
+              저장하지 않은 변경사항이 있습니다. 저장하지 않고 닫으시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowUnsavedDialog(false)}>
+              계속 편집
+            </AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => {
+              setShowUnsavedDialog(false)
+              resetDirty()
+              onOpenChange(false)
+            }}>
+              저장하지 않고 닫기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

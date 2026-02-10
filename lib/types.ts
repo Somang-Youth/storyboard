@@ -52,7 +52,7 @@ export type SongPageImage = InferSelectModel<typeof songPageImages>;
 
 export interface OverlayElement {
   id: string;
-  type: 'songNumber' | 'sectionOrder' | 'bpm';
+  type: 'songNumber' | 'sectionOrder' | 'bpm' | 'custom';
   text: string;
   x: number;
   y: number;

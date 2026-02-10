@@ -1,25 +1,36 @@
 "use client"
 
-import { useState } from "react"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
+import { useState, useRef, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 interface SectionLyricsMapperProps {
   sectionOrder: string[]
   lyrics: string[]
   initialMap: Record<number, number[]>
-  onSave: (data: { sectionLyricsMap: Record<number, number[]> }) => Promise<{ success: boolean; error?: string }>
+  onChange: (data: { sectionLyricsMap: Record<number, number[]> }) => void
 }
 
 export function SectionLyricsMapper({
   sectionOrder,
   lyrics,
   initialMap,
-  onSave,
+  onChange,
 }: SectionLyricsMapperProps) {
   const [sectionLyricsMap, setSectionLyricsMap] =
     useState<Record<number, number[]>>(initialMap)
-  const [isPending, setIsPending] = useState(false)
+
+  const onChangeRef = useRef(onChange)
+  useEffect(() => {
+    onChangeRef.current = onChange
+  })
+
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    onChangeRef.current({ sectionLyricsMap })
+  }, [sectionLyricsMap])
 
   const toggleLyricsForSection = (sectionIndex: number, lyricsIndex: number) => {
     const currentLyrics = sectionLyricsMap[sectionIndex] || []
@@ -36,20 +47,6 @@ export function SectionLyricsMapper({
         ...sectionLyricsMap,
         [sectionIndex]: newLyrics,
       })
-    }
-  }
-
-  const handleSave = async () => {
-    setIsPending(true)
-    try {
-      const result = await onSave({ sectionLyricsMap })
-      if (result.success) {
-        toast.success("섹션-가사 매핑이 저장되었습니다")
-      } else {
-        toast.error(result.error)
-      }
-    } finally {
-      setIsPending(false)
     }
   }
 
@@ -70,27 +67,27 @@ export function SectionLyricsMapper({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
+    <div className="space-y-4">
+      <div className="space-y-3">
         {sectionOrder.map((section, sectionIndex) => (
           <div
             key={sectionIndex}
-            className="ring-foreground/10 rounded-lg bg-muted/50 p-4 ring-1"
+            className="ring-foreground/10 rounded-lg bg-muted/50 p-3 ring-1"
           >
-            <div className="mb-3 flex items-center gap-3">
+            <div className="mb-2 flex items-center gap-2">
               <span className="text-muted-foreground text-sm font-medium">
                 [{sectionIndex}]
               </span>
               <span className="text-base font-medium">{section}</span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {lyrics.map((_, lyricsIndex) => {
                 const isSelected =
                   sectionLyricsMap[sectionIndex]?.includes(lyricsIndex) || false
                 return (
                   <label
                     key={lyricsIndex}
-                    className="flex cursor-pointer items-center gap-2"
+                    className="flex cursor-pointer items-center gap-1.5"
                   >
                     <input
                       type="checkbox"
@@ -98,7 +95,7 @@ export function SectionLyricsMapper({
                       onChange={() =>
                         toggleLyricsForSection(sectionIndex, lyricsIndex)
                       }
-                      className="size-5 cursor-pointer rounded"
+                      className="size-4 cursor-pointer rounded"
                     />
                     <span className="text-base">페이지 {lyricsIndex + 1}</span>
                   </label>
@@ -110,13 +107,13 @@ export function SectionLyricsMapper({
       </div>
 
       <div>
-        <div className="mb-3 text-base font-medium">미리보기</div>
-        <div className="ring-foreground/10 space-y-3 rounded-lg bg-muted/30 p-4 ring-1">
+        <div className="mb-2 text-base font-medium">미리보기</div>
+        <div className="ring-foreground/10 space-y-2 rounded-lg bg-muted/30 p-3 ring-1">
           {sectionOrder.map((section, sectionIndex) => {
             const lyricsIndices = sectionLyricsMap[sectionIndex] || []
             if (lyricsIndices.length === 0) {
               return (
-                <div key={sectionIndex} className="flex items-start gap-3">
+                <div key={sectionIndex} className="flex items-start gap-2">
                   <span className="text-muted-foreground text-sm">
                     [{sectionIndex}] {section}:
                   </span>
@@ -127,11 +124,11 @@ export function SectionLyricsMapper({
               )
             }
             return (
-              <div key={sectionIndex} className="flex items-start gap-3">
+              <div key={sectionIndex} className="flex items-start gap-2">
                 <span className="text-muted-foreground text-sm">
                   [{sectionIndex}] {section}:
                 </span>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1">
                   {lyricsIndices.map((lyricsIndex) => (
                     <Badge key={lyricsIndex} variant="secondary" className="text-sm">
                       페이지 {lyricsIndex + 1}
@@ -143,10 +140,6 @@ export function SectionLyricsMapper({
           })}
         </div>
       </div>
-
-      <Button onClick={handleSave} disabled={isPending} className="w-full">
-        저장
-      </Button>
     </div>
   )
 }

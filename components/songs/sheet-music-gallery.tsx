@@ -108,7 +108,7 @@ export function SheetMusicGallery({ files, editable = false }: SheetMusicGallery
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {items.map((item, idx) => (
           <div
             key={`${item.file.id}-${item.pdfPage ?? 'img'}`}

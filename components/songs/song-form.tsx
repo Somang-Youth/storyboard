@@ -48,7 +48,7 @@ export function SongForm({ song }: SongFormProps) {
   return (
     <Card>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Field>
             <FieldLabel htmlFor="name">곡 이름</FieldLabel>
             <Input
@@ -60,7 +60,7 @@ export function SongForm({ song }: SongFormProps) {
             />
           </Field>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <Button type="submit" disabled={isPending}>
               저장
             </Button>

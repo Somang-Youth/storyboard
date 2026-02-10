@@ -1,22 +1,34 @@
 "use client"
 
-import { useState } from "react"
-import { toast } from "sonner"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
 interface LyricsEditorProps {
   initialLyrics: string[]
-  onSave: (data: { lyrics: string[] }) => Promise<{ success: boolean; error?: string }>
+  onChange: (data: { lyrics: string[] }) => void
 }
 
 export function LyricsEditor({
   initialLyrics,
-  onSave,
+  onChange,
 }: LyricsEditorProps) {
   const [lyrics, setLyrics] = useState<string[]>(initialLyrics)
-  const [isPending, setIsPending] = useState(false)
+
+  const onChangeRef = useRef(onChange)
+  useEffect(() => {
+    onChangeRef.current = onChange
+  })
+
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    onChangeRef.current({ lyrics })
+  }, [lyrics])
 
   const addPage = () => {
     setLyrics([...lyrics, ""])
@@ -32,22 +44,8 @@ export function LyricsEditor({
     setLyrics(newLyrics)
   }
 
-  const handleSave = async () => {
-    setIsPending(true)
-    try {
-      const result = await onSave({ lyrics })
-      if (result.success) {
-        toast.success("가사가 저장되었습니다")
-      } else {
-        toast.error(result.error)
-      }
-    } finally {
-      setIsPending(false)
-    }
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-base font-medium">가사 페이지</div>
         <Button size="xs" onClick={addPage}>
@@ -56,9 +54,9 @@ export function LyricsEditor({
         </Button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {lyrics.map((lyric, index) => (
-          <div key={index} className="space-y-2">
+          <div key={index} className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-muted-foreground text-sm font-medium">
                 페이지 {index + 1}
@@ -86,10 +84,6 @@ export function LyricsEditor({
           </p>
         )}
       </div>
-
-      <Button onClick={handleSave} disabled={isPending} className="w-full">
-        저장
-      </Button>
     </div>
   )
 }

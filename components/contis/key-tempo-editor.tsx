@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { toast } from "sonner"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +9,7 @@ import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
 interface KeyTempoEditorProps {
   initialKeys: string[]
   initialTempos: number[]
-  onSave: (data: { keys: string[]; tempos: number[] }) => Promise<{ success: boolean; error?: string }>
+  onChange: (data: { keys: string[]; tempos: number[] }) => void
 }
 
 const COMMON_KEYS = ["C", "D", "E", "F", "G", "A", "B"]
@@ -18,11 +17,24 @@ const COMMON_KEYS = ["C", "D", "E", "F", "G", "A", "B"]
 export function KeyTempoEditor({
   initialKeys,
   initialTempos,
-  onSave,
+  onChange,
 }: KeyTempoEditorProps) {
   const [keys, setKeys] = useState<string[]>(initialKeys)
   const [tempos, setTempos] = useState<number[]>(initialTempos)
-  const [isPending, setIsPending] = useState(false)
+
+  const onChangeRef = useRef(onChange)
+  useEffect(() => {
+    onChangeRef.current = onChange
+  })
+
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    onChangeRef.current({ keys, tempos })
+  }, [keys, tempos])
 
   const addKey = (key?: string) => {
     setKeys([...keys, key ?? ""])
@@ -52,24 +64,10 @@ export function KeyTempoEditor({
     setTempos(newTempos)
   }
 
-  const handleSave = async () => {
-    setIsPending(true)
-    try {
-      const result = await onSave({ keys, tempos })
-      if (result.success) {
-        toast.success("조성 및 템포가 저장되었습니다")
-      } else {
-        toast.error(result.error)
-      }
-    } finally {
-      setIsPending(false)
-    }
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <label className="text-base font-medium">조성 (키)</label>
           <Button size="xs" onClick={() => addKey()}>
             <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
@@ -77,7 +75,7 @@ export function KeyTempoEditor({
           </Button>
         </div>
 
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-1.5">
           {COMMON_KEYS.map((key) => (
             <Badge
               key={key}
@@ -90,9 +88,9 @@ export function KeyTempoEditor({
           ))}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {keys.map((key, index) => (
-            <div key={index} className="flex items-center gap-3">
+            <div key={index} className="flex items-center gap-2">
               <Input
                 value={key}
                 onChange={(e) => updateKey(index, e.target.value)}
@@ -118,7 +116,7 @@ export function KeyTempoEditor({
       </div>
 
       <div>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <label className="text-base font-medium">템포 (BPM)</label>
           <Button size="xs" onClick={addTempo}>
             <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
@@ -126,9 +124,9 @@ export function KeyTempoEditor({
           </Button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {tempos.map((tempo, index) => (
-            <div key={index} className="flex items-center gap-3">
+            <div key={index} className="flex items-center gap-2">
               <Input
                 type="number"
                 value={tempo}
@@ -153,10 +151,6 @@ export function KeyTempoEditor({
           )}
         </div>
       </div>
-
-      <Button onClick={handleSave} disabled={isPending} className="w-full">
-        저장
-      </Button>
     </div>
   )
 }

@@ -10,7 +10,7 @@ export default async function ContisPage() {
   const contis = await getContis()
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader title="콘티 목록">
         <Button render={<Link href="/contis/new" />}>
           <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
