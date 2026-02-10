@@ -11,6 +11,8 @@ import {
   Logout01Icon,
 } from "@hugeicons/core-free-icons"
 import { useSidebarHeader } from "@/components/layout/sidebar-header-context"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { useMobileNav } from "@/components/layout/mobile-nav-context"
 
 const navItems = [
   {
@@ -25,7 +27,7 @@ const navItems = [
   },
 ]
 
-export function Sidebar() {
+function SidebarContent() {
   const pathname = usePathname()
   const router = useRouter()
   const { headerContent } = useSidebarHeader()
@@ -36,7 +38,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-64 fixed left-0 top-0 h-screen border-r bg-card flex flex-col">
+    <>
       <div className="p-4 border-b">
         {headerContent ?? (
           <Link href="/" className="text-xl font-bold">
@@ -76,6 +78,26 @@ export function Sidebar() {
           로그아웃
         </Button>
       </div>
-    </aside>
+    </>
+  )
+}
+
+export function Sidebar() {
+  const { isOpen, setIsOpen } = useMobileNav()
+
+  return (
+    <>
+      {/* Desktop: fixed sidebar */}
+      <aside className="hidden md:flex w-64 fixed left-0 top-0 h-screen border-r bg-card flex-col">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile: Sheet sidebar */}
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetContent>
+          <SidebarContent />
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }

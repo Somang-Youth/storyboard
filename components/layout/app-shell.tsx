@@ -6,15 +6,28 @@ import {
   useDrawerPortal,
 } from "@/components/ui/drawer-context";
 import { SidebarHeaderProvider } from "@/components/layout/sidebar-header-context";
+import { MobileNavProvider, useMobileNav } from "@/components/layout/mobile-nav-context";
+import { Button } from "@/components/ui/button";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Menu01Icon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 
 function AppShellInner({ children }: { children: React.ReactNode }) {
   const { portalRef, isOpen } = useDrawerPortal();
+  const { setIsOpen: setNavOpen } = useMobileNav();
 
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main className="ml-64 flex-1 p-6 min-w-0">{children}</main>
+      <div className="flex flex-1 flex-col md:ml-64 min-w-0">
+        <header className="md:hidden sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background px-4">
+          <Button variant="ghost" size="icon" onClick={() => setNavOpen(true)}>
+            <HugeiconsIcon icon={Menu01Icon} strokeWidth={2} />
+          </Button>
+          <span className="font-semibold">Storyboard</span>
+        </header>
+        <main className="flex-1 p-4 md:p-6 min-w-0">{children}</main>
+      </div>
       <aside
         ref={portalRef}
         className={cn(
@@ -38,7 +51,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <DrawerProvider>
       <SidebarHeaderProvider>
-        <AppShellInner>{children}</AppShellInner>
+        <MobileNavProvider>
+          <AppShellInner>{children}</AppShellInner>
+        </MobileNavProvider>
       </SidebarHeaderProvider>
     </DrawerProvider>
   );
