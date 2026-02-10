@@ -105,7 +105,8 @@ export function PresetList({ songId, presets }: PresetListProps) {
             return (
               <div
                 key={preset.id}
-                className="ring-foreground/10 rounded-lg bg-muted/30 p-6 ring-1"
+                className="ring-foreground/10 rounded-lg bg-muted/30 p-6 ring-1 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => handleEditClick(preset)}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 space-y-3">
@@ -138,7 +139,7 @@ export function PresetList({ songId, presets }: PresetListProps) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     {!preset.isDefault && (
                       <Button
                         size="icon-sm"

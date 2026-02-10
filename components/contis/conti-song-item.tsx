@@ -49,7 +49,7 @@ export function ContiSongItem({
       : null
 
   return (
-    <div className="ring-foreground/10 bg-card flex items-center gap-4 rounded-xl p-4 ring-1">
+    <div className="ring-foreground/10 bg-card flex items-center gap-4 rounded-xl p-4 ring-1 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onEdit}>
       <div className="text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-medium">
         {index + 1}
       </div>
@@ -79,7 +79,7 @@ export function ContiSongItem({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
         <Button
           variant="ghost"
           size="icon-sm"
