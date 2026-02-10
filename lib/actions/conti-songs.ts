@@ -5,8 +5,9 @@ import { contiSongs } from '@/lib/db/schema';
 import { generateId } from '@/lib/id';
 import { eq, max } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { stringifyContiSongOverrides } from '@/lib/db/helpers';
+import { stringifyContiSongOverrides, parseContiSongOverrides } from '@/lib/db/helpers';
 import type { ActionResult, ContiSong, ContiSongOverrides } from '@/lib/types';
+import { createSongPreset, updateSongPreset } from './song-presets';
 
 export async function addSongToConti(
   contiId: string,
@@ -127,5 +128,58 @@ export async function reorderContiSongs(
       success: false,
       error: '콘티 곡 순서 변경 중 오류가 발생했습니다',
     };
+  }
+}
+
+export async function saveContiSongAsPreset(
+  contiSongId: string,
+  presetName: string,
+  existingPresetId?: string
+): Promise<ActionResult> {
+  try {
+    const contiSongRow = await db
+      .select()
+      .from(contiSongs)
+      .where(eq(contiSongs.id, contiSongId))
+      .limit(1);
+
+    if (contiSongRow.length === 0) {
+      return { success: false, error: '콘티 곡을 찾을 수 없습니다' };
+    }
+
+    const cs = contiSongRow[0];
+    const overrides = parseContiSongOverrides(cs);
+
+    let result;
+    if (existingPresetId) {
+      result = await updateSongPreset(existingPresetId, {
+        name: presetName,
+        keys: overrides.keys,
+        tempos: overrides.tempos,
+        sectionOrder: overrides.sectionOrder,
+        lyrics: overrides.lyrics,
+        sectionLyricsMap: overrides.sectionLyricsMap,
+        notes: overrides.notes,
+      });
+    } else {
+      result = await createSongPreset(cs.songId, {
+        name: presetName,
+        keys: overrides.keys,
+        tempos: overrides.tempos,
+        sectionOrder: overrides.sectionOrder,
+        lyrics: overrides.lyrics,
+        sectionLyricsMap: overrides.sectionLyricsMap,
+        notes: overrides.notes,
+        isDefault: false,
+      });
+    }
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    return { success: true };
+  } catch {
+    return { success: false, error: '프리셋 저장 중 오류가 발생했습니다' };
   }
 }

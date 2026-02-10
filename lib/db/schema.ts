@@ -58,3 +58,27 @@ export const contiSongs = pgTable('conti_songs', {
 }, (table) => [
   uniqueIndex('conti_song_unique').on(table.contiId, table.songId),
 ]);
+
+export const contiPdfExports = pgTable('conti_pdf_exports', {
+  id: text('id').primaryKey(),
+  contiId: text('conti_id').notNull().references(() => contis.id, { onDelete: 'cascade' }),
+  pdfUrl: text('pdf_url'),
+  layoutState: text('layout_state'),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+}, (table) => [
+  uniqueIndex('conti_pdf_export_unique').on(table.contiId),
+]);
+
+export const songPageImages = pgTable('song_page_images', {
+  id: text('id').primaryKey(),
+  songId: text('song_id').notNull().references(() => songs.id, { onDelete: 'cascade' }),
+  contiId: text('conti_id').notNull().references(() => contis.id, { onDelete: 'cascade' }),
+  imageUrl: text('image_url').notNull(),
+  pageIndex: integer('page_index').notNull(),
+  sheetMusicFileId: text('sheet_music_file_id').references(() => sheetMusicFiles.id, { onDelete: 'set null' }),
+  pdfPageIndex: integer('pdf_page_index'),
+  presetSnapshot: text('preset_snapshot'),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+});

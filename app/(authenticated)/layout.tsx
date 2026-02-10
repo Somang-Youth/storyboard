@@ -5,5 +5,10 @@ export default function AuthenticatedLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <AppShell>{children}</AppShell>
+  return (
+    <>
+      <link rel="preload" href="/pdf.worker.min.mjs" as="script" crossOrigin="anonymous" />
+      <AppShell>{children}</AppShell>
+    </>
+  )
 }

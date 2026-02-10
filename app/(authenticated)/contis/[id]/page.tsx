@@ -1,13 +1,13 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { getConti } from "@/lib/queries/contis"
+import { getConti, getContiPdfExport } from "@/lib/queries/contis"
 import { getSongs } from "@/lib/queries/songs"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { ContiDetail } from "@/components/contis/conti-detail"
 import { ContiDeleteButton } from "@/components/contis/conti-delete-button"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
+import { PencilEdit01Icon, FileExportIcon, Download04Icon } from "@hugeicons/core-free-icons"
 
 function formatDate(dateStr: string): string {
   const [year, month, day] = dateStr.split("-")
@@ -20,7 +20,11 @@ export default async function ContiDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const [conti, allSongs] = await Promise.all([getConti(id), getSongs()])
+  const [conti, allSongs, pdfExport] = await Promise.all([
+    getConti(id),
+    getSongs(),
+    getContiPdfExport(id),
+  ])
 
   if (!conti) {
     notFound()
@@ -29,6 +33,16 @@ export default async function ContiDetailPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={conti.title || formatDate(conti.date)} description={formatDate(conti.date)}>
+        <Button variant="outline" render={<Link href={`/contis/${conti.id}/export`} />}>
+          <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} data-icon="inline-start" />
+          PDF 내보내기
+        </Button>
+        {pdfExport?.pdfUrl && (
+          <Button variant="outline" render={<a href={pdfExport.pdfUrl} target="_blank" rel="noopener" />}>
+            <HugeiconsIcon icon={Download04Icon} strokeWidth={2} data-icon="inline-start" />
+            PDF 다운로드
+          </Button>
+        )}
         <Button variant="outline" render={<Link href={`/contis/${conti.id}/edit`} />}>
           <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} data-icon="inline-start" />
           편집
