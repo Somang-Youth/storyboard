@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useRef } from "react"
 import { usePathname } from "next/navigation"
 
 interface MobileNavContextValue {
@@ -13,11 +13,15 @@ const MobileNavContext = createContext<MobileNavContextValue | null>(null)
 export function MobileNavProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
+  const prevPathname = useRef(pathname)
 
   // pathname 변경 시 자동 닫힘
-  useEffect(() => {
-    setIsOpen(false)
-  }, [pathname])
+  if (prevPathname.current !== pathname) {
+    prevPathname.current = pathname
+    if (isOpen) {
+      setIsOpen(false)
+    }
+  }
 
   return (
     <MobileNavContext value={{ isOpen, setIsOpen }}>
