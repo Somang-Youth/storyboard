@@ -134,3 +134,16 @@ export async function reorderSheetMusic(
     };
   }
 }
+
+export async function getSheetMusicForSong(songId: string): Promise<ActionResult<SheetMusicFile[]>> {
+  try {
+    const files = await db
+      .select()
+      .from(sheetMusicFiles)
+      .where(eq(sheetMusicFiles.songId, songId))
+      .orderBy(sheetMusicFiles.sortOrder);
+    return { success: true, data: files };
+  } catch {
+    return { success: false, error: '악보 목록을 불러올 수 없습니다' };
+  }
+}
