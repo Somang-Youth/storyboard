@@ -2,12 +2,13 @@
 
 import { db } from '@/lib/db';
 import { contiSongs } from '@/lib/db/schema';
-import { generateId } from '@/lib/id';
 import { eq, max } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { stringifyContiSongOverrides, parseContiSongOverrides } from '@/lib/db/helpers';
 import type { ActionResult, ContiSong, ContiSongOverrides } from '@/lib/types';
 import { createSongPreset, updateSongPreset } from './song-presets';
+import { insertContiSong, insertSong } from '@/lib/db/insert-helpers';
+import { z } from 'zod';
 
 export async function addSongToConti(
   contiId: string,
@@ -15,7 +16,6 @@ export async function addSongToConti(
   initialOverrides?: Partial<ContiSongOverrides>
 ): Promise<ActionResult<ContiSong>> {
   try {
-    // Get next sort order
     const maxSortOrderResult = await db
       .select({ maxOrder: max(contiSongs.sortOrder) })
       .from(contiSongs)
@@ -23,35 +23,7 @@ export async function addSongToConti(
 
     const nextSortOrder = (maxSortOrderResult[0]?.maxOrder ?? -1) + 1;
 
-    const now = new Date();
-
-    const overrides = initialOverrides
-      ? stringifyContiSongOverrides(initialOverrides)
-      : {
-          keys: '[]',
-          tempos: '[]',
-          sectionOrder: '[]',
-          lyrics: '[]',
-          sectionLyricsMap: '{}',
-        };
-
-    const contiSong = {
-      id: generateId(),
-      contiId,
-      songId,
-      sortOrder: nextSortOrder,
-      keys: overrides.keys ?? '[]',
-      tempos: overrides.tempos ?? '[]',
-      sectionOrder: overrides.sectionOrder ?? '[]',
-      lyrics: overrides.lyrics ?? '[]',
-      sectionLyricsMap: overrides.sectionLyricsMap ?? '{}',
-      notes: initialOverrides?.notes ?? null,
-      sheetMusicFileIds: overrides.sheetMusicFileIds ?? null,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await db.insert(contiSongs).values(contiSong);
+    const contiSong = await insertContiSong(db, contiId, songId, nextSortOrder, initialOverrides);
     revalidatePath('/contis');
 
     return {
@@ -184,5 +156,90 @@ export async function saveContiSongAsPreset(
     return { success: true };
   } catch {
     return { success: false, error: '프리셋 저장 중 오류가 발생했습니다' };
+  }
+}
+
+const batchImportSchema = z.object({
+  contiId: z.string().min(1),
+  items: z.array(
+    z.object({
+      songId: z.string().nullable(),
+      newSongName: z.string().nullable(),
+    }).refine(
+      (item) => item.songId !== null || (item.newSongName !== null && item.newSongName.trim().length > 0),
+      { message: '곡 ID 또는 새 곡 이름이 필요합니다' }
+    )
+  ).min(1, '가져올 곡이 없습니다'),
+})
+
+export async function batchImportSongsToConti(
+  contiId: string,
+  items: Array<{
+    songId: string | null
+    newSongName: string | null
+  }>
+): Promise<ActionResult<{ added: number; created: number }>> {
+  try {
+    const validation = batchImportSchema.safeParse({ contiId, items })
+    if (!validation.success) {
+      return { success: false, error: '가져올 곡 목록이 올바르지 않습니다' }
+    }
+
+    const validatedItems = validation.data.items
+    let created = 0
+
+    await db.transaction(async (tx) => {
+      const maxResult = await tx
+        .select({ maxOrder: max(contiSongs.sortOrder) })
+        .from(contiSongs)
+        .where(eq(contiSongs.contiId, contiId))
+
+      let nextSortOrder = (maxResult[0]?.maxOrder ?? -1) + 1
+
+      // Deduplicate new song names within the batch
+      const newSongMap = new Map<string, string>() // normalized name -> created song ID
+
+      for (const item of validatedItems) {
+        let resolvedSongId: string
+
+        if (item.songId) {
+          resolvedSongId = item.songId
+        } else {
+          const trimmedName = item.newSongName!.trim()
+          const normalizedKey = trimmedName.toLowerCase()
+
+          if (newSongMap.has(normalizedKey)) {
+            resolvedSongId = newSongMap.get(normalizedKey)!
+          } else {
+            const newSong = await insertSong(tx, trimmedName)
+            newSongMap.set(normalizedKey, newSong.id)
+            resolvedSongId = newSong.id
+            created++
+          }
+        }
+
+        await insertContiSong(tx, contiId, resolvedSongId, nextSortOrder++)
+      }
+    })
+
+    revalidatePath('/contis')
+    revalidatePath('/songs')
+
+    return {
+      success: true,
+      data: { added: items.length, created },
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes('conti_song_unique')) {
+      return {
+        success: false,
+        error: '이미 콘티에 포함된 곡이 있습니다. 중복 곡을 제거하고 다시 시도해주세요',
+      }
+    }
+    return {
+      success: false,
+      error: '곡 일괄 추가 중 오류가 발생했습니다',
+    }
   }
 }

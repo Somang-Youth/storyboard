@@ -2,11 +2,11 @@
 
 import { db } from '@/lib/db';
 import { songs, contiSongs } from '@/lib/db/schema';
-import { generateId } from '@/lib/id';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import type { ActionResult, Song } from '@/lib/types';
+import { insertSong } from '@/lib/db/insert-helpers';
 
 const songSchema = z.object({
   name: z.string().min(1, '곡 이름을 입력해주세요'),
@@ -24,15 +24,7 @@ export async function createSong(formData: FormData): Promise<ActionResult<Song>
       };
     }
 
-    const now = new Date();
-    const song = {
-      id: generateId(),
-      name: validation.data.name,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await db.insert(songs).values(song);
+    const song = await insertSong(db, validation.data.name);
     revalidatePath('/songs');
 
     return {
