@@ -33,21 +33,47 @@ export default async function ContiDetailPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={conti.title || formatDate(conti.date)} description={formatDate(conti.date)}>
-        <Button variant="outline" render={<Link href={`/contis/${conti.id}/export`} />}>
+        {/* PDF 내보내기 */}
+        <Button variant="outline" size="icon" className="sm:hidden" aria-label="PDF 내보내기"
+          render={<Link href={`/contis/${conti.id}/export`} />}>
+          <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} />
+        </Button>
+        <Button variant="outline" className="hidden sm:inline-flex"
+          render={<Link href={`/contis/${conti.id}/export`} />}>
           <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} data-icon="inline-start" />
           PDF 내보내기
         </Button>
+        {/* PDF 다운로드 */}
         {pdfExport?.pdfUrl && (
-          <Button variant="outline" render={<a href={pdfExport.pdfUrl} target="_blank" rel="noopener" />}>
-            <HugeiconsIcon icon={Download04Icon} strokeWidth={2} data-icon="inline-start" />
-            PDF 다운로드
-          </Button>
+          <>
+            <Button variant="outline" size="icon" className="sm:hidden" aria-label="PDF 다운로드"
+              render={<a href={pdfExport.pdfUrl} target="_blank" rel="noopener" />}>
+              <HugeiconsIcon icon={Download04Icon} strokeWidth={2} />
+            </Button>
+            <Button variant="outline" className="hidden sm:inline-flex"
+              render={<a href={pdfExport.pdfUrl} target="_blank" rel="noopener" />}>
+              <HugeiconsIcon icon={Download04Icon} strokeWidth={2} data-icon="inline-start" />
+              PDF 다운로드
+            </Button>
+          </>
         )}
-        <Button variant="outline" render={<Link href={`/contis/${conti.id}/edit`} />}>
+        {/* 편집 */}
+        <Button variant="outline" size="icon" className="sm:hidden" aria-label="편집"
+          render={<Link href={`/contis/${conti.id}/edit`} />}>
+          <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} />
+        </Button>
+        <Button variant="outline" className="hidden sm:inline-flex"
+          render={<Link href={`/contis/${conti.id}/edit`} />}>
           <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} data-icon="inline-start" />
           편집
         </Button>
-        <ContiDeleteButton contiId={conti.id} />
+        {/* 삭제 */}
+        <span className="sm:hidden">
+          <ContiDeleteButton contiId={conti.id} iconOnly />
+        </span>
+        <span className="hidden sm:inline-flex">
+          <ContiDeleteButton contiId={conti.id} />
+        </span>
       </PageHeader>
       <ContiDetail conti={conti} allSongs={allSongs} />
     </div>

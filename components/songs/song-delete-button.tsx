@@ -49,8 +49,8 @@ export function SongDeleteButton({ songId, songName }: SongDeleteButtonProps) {
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger render={<Button variant="destructive" />}>
-        <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} data-icon="inline-start" />
+      <AlertDialogTrigger render={<Button variant="destructive" size="icon" />}>
+        <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

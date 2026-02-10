@@ -24,7 +24,12 @@ export default async function SongDetailPage({
   return (
     <div>
       <PageHeader title={song.name}>
-        <Button variant="outline" render={<Link href={`/songs/${song.id}/edit`} />}>
+        <Button variant="outline" size="icon" className="sm:hidden" aria-label="편집"
+          render={<Link href={`/songs/${song.id}/edit`} />}>
+          <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} />
+        </Button>
+        <Button variant="outline" className="hidden sm:inline-flex"
+          render={<Link href={`/songs/${song.id}/edit`} />}>
           <HugeiconsIcon icon={PencilEdit01Icon} data-icon="inline-start" strokeWidth={2} />
           편집
         </Button>

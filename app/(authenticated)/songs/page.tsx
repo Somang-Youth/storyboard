@@ -12,7 +12,12 @@ export default async function SongsPage() {
   return (
     <div>
       <PageHeader title="곡 라이브러리" description="예배에 사용할 곡을 관리합니다">
-        <Button render={<Link href="/songs/new" />}>
+        <Button size="icon" className="sm:hidden" aria-label="새 곡 추가"
+          render={<Link href="/songs/new" />}>
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+        </Button>
+        <Button className="hidden sm:inline-flex"
+          render={<Link href="/songs/new" />}>
           <HugeiconsIcon icon={PlusSignIcon} data-icon="inline-start" strokeWidth={2} />
           새 곡 추가
         </Button>

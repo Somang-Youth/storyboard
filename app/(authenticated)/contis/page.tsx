@@ -12,7 +12,12 @@ export default async function ContisPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="콘티 목록">
-        <Button render={<Link href="/contis/new" />}>
+        <Button size="icon" className="sm:hidden" aria-label="새 콘티 만들기"
+          render={<Link href="/contis/new" />}>
+          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
+        </Button>
+        <Button className="hidden sm:inline-flex"
+          render={<Link href="/contis/new" />}>
           <HugeiconsIcon icon={Add01Icon} strokeWidth={2} data-icon="inline-start" />
           새 콘티 만들기
         </Button>
