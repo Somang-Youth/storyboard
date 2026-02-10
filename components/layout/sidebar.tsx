@@ -10,6 +10,7 @@ import {
   Playlist01Icon,
   Logout01Icon,
 } from "@hugeicons/core-free-icons"
+import { useSidebarHeader } from "@/components/layout/sidebar-header-context"
 
 const navItems = [
   {
@@ -27,6 +28,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { headerContent } = useSidebarHeader()
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" })
@@ -36,9 +38,11 @@ export function Sidebar() {
   return (
     <aside className="w-80 fixed left-0 top-0 h-screen border-r bg-card flex flex-col">
       <div className="p-6 border-b">
-        <Link href="/" className="text-xl font-bold">
-          Storyboard
-        </Link>
+        {headerContent ?? (
+          <Link href="/" className="text-xl font-bold">
+            Storyboard
+          </Link>
+        )}
       </div>
 
       <nav className="flex-1 p-3 space-y-1.5">

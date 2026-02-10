@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/layout/sidebar"
 import { DrawerProvider, useDrawerPortal } from "@/components/ui/drawer-context"
+import { SidebarHeaderProvider } from "@/components/layout/sidebar-header-context"
 import { cn } from "@/lib/utils"
 
 function AppShellInner({ children }: { children: React.ReactNode }) {
@@ -33,7 +34,9 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <DrawerProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <SidebarHeaderProvider>
+        <AppShellInner>{children}</AppShellInner>
+      </SidebarHeaderProvider>
     </DrawerProvider>
   )
 }

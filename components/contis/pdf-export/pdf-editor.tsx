@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import { Button } from '@/components/ui/button'
-import { PageHeader } from '@/components/layout/page-header'
+import { useSidebarHeader } from '@/components/layout/sidebar-header-context'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowLeftIcon,
@@ -85,6 +85,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   const [cropResizing, setCropResizing] = useState<'tl' | 'tr' | 'bl' | 'br' | 'top' | 'right' | 'bottom' | 'left' | null>(null)
   const [imageResizeHandle, setImageResizeHandle] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null)
   const [imageSelected, setImageSelected] = useState(false)
+
+  const { setHeaderContent } = useSidebarHeader()
 
   const containerRef = useRef<HTMLDivElement>(null)
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -430,6 +432,27 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [saveStatus])
+
+  // Inject custom sidebar header
+  useEffect(() => {
+    setHeaderContent(
+      <div className="flex items-start gap-2">
+        <Link
+          href={`/contis/${conti.id}`}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-6 mt-0.5" />
+        </Link>
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold truncate">PDF 내보내기</h2>
+          <p className="text-sm text-muted-foreground truncate">
+            {conti.title || formatDate(conti.date)}
+          </p>
+        </div>
+      </div>
+    )
+    return () => setHeaderContent(null)
+  }, [conti.id, conti.title, conti.date, setHeaderContent])
 
   // Update overlay position
   function updateOverlay(overlayId: string, updates: Partial<OverlayElement>) {
@@ -1273,13 +1296,8 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <div className="h-10 w-56 bg-muted animate-pulse rounded" />
-            <div className="h-5 w-36 bg-muted animate-pulse rounded mt-3" />
-          </div>
-        </div>
+      <div className="flex flex-col gap-4">
+        <div className="h-10 w-full bg-muted animate-pulse rounded" />
         <div className="aspect-[1/1.414] w-full max-w-3xl mx-auto bg-muted animate-pulse rounded-lg" />
       </div>
     )
@@ -1292,49 +1310,18 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
-      <PageHeader
-        title="PDF 내보내기"
-        description={`${conti.title || formatDate(conti.date)} - ${songName}`}
-        backHref={`/contis/${conti.id}`}
-      >
-        <span className="text-muted-foreground text-base">
-          {saveStatus === 'saved' && '저장됨'}
-          {saveStatus === 'saving' && '저장 중...'}
-          {saveStatus === 'unsaved' && '저장되지 않음'}
+      {/* Consolidated Toolbar */}
+      <div className="flex items-center justify-between gap-4">
+        {/* Left: Song name */}
+        <span className="text-base font-medium text-muted-foreground truncate min-w-0">
+          {songName}
         </span>
-        <Button variant="outline" onClick={handleManualSave}>
-          <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} data-icon="inline-start" />
-          저장
-        </Button>
-        <Button variant="outline" onClick={handleExport} disabled={exporting || pages.length === 0}>
-          <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} data-icon="inline-start" />
-          {exporting ? 'PDF 생성 중...' : 'PDF 내보내기'}
-        </Button>
-        {pdfUrl && (
-          <Button
-            variant="outline"
-            render={
-              <a
-                href={pdfUrl}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-              />
-            }
-          >
-            <HugeiconsIcon icon={Download04Icon} strokeWidth={2} data-icon="inline-start" />
-            PDF 다운로드
-          </Button>
-        )}
-      </PageHeader>
 
-      {/* Toolbar */}
-      {currentPage && (
-        <div className="-mt-2 flex items-center justify-center gap-4">
-          {currentPage.imageUrl && (
+        {/* Center: Image tools */}
+        <div className="flex items-center gap-2 shrink-0">
+          {currentPage?.imageUrl && (
             <>
-              <span className="text-base tabular-nums text-muted-foreground">{currentPage.imageScale.toFixed(1)}x</span>
+              <span className="text-sm tabular-nums text-muted-foreground">{currentPage.imageScale.toFixed(1)}x</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -1406,7 +1393,41 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
             텍스트 추가
           </Button>
         </div>
-      )}
+
+        {/* Right: Action buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-muted-foreground text-sm">
+            {saveStatus === 'saved' && '저장됨'}
+            {saveStatus === 'saving' && '저장 중...'}
+            {saveStatus === 'unsaved' && '저장되지 않음'}
+          </span>
+          <Button variant="outline" size="sm" onClick={handleManualSave}>
+            <HugeiconsIcon icon={FloppyDiskIcon} strokeWidth={2} data-icon="inline-start" />
+            저장
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || pages.length === 0}>
+            <HugeiconsIcon icon={FileExportIcon} strokeWidth={2} data-icon="inline-start" />
+            {exporting ? '생성 중...' : 'PDF 내보내기'}
+          </Button>
+          {pdfUrl && (
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <a
+                  href={pdfUrl}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+            >
+              <HugeiconsIcon icon={Download04Icon} strokeWidth={2} data-icon="inline-start" />
+              다운로드
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* Crop confirm/cancel toolbar */}
       {isCropMode && cropSelection && !isCropDragging && (
