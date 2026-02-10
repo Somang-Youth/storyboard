@@ -5,12 +5,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Drawer } from "@/components/ui/drawer"
 import { KeyTempoEditor } from "@/components/contis/key-tempo-editor"
 import { SectionOrderEditor } from "@/components/contis/section-order-editor"
 import { LyricsEditor } from "@/components/contis/lyrics-editor"
@@ -45,7 +40,7 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
     }
   }
 
-  // Initialize form when preset changes or dialog opens
+  // Initialize form when preset changes or drawer opens
   useEffect(() => {
     if (open) {
       if (preset) {
@@ -128,97 +123,96 @@ export function PresetEditor({ songId, preset, open, onOpenChange }: PresetEdito
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{preset ? "프리셋 편집" : "프리셋 추가"}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-8">
-          <div className="space-y-3">
-            <label htmlFor="preset-name" className="text-base font-medium">
-              프리셋 이름 <span className="text-destructive">*</span>
-            </label>
-            <Input
-              id="preset-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="예: 주일 예배"
-              required
-            />
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold">조성 및 템포</h3>
-            <KeyTempoEditor
-              initialKeys={keys}
-              initialTempos={tempos}
-              onSave={handleKeyTempoSave}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold">섹션 순서</h3>
-            <SectionOrderEditor
-              initialSectionOrder={sectionOrder}
-              onSave={handleSectionOrderSave}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold">가사</h3>
-            <LyricsEditor
-              initialLyrics={lyrics}
-              onSave={handleLyricsSave}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold">섹션-가사 매핑</h3>
-            <SectionLyricsMapper
-              sectionOrder={sectionOrder}
-              lyrics={lyrics}
-              initialMap={sectionLyricsMap}
-              onSave={handleSectionLyricsMapSave}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <label htmlFor="preset-notes" className="text-base font-medium">
-              메모
-            </label>
-            <Textarea
-              id="preset-notes"
-              value={notes || ""}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="프리셋에 대한 추가 정보를 입력하세요..."
-              rows={3}
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="preset-default"
-              checked={isDefault}
-              onChange={(e) => setIsDefault(e.target.checked)}
-              className="size-5 cursor-pointer rounded"
-            />
-            <label htmlFor="preset-default" className="text-base cursor-pointer">
-              기본 프리셋으로 설정
-            </label>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-6">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              취소
-            </Button>
-            <Button onClick={handleSave} disabled={isPending}>
-              {isPending ? "저장 중..." : "저장"}
-            </Button>
-          </div>
+    <Drawer
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title={preset ? "프리셋 편집" : "프리셋 추가"}
+      footer={
+        <div className="flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+            취소
+          </Button>
+          <Button className="flex-1" onClick={handleSave} disabled={isPending}>
+            {isPending ? "저장 중..." : "저장"}
+          </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      }
+    >
+      <div className="space-y-8">
+        <div className="space-y-3">
+          <label htmlFor="preset-name" className="text-base font-medium">
+            프리셋 이름 <span className="text-destructive">*</span>
+          </label>
+          <Input
+            id="preset-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="예: 주일 예배"
+            required
+          />
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold">조성 및 템포</h3>
+          <KeyTempoEditor
+            initialKeys={keys}
+            initialTempos={tempos}
+            onSave={handleKeyTempoSave}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold">섹션 순서</h3>
+          <SectionOrderEditor
+            initialSectionOrder={sectionOrder}
+            onSave={handleSectionOrderSave}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold">가사</h3>
+          <LyricsEditor
+            initialLyrics={lyrics}
+            onSave={handleLyricsSave}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold">섹션-가사 매핑</h3>
+          <SectionLyricsMapper
+            sectionOrder={sectionOrder}
+            lyrics={lyrics}
+            initialMap={sectionLyricsMap}
+            onSave={handleSectionLyricsMapSave}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <label htmlFor="preset-notes" className="text-base font-medium">
+            메모
+          </label>
+          <Textarea
+            id="preset-notes"
+            value={notes || ""}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="프리셋에 대한 추가 정보를 입력하세요..."
+            rows={3}
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="preset-default"
+            checked={isDefault}
+            onChange={(e) => setIsDefault(e.target.checked)}
+            className="size-5 cursor-pointer rounded"
+          />
+          <label htmlFor="preset-default" className="text-base cursor-pointer">
+            기본 프리셋으로 설정
+          </label>
+        </div>
+      </div>
+    </Drawer>
   )
 }
