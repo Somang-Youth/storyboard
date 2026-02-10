@@ -156,6 +156,7 @@ export function PresetList({ songId, presets }: PresetListProps) {
                       variant="ghost"
                       onClick={() => handleEditClick(preset)}
                       aria-label="편집"
+                      className="hidden sm:inline-flex"
                     >
                       <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} />
                     </Button>

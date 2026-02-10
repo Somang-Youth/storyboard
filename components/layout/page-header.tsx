@@ -11,7 +11,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, backHref, children }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between mb-4">
+    <div className="flex items-start justify-between gap-3 mb-4">
       <div className="flex items-start gap-2">
         {backHref && (
           <Link
@@ -22,13 +22,13 @@ export function PageHeader({ title, description, backHref, children }: PageHeade
           </Link>
         )}
         <div>
-          <h1 className="text-3xl font-bold">{title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">{title}</h1>
           {description && (
             <p className="text-muted-foreground mt-1">{description}</p>
           )}
         </div>
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </div>
   )
 }

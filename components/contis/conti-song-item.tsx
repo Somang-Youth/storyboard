@@ -49,7 +49,7 @@ export function ContiSongItem({
       : null
 
   return (
-    <div className="ring-foreground/10 bg-card flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onEdit}>
+    <div className="ring-foreground/10 bg-card flex items-center gap-2 sm:gap-3 rounded-xl p-2.5 sm:p-3 ring-1 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onEdit}>
       <div className="text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-medium">
         {index + 1}
       </div>
@@ -85,6 +85,7 @@ export function ContiSongItem({
           size="icon-sm"
           onClick={onEdit}
           aria-label="편집"
+          className="hidden sm:inline-flex"
         >
           <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} />
         </Button>

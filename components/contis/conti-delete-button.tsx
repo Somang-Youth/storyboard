@@ -19,7 +19,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Delete01Icon } from "@hugeicons/core-free-icons"
 import { deleteConti } from "@/lib/actions/contis"
 
-export function ContiDeleteButton({ contiId }: { contiId: string }) {
+export function ContiDeleteButton({ contiId, iconOnly }: { contiId: string; iconOnly?: boolean }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -39,11 +39,11 @@ export function ContiDeleteButton({ contiId }: { contiId: string }) {
     <AlertDialog>
       <AlertDialogTrigger
         render={
-          <Button variant="destructive" disabled={isPending} />
+          <Button variant="destructive" size={iconOnly ? "icon" : undefined} disabled={isPending} />
         }
       >
-        <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} data-icon="inline-start" />
-        삭제
+        <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} data-icon={iconOnly ? undefined : "inline-start"} />
+        {!iconOnly && "삭제"}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
