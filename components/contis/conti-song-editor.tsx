@@ -200,119 +200,120 @@ export function ContiSongEditor({
         }
       >
         <div className="space-y-6">
-          <div>
-            <h3 className="mb-3 text-base font-medium">프리셋 관리</h3>
-            {presets.length > 0 && (
-              <div className="mb-3">
-                <label className="text-sm text-muted-foreground mb-1 block">프리셋 불러오기</label>
-                <div className="flex flex-col gap-1">
-                  {presets.map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base transition-colors disabled:opacity-50"
-                      onClick={() => handleLoadPreset(p)}
-                      disabled={isSaving}
-                    >
-                      <span className="truncate font-medium">{p.name}</span>
-                      <span className="flex items-center gap-1.5">
-                        {p.youtubeReference && (
-                          <a
-                            href={`https://www.youtube.com/watch?v=${p.youtubeReference}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="rounded bg-red-500/10 px-1.5 py-0.5 text-xs font-medium text-red-600 hover:bg-red-500/20 transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            YT
-                          </a>
-                        )}
-                        {p.isDefault && (
-                          <span className="text-sm text-muted-foreground">기본</span>
-                        )}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {!showPresetSave ? (
-              <Button variant="outline" size="sm" onClick={() => setShowPresetSave(true)}>
-                프리셋으로 저장
-              </Button>
-            ) : (
-              <div className="space-y-3">
-                {presets.length > 0 && (
+          {/* 프리셋 관리 / 악보 선택 — 2-column grid */}
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <h3 className="mb-3 text-base font-medium">프리셋 관리</h3>
+              {presets.length > 0 && (
+                <div className="mb-3">
+                  <label className="text-sm text-muted-foreground mb-1 block">프리셋 불러오기</label>
                   <div className="flex flex-col gap-1">
-                    <label className="text-sm text-muted-foreground">기존 프리셋 업데이트</label>
-                    <select
-                      className="rounded border px-2 py-1 text-base"
-                      value={selectedPresetId ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value || null
-                        setSelectedPresetId(val)
-                        if (val) {
-                          const preset = presets.find(p => p.id === val)
-                          if (preset) setPresetName(preset.name)
-                        } else {
-                          setPresetName("")
+                    {presets.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="hover:bg-muted flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base transition-colors disabled:opacity-50"
+                        onClick={() => handleLoadPreset(p)}
+                        disabled={isSaving}
+                      >
+                        <span className="truncate font-medium">{p.name}</span>
+                        <span className="flex items-center gap-1.5">
+                          {p.youtubeReference && (
+                            <a
+                              href={`https://www.youtube.com/watch?v=${p.youtubeReference}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded bg-red-500/10 px-1.5 py-0.5 text-xs font-medium text-red-600 hover:bg-red-500/20 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              YT
+                            </a>
+                          )}
+                          {p.isDefault && (
+                            <span className="text-sm text-muted-foreground">기본</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!showPresetSave ? (
+                <Button variant="outline" size="sm" onClick={() => setShowPresetSave(true)}>
+                  프리셋으로 저장
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  {presets.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm text-muted-foreground">기존 프리셋 업데이트</label>
+                      <select
+                        className="rounded border px-2 py-1 text-base"
+                        value={selectedPresetId ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value || null
+                          setSelectedPresetId(val)
+                          if (val) {
+                            const preset = presets.find(p => p.id === val)
+                            if (preset) setPresetName(preset.name)
+                          } else {
+                            setPresetName("")
+                          }
+                        }}
+                      >
+                        <option value="">새 프리셋 만들기</option>
+                        {presets.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}{p.isDefault ? " (기본)" : ""}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <Input
+                    placeholder="프리셋 이름"
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={!presetName.trim() || isPresetSaving}
+                      onClick={() => {
+                        if (isDirty) {
+                          toast.error("먼저 저장을 눌러 변경사항을 반영한 후 프리셋으로 저장하세요.")
+                          return
                         }
+                        setIsPresetSaving(true)
+                        saveContiSongAsPreset(
+                          contiSong.id,
+                          presetName.trim(),
+                          selectedPresetId ?? undefined
+                        ).then(async (result) => {
+                          if (result.success) {
+                            toast.success(selectedPresetId ? "프리셋이 업데이트되었습니다" : "새 프리셋이 저장되었습니다")
+                            setShowPresetSave(false)
+                            setPresetName("")
+                            setSelectedPresetId(null)
+                            const refreshed = await getPresetsForSong(contiSong.songId)
+                            if (refreshed.success && refreshed.data) setPresets(refreshed.data)
+                          } else {
+                            toast.error(result.error ?? "프리셋 저장 중 오류가 발생했습니다")
+                          }
+                        }).finally(() => {
+                          setIsPresetSaving(false)
+                        })
                       }}
                     >
-                      <option value="">새 프리셋 만들기</option>
-                      {presets.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}{p.isDefault ? " (기본)" : ""}</option>
-                      ))}
-                    </select>
+                      {isPresetSaving ? "저장 중..." : (selectedPresetId ? "프리셋 업데이트" : "프리셋 저장")}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => { setShowPresetSave(false); setPresetName(""); setSelectedPresetId(null) }}>
+                      취소
+                    </Button>
                   </div>
-                )}
-                <Input
-                  placeholder="프리셋 이름"
-                  value={presetName}
-                  onChange={(e) => setPresetName(e.target.value)}
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    disabled={!presetName.trim() || isPresetSaving}
-                    onClick={() => {
-                      if (isDirty) {
-                        toast.error("먼저 저장을 눌러 변경사항을 반영한 후 프리셋으로 저장하세요.")
-                        return
-                      }
-                      setIsPresetSaving(true)
-                      saveContiSongAsPreset(
-                        contiSong.id,
-                        presetName.trim(),
-                        selectedPresetId ?? undefined
-                      ).then(async (result) => {
-                        if (result.success) {
-                          toast.success(selectedPresetId ? "프리셋이 업데이트되었습니다" : "새 프리셋이 저장되었습니다")
-                          setShowPresetSave(false)
-                          setPresetName("")
-                          setSelectedPresetId(null)
-                          const refreshed = await getPresetsForSong(contiSong.songId)
-                          if (refreshed.success && refreshed.data) setPresets(refreshed.data)
-                        } else {
-                          toast.error(result.error ?? "프리셋 저장 중 오류가 발생했습니다")
-                        }
-                      }).finally(() => {
-                        setIsPresetSaving(false)
-                      })
-                    }}
-                  >
-                    {isPresetSaving ? "저장 중..." : (selectedPresetId ? "프리셋 업데이트" : "프리셋 저장")}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => { setShowPresetSave(false); setPresetName(""); setSelectedPresetId(null) }}>
-                    취소
-                  </Button>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          {songSheetMusic.length > 0 && (
-            <>
+            {songSheetMusic.length > 0 && (
               <div className="space-y-3">
                 <label className="text-base font-medium">악보 선택</label>
                 <p className="text-sm text-muted-foreground">
@@ -325,9 +326,8 @@ export function ContiSongEditor({
                   availableFiles={songSheetMusic}
                 />
               </div>
-              <div className="border-t" />
-            </>
-          )}
+            )}
+          </div>
 
           <div className="border-t" />
 
@@ -339,6 +339,11 @@ export function ContiSongEditor({
               lyrics={lyrics}
               sectionLyricsMap={sectionLyricsMap}
               notes={notes}
+              sheetMusicFiles={
+                sheetMusicFileIds
+                  ? songSheetMusic.filter(f => sheetMusicFileIds.includes(f.id))
+                  : songSheetMusic
+              }
               onKeysTemposChange={handleKeysTemposChange}
               onSectionOrderChange={handleSectionOrderChange}
               onLyricsChange={handleLyricsChange}

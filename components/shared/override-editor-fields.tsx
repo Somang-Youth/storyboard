@@ -5,6 +5,7 @@ import { KeyTempoEditor } from "@/components/contis/key-tempo-editor"
 import { SectionOrderEditor } from "@/components/contis/section-order-editor"
 import { LyricsEditor } from "@/components/contis/lyrics-editor"
 import { SectionLyricsMapper } from "@/components/contis/section-lyrics-mapper"
+import type { SheetMusicFile } from "@/lib/types"
 
 interface OverrideEditorFieldsProps {
   keys: string[]
@@ -13,6 +14,7 @@ interface OverrideEditorFieldsProps {
   lyrics: string[]
   sectionLyricsMap: Record<number, number[]>
   notes: string | null
+  sheetMusicFiles?: SheetMusicFile[]
   onKeysTemposChange: (data: { keys: string[]; tempos: number[] }) => void
   onSectionOrderChange: (data: { sectionOrder: string[] }) => void
   onLyricsChange: (data: { lyrics: string[] }) => void
@@ -27,6 +29,7 @@ export function OverrideEditorFields({
   lyrics,
   sectionLyricsMap,
   notes,
+  sheetMusicFiles,
   onKeysTemposChange,
   onSectionOrderChange,
   onLyricsChange,
@@ -35,17 +38,17 @@ export function OverrideEditorFields({
 }: OverrideEditorFieldsProps) {
   return (
     <div className="space-y-8">
-      <div>
-        <h3 className="mb-4 text-base font-medium">조성 및 템포</h3>
-        <KeyTempoEditor
-          initialKeys={keys}
-          initialTempos={tempos}
-          onChange={onKeysTemposChange}
-        />
-      </div>
+      {/* 조성 / 템포 — 2-column grid */}
+      <KeyTempoEditor
+        initialKeys={keys}
+        initialTempos={tempos}
+        onChange={onKeysTemposChange}
+        twoColumn
+      />
 
       <div className="border-t my-8" />
 
+      {/* 섹션 순서 — 1 column */}
       <div>
         <h3 className="mb-4 text-base font-medium">섹션 순서</h3>
         <SectionOrderEditor
@@ -56,28 +59,29 @@ export function OverrideEditorFields({
 
       <div className="border-t my-8" />
 
-      <div>
-        <h3 className="mb-4 text-base font-medium">가사 페이지</h3>
-        <LyricsEditor
-          initialLyrics={lyrics}
-          onChange={onLyricsChange}
-        />
+      {/* 가사 페이지 / 섹션-가사 매핑 — 2-column grid */}
+      <div className="grid grid-cols-2 gap-6">
+        <div>
+          <LyricsEditor
+            initialLyrics={lyrics}
+            onChange={onLyricsChange}
+            sheetMusicFiles={sheetMusicFiles}
+          />
+        </div>
+        <div>
+          <h3 className="mb-4 text-base font-medium">섹션-가사 매핑</h3>
+          <SectionLyricsMapper
+            sectionOrder={sectionOrder}
+            lyrics={lyrics}
+            initialMap={sectionLyricsMap}
+            onChange={onSectionLyricsMapChange}
+          />
+        </div>
       </div>
 
       <div className="border-t my-8" />
 
-      <div>
-        <h3 className="mb-4 text-base font-medium">섹션-가사 매핑</h3>
-        <SectionLyricsMapper
-          sectionOrder={sectionOrder}
-          lyrics={lyrics}
-          initialMap={sectionLyricsMap}
-          onChange={onSectionLyricsMapChange}
-        />
-      </div>
-
-      <div className="border-t my-8" />
-
+      {/* 메모 — 1 column */}
       <div>
         <label className="mb-4 block text-base font-medium">메모</label>
         <Textarea

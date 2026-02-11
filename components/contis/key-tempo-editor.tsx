@@ -10,6 +10,7 @@ interface KeyTempoEditorProps {
   initialKeys: string[]
   initialTempos: number[]
   onChange: (data: { keys: string[]; tempos: number[] }) => void
+  twoColumn?: boolean
 }
 
 const COMMON_KEYS = ["C", "D", "E", "F", "G", "A", "B"]
@@ -18,6 +19,7 @@ export function KeyTempoEditor({
   initialKeys,
   initialTempos,
   onChange,
+  twoColumn,
 }: KeyTempoEditorProps) {
   const [keys, setKeys] = useState<string[]>(initialKeys)
   const [tempos, setTempos] = useState<number[]>(initialTempos)
@@ -65,7 +67,7 @@ export function KeyTempoEditor({
   }
 
   return (
-    <div className="space-y-4">
+    <div className={twoColumn ? "grid grid-cols-2 gap-6" : "space-y-4"}>
       <div>
         <div className="mb-2 flex items-center justify-between">
           <label className="text-base font-medium">조성 (키)</label>

@@ -221,6 +221,7 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
             lyrics={lyrics}
             sectionLyricsMap={sectionLyricsMap}
             notes={notes}
+            sheetMusicFiles={sheetMusic}
             onKeysTemposChange={handleKeysTemposChange}
             onSectionOrderChange={handleSectionOrderChange}
             onLyricsChange={handleLyricsChange}
