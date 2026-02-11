@@ -210,7 +210,7 @@ export function OcrRegionSelector({
 
       if (result.success && result.data) {
         const cleaned = result.data.texts
-          .map(t => t.replace(/\n/g, ' ').replace(/\s{2,}/g, ' ').trim())
+          .map(t => t.replace(/\n/g, ' ').replace(/\s*-\s*/g, '').replace(/\s{2,}/g, ' ').trim())
           .filter(t => t !== '')
         setExtractedText(cleaned.join(' / '))
       } else {
