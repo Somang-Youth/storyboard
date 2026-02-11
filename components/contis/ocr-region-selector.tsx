@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Loading03Icon, Cancel01Icon, ArrowLeft02Icon, ArrowRight02Icon } from "@hugeicons/core-free-icons"
+import { Loading03Icon, Cancel01Icon, ArrowLeft02Icon, ArrowRight02Icon, TextCheckIcon } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { extractTextFromRegions } from "@/lib/actions/ocr"
+import { checkSpelling } from "@/lib/actions/spell-check"
+import { computeWordDiff, getOriginalParts, getCorrectedParts } from "@/lib/utils/text-diff"
 import { getPdfPageCount, renderPdfPagesToDataUrls } from "@/lib/utils/pdfjs"
 import type { SheetMusicFile } from "@/lib/types"
 
@@ -85,6 +87,11 @@ export function OcrRegionSelector({
   const [extractedText, setExtractedText] = useState<string | null>(null)
   const [isExtracting, setIsExtracting] = useState(false)
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null)
+
+  // Spell check state (inline, no separate modal)
+  const [isSpellChecking, setIsSpellChecking] = useState(false)
+  const [correctedText, setCorrectedText] = useState<string | null>(null)
+  const [spellCheckError, setSpellCheckError] = useState<string | null>(null)
 
   // Build display pages from sheet music files (images + PDF pages)
   useEffect(() => {
@@ -183,6 +190,8 @@ export function OcrRegionSelector({
   const resetRegions = () => {
     setRegions([])
     setExtractedText(null)
+    setCorrectedText(null)
+    setSpellCheckError(null)
   }
 
   const handleExtract = async () => {
@@ -215,13 +224,32 @@ export function OcrRegionSelector({
     }
   }
 
+  const handleSpellCheck = async () => {
+    if (!extractedText?.trim()) return
+    setIsSpellChecking(true)
+    setSpellCheckError(null)
+    setCorrectedText(null)
+    const result = await checkSpelling(extractedText)
+    if (result.success && result.data) {
+      if (result.data.corrected === extractedText) {
+        toast.success('맞춤법 오류가 없습니다!')
+      } else {
+        setCorrectedText(result.data.corrected)
+      }
+    } else {
+      setSpellCheckError(result.error ?? '맞춤법 검사에 실패했습니다.')
+    }
+    setIsSpellChecking(false)
+  }
+
   const handleAddToLyrics = () => {
     if (!extractedText || !extractedText.trim()) {
       toast.error('추출된 텍스트가 없습니다.')
       return
     }
     onExtractedTexts([extractedText.trim()])
-    onOpenChange(false)
+    toast.success('가사에 추가되었습니다')
+    resetRegions()
   }
 
   const currentPage = pages[currentPageIndex]
@@ -355,16 +383,87 @@ export function OcrRegionSelector({
               </div>
             </div>
 
-            {/* Extracted text preview (editable) */}
+            {/* Extracted text preview (editable) + inline spell check */}
             {extractedText !== null && (
               <div className="border rounded-lg p-4 space-y-2">
-                <div className="text-sm font-medium">추출된 텍스트 (수정 가능)</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">추출된 텍스트 (수정 가능)</div>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={handleSpellCheck}
+                    disabled={isSpellChecking || !extractedText.trim()}
+                  >
+                    {isSpellChecking ? (
+                      <>
+                        <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-3.5 animate-spin" />
+                        검사 중...
+                      </>
+                    ) : (
+                      <>
+                        <HugeiconsIcon icon={TextCheckIcon} strokeWidth={2} className="size-3.5" />
+                        맞춤법 검사
+                      </>
+                    )}
+                  </Button>
+                </div>
                 <textarea
                   className="w-full rounded border bg-background p-2 text-sm resize-none"
                   rows={3}
                   value={extractedText}
-                  onChange={(e) => setExtractedText(e.target.value)}
+                  onChange={(e) => {
+                    setExtractedText(e.target.value)
+                    setCorrectedText(null)
+                    setSpellCheckError(null)
+                  }}
                 />
+
+                {spellCheckError && (
+                  <div className="text-sm text-destructive">{spellCheckError}</div>
+                )}
+
+                {correctedText !== null && (
+                  <div className="space-y-2">
+                    <div className="text-sm text-muted-foreground">교정 결과가 있습니다. 적용할 텍스트를 선택하세요:</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        className="text-left rounded-lg border-2 border-transparent hover:border-muted-foreground/30 p-3 transition-colors bg-muted/30"
+                        onClick={() => setCorrectedText(null)}
+                      >
+                        <div className="text-xs font-medium text-muted-foreground mb-1">원본 유지</div>
+                        <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {getOriginalParts(computeWordDiff(extractedText, correctedText)).map((part, i) =>
+                            part.removed ? (
+                              <span key={i} className="bg-red-100 text-red-800 line-through rounded-sm px-0.5">{part.value}</span>
+                            ) : (
+                              <span key={i}>{part.value}</span>
+                            )
+                          )}
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        className="text-left rounded-lg border-2 border-primary/50 hover:border-primary p-3 transition-colors bg-primary/5"
+                        onClick={() => {
+                          setExtractedText(correctedText)
+                          setCorrectedText(null)
+                        }}
+                      >
+                        <div className="text-xs font-medium text-primary mb-1">교정 적용</div>
+                        <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {getCorrectedParts(computeWordDiff(extractedText, correctedText)).map((part, i) =>
+                            part.added ? (
+                              <span key={i} className="bg-green-100 text-green-800 rounded-sm px-0.5">{part.value}</span>
+                            ) : (
+                              <span key={i}>{part.value}</span>
+                            )
+                          )}
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
