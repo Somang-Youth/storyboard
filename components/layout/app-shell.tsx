@@ -40,7 +40,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           "md:sticky md:inset-auto md:top-0 md:z-auto md:h-screen md:max-h-none md:rounded-none md:border-l md:shadow-none",
           "md:transition-[width] md:duration-300 md:ease-in-out",
           "md:translate-y-0 md:pointer-events-auto",
-          isOpen ? "md:w-[20%]" : "md:w-0 md:border-l-0",
+          isOpen ? "md:w-[40%]" : "md:w-0 md:border-l-0",
         )}
       />
     </div>
