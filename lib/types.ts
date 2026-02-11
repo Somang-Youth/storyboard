@@ -27,6 +27,7 @@ export interface SongPresetData {
   sectionLyricsMap: Record<number, number[]>;
   notes: string | null;
   isDefault: boolean;
+  youtubeReference?: string | null;
   sheetMusicFileIds?: string[];  // references to sheet_music_files.id
 }
 
