@@ -116,6 +116,9 @@ export function PresetList({ songId, presets, sheetMusic }: PresetListProps) {
                       {preset.isDefault && (
                         <Badge variant="secondary">기본</Badge>
                       )}
+                      {preset.youtubeReference && (
+                        <Badge variant="outline" className="text-xs">YT</Badge>
+                      )}
                     </div>
 
                     <div className="text-muted-foreground text-base space-y-1.5">
@@ -135,6 +138,20 @@ export function PresetList({ songId, presets, sheetMusic }: PresetListProps) {
                         <div>
                           <span className="font-medium">메모:</span>{" "}
                           {preset.notes}
+                        </div>
+                      )}
+                      {preset.youtubeReference && (
+                        <div>
+                          <span className="font-medium">YouTube:</span>{" "}
+                          <a
+                            href={`https://www.youtube.com/watch?v=${preset.youtubeReference}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {preset.youtubeReference}
+                          </a>
                         </div>
                       )}
                     </div>

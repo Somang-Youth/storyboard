@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,12 +38,18 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
   const [sectionLyricsMap, setSectionLyricsMap] = useState<Record<number, number[]>>({})
   const [notes, setNotes] = useState<string | null>(null)
   const [isDefault, setIsDefault] = useState(false)
+  const [youtubeReference, setYoutubeReference] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [sheetMusicFileIds, setSheetMusicFileIds] = useState<string[]>([])
+  const [editorKey, setEditorKey] = useState(0)
 
   // Unsaved changes tracking
-  const { isDirty, markDirty, reset: resetDirty } = useUnsavedChanges(preset)
+  const { isDirty, markDirty: _markDirty, reset: resetDirty } = useUnsavedChanges(preset)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+  const dirtyAllowedRef = useRef(false)
+  const markDirty = useCallback(() => {
+    if (dirtyAllowedRef.current) _markDirty()
+  }, [_markDirty])
 
   const parseJsonField = <T,>(field: string | null, fallback: T): T => {
     if (!field) return fallback
@@ -66,6 +72,7 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
         setSectionLyricsMap(parseJsonField<Record<number, number[]>>(preset.sectionLyricsMap, {}))
         setNotes(preset.notes)
         setIsDefault(preset.isDefault)
+        setYoutubeReference(preset.youtubeReference)
         setSheetMusicFileIds(preset.sheetMusicFileIds ?? [])
       } else {
         setName("")
@@ -76,11 +83,24 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
         setSectionLyricsMap({})
         setNotes(null)
         setIsDefault(false)
+        setYoutubeReference(null)
         setSheetMusicFileIds([])
       }
+      dirtyAllowedRef.current = false
       resetDirty()
+      setEditorKey(k => k + 1)
     }
   }, [preset, open, resetDirty])
+
+  // Enable dirty tracking after all effects (including Strict Mode double-invocations)
+  // have settled. setTimeout(0) fires in the next macrotask, guaranteeing all
+  // synchronous effect chains are complete.
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => { dirtyAllowedRef.current = true }, 0)
+      return () => { clearTimeout(timer); dirtyAllowedRef.current = false }
+    }
+  }, [open, editorKey])
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -99,6 +119,7 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
         sectionLyricsMap,
         notes: notes?.trim() || null,
         isDefault,
+        youtubeReference,
         sheetMusicFileIds,
       }
 
@@ -193,6 +214,7 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
           </div>
 
           <OverrideEditorFields
+            key={editorKey}
             keys={keys}
             tempos={tempos}
             sectionOrder={sectionOrder}
@@ -217,6 +239,28 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
               />
             </div>
           )}
+
+          <div className="space-y-2">
+            <label htmlFor="preset-youtube-ref" className="text-base font-medium">YouTube 레퍼런스</label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="preset-youtube-ref"
+                value={youtubeReference ?? ""}
+                onChange={(e) => { setYoutubeReference(e.target.value || null); markDirty() }}
+                placeholder="YouTube 영상 ID (예: dQw4w9WgXcQ)"
+              />
+              {youtubeReference && (
+                <a
+                  href={`https://www.youtube.com/watch?v=${youtubeReference}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 rounded bg-red-500/10 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-500/20 transition-colors"
+                >
+                  열기
+                </a>
+              )}
+            </div>
+          </div>
 
           <div className="flex items-center gap-3">
             <input

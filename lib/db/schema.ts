@@ -27,6 +27,7 @@ export const songPresets = pgTable('song_presets', {
   lyrics: text('lyrics'),
   sectionLyricsMap: text('section_lyrics_map'),
   notes: text('notes'),
+  youtubeReference: text('youtube_reference'),
   isDefault: boolean('is_default').notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at').notNull(),

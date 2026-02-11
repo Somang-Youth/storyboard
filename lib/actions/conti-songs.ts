@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { stringifyContiSongOverrides, parseContiSongOverrides } from '@/lib/db/helpers';
 import type { ActionResult, ContiSong, ContiSongOverrides } from '@/lib/types';
 import { createSongPreset, updateSongPreset } from './song-presets';
-import { insertContiSong, insertSong } from '@/lib/db/insert-helpers';
+import { insertContiSong, insertSong, insertSongPreset, updateSongPresetYoutubeRef } from '@/lib/db/insert-helpers';
 import { z } from 'zod';
 
 export async function addSongToConti(
@@ -162,6 +162,11 @@ export async function saveContiSongAsPreset(
 const batchImportItemSchema = z.object({
   songId: z.string().nullable(),
   newSongName: z.string().nullable(),
+  videoId: z.string().nullable().optional().default(null),
+  presetId: z.string().nullable().optional().default(null),
+  createNewPreset: z.boolean().optional().default(false),
+  presetName: z.string().nullable().optional().default(null),
+  alreadyInConti: z.boolean().optional().default(false),
 })
 
 const batchImportSchema = z.object({
@@ -174,8 +179,13 @@ export async function batchImportSongsToConti(
   items: Array<{
     songId: string | null
     newSongName: string | null
+    videoId?: string | null
+    presetId?: string | null
+    createNewPreset?: boolean
+    presetName?: string | null
+    alreadyInConti?: boolean
   }>
-): Promise<ActionResult<{ added: number; created: number }>> {
+): Promise<ActionResult<{ added: number; created: number; presetUpdated: number }>> {
   try {
     const validation = batchImportSchema.safeParse({ contiId, items })
     if (!validation.success) {
@@ -192,6 +202,7 @@ export async function batchImportSongsToConti(
     }
 
     let created = 0
+    let presetUpdated = 0
 
     const maxResult = await db
       .select({ maxOrder: max(contiSongs.sortOrder) })
@@ -222,7 +233,31 @@ export async function batchImportSongsToConti(
         }
       }
 
-      await insertContiSong(db, contiId, resolvedSongId, nextSortOrder++)
+      // Preset logic for YouTube import
+      if (item.videoId) {
+        if (!item.songId && item.createNewPreset !== false) {
+          // New song: auto-create preset with youtube reference
+          await insertSongPreset(db, resolvedSongId, {
+            name: item.presetName || 'YouTube Import',
+            youtubeReference: item.videoId,
+          })
+        } else if (item.songId && item.presetId) {
+          // Existing song: update selected preset's youtube reference
+          await updateSongPresetYoutubeRef(db, item.presetId, item.videoId)
+        } else if (item.songId && item.createNewPreset) {
+          // Existing song: create new preset with youtube reference
+          await insertSongPreset(db, resolvedSongId, {
+            name: item.presetName || 'YouTube Import',
+            youtubeReference: item.videoId,
+          })
+        }
+      }
+
+      if (item.alreadyInConti) {
+        presetUpdated++
+      } else {
+        await insertContiSong(db, contiId, resolvedSongId, nextSortOrder++)
+      }
     }
 
     revalidatePath('/contis')
@@ -230,7 +265,7 @@ export async function batchImportSongsToConti(
 
     return {
       success: true,
-      data: { added: items.length, created },
+      data: { added: validatedItems.length - presetUpdated, created, presetUpdated },
     }
   } catch (error) {
     console.error('[batchImportSongsToConti]', error)
