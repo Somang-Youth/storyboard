@@ -137,7 +137,7 @@ export function YouTubeImportDialog({
           ...item,
           matchedSong: song,
           isAlreadyInConti,
-          excluded: isAlreadyInConti ? true : item.excluded,
+          excluded: false,
           selectedPresetId: null,
           createNewPreset: true,
           presets: null,
@@ -209,7 +209,7 @@ export function YouTubeImportDialog({
 
       return {
         ...item,
-        excluded: item.isAlreadyInConti || isDuplicate ? true : item.excluded,
+        excluded: isDuplicate ? true : item.excluded,
         duplicateReason: isDuplicate ? duplicateReason : undefined,
       } as ImportItem & { duplicateReason?: string }
     })
@@ -218,7 +218,7 @@ export function YouTubeImportDialog({
   function toggleExclude(itemId: string) {
     setItems((prev) =>
       prev.map((item) =>
-        item.id === itemId && !item.isAlreadyInConti
+        item.id === itemId
           ? { ...item, excluded: !item.excluded }
           : item
       )
@@ -233,7 +233,7 @@ export function YouTubeImportDialog({
 
   function handleImport() {
     const importableItems = items.filter(
-      (item) => !item.excluded && !item.isAlreadyInConti
+      (item) => !item.excluded
     )
 
     if (importableItems.length === 0) {
@@ -266,6 +266,7 @@ export function YouTubeImportDialog({
         presetId: item.selectedPresetId,
         createNewPreset: item.createNewPreset || !item.matchedSong,
         presetName: item.presetName || defaultPresetName,
+        alreadyInConti: item.isAlreadyInConti,
       }))
 
       const result = await batchImportSongsToConti(contiId, batchItems)
@@ -274,21 +275,22 @@ export function YouTubeImportDialog({
         return
       }
 
-      toast.success(
-        `${result.data.added}곡이 추가되었습니다 (새 곡 ${result.data.created}개 생성)`
-      )
+      const msgs = []
+      if (result.data.added > 0) msgs.push(`${result.data.added}곡 추가`)
+      if (result.data.created > 0) msgs.push(`새 곡 ${result.data.created}개 생성`)
+      if (result.data.presetUpdated > 0) msgs.push(`프리셋 ${result.data.presetUpdated}개 업데이트`)
+      toast.success(msgs.join(', '))
       onOpenChange(false)
       resetState()
     })
   }
 
   const importStats = useMemo(() => {
-    const importable = items.filter(
-      (item) => !item.excluded && !item.isAlreadyInConti
-    )
+    const importable = items.filter((item) => !item.excluded)
     const newSongs = importable.filter((item) => !item.matchedSong).length
-    const existingSongs = importable.filter((item) => item.matchedSong).length
-    return { total: importable.length, newSongs, existingSongs }
+    const existingSongs = importable.filter((item) => item.matchedSong && !item.isAlreadyInConti).length
+    const presetOnly = importable.filter((item) => item.isAlreadyInConti).length
+    return { total: importable.length, newSongs, existingSongs, presetOnly }
   }, [items])
 
   return (
@@ -299,7 +301,7 @@ export function YouTubeImportDialog({
         onOpenChange(v)
       }}
     >
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>YouTube 플레이리스트에서 가져오기</DialogTitle>
         </DialogHeader>
@@ -430,9 +432,14 @@ export function YouTubeImportDialog({
                             )}
 
                             {item.isAlreadyInConti ? (
-                              <Badge variant="secondary" className="text-muted-foreground">
-                                이미 추가됨
-                              </Badge>
+                              <>
+                                <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                                  기존 곡
+                                </Badge>
+                                <Badge variant="secondary">
+                                  프리셋만 업데이트
+                                </Badge>
+                              </>
                             ) : itemWithDuplicate.duplicateReason ? (
                               <Badge variant="destructive" className="text-xs">
                                 {itemWithDuplicate.duplicateReason}
@@ -449,35 +456,42 @@ export function YouTubeImportDialog({
                           </div>
 
                           {/* Preset selection */}
-                          {!item.isAlreadyInConti && !item.excluded && (
-                            item.matchedSong ? (
-                              <div className="flex flex-col gap-1">
-                                <select
-                                  className="rounded border px-2 py-1 text-sm bg-background"
-                                  value={item.createNewPreset ? "__new__" : (item.selectedPresetId ?? "__new__")}
-                                  onChange={(e) => {
-                                    const val = e.target.value
-                                    handlePresetSelection(item.id, val === "__new__" ? null : val)
-                                  }}
-                                >
-                                  <option value="__new__">새 프리셋 만들기</option>
-                                  {item.presets?.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.name}{p.youtubeReference ? " ⚠️" : ""}
-                                    </option>
-                                  ))}
-                                </select>
-                                {item.existingYoutubeRef && (
-                                  <p className="text-xs text-amber-600">
-                                    이 프리셋에 이미 YouTube 레퍼런스가 있습니다. 덮어씌워집니다.
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">
-                                새 프리셋이 자동 생성됩니다
-                              </p>
-                            )
+                          {!item.excluded && (
+                            <div className="flex flex-col gap-1 mt-1 rounded-md bg-muted/50 p-2">
+                              <label className="text-xs font-medium text-muted-foreground">프리셋</label>
+                              {item.matchedSong ? (
+                                <>
+                                  <select
+                                    className="w-full rounded border px-2 py-1.5 text-sm bg-background"
+                                    value={item.createNewPreset ? "__new__" : (item.selectedPresetId ?? "__new__")}
+                                    onChange={(e) => {
+                                      const val = e.target.value
+                                      handlePresetSelection(item.id, val === "__new__" ? null : val)
+                                    }}
+                                  >
+                                    <option value="__new__">새 프리셋 만들기</option>
+                                    {item.presets === null ? (
+                                      <option disabled>불러오는 중...</option>
+                                    ) : (
+                                      item.presets.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                          {p.name}{p.youtubeReference ? " (YT 있음)" : ""}
+                                        </option>
+                                      ))
+                                    )}
+                                  </select>
+                                  {item.existingYoutubeRef && (
+                                    <p className="text-xs text-amber-600">
+                                      이 프리셋에 이미 YouTube 레퍼런스가 있습니다. 덮어씌워집니다.
+                                    </p>
+                                  )}
+                                </>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  새 프리셋이 자동 생성됩니다 ({defaultPresetName})
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -487,7 +501,6 @@ export function YouTubeImportDialog({
                           type="checkbox"
                           checked={!item.excluded}
                           onChange={() => toggleExclude(item.id)}
-                          disabled={item.isAlreadyInConti}
                           className="h-4 w-4 rounded border-gray-300 accent-primary"
                         />
                       </div>
@@ -515,12 +528,13 @@ export function YouTubeImportDialog({
                 <div className="flex-1 text-sm text-muted-foreground sm:text-center">
                   {importStats.total > 0 ? (
                     <>
-                      {importStats.total}개 곡 가져오기 (새 곡{" "}
-                      {importStats.newSongs}개, 기존 곡{" "}
-                      {importStats.existingSongs}개)
+                      {importStats.total}개 항목
+                      {importStats.newSongs > 0 && ` · 새 곡 ${importStats.newSongs}`}
+                      {importStats.existingSongs > 0 && ` · 기존 곡 ${importStats.existingSongs}`}
+                      {importStats.presetOnly > 0 && ` · 프리셋만 ${importStats.presetOnly}`}
                     </>
                   ) : (
-                    "가져올 곡이 없습니다"
+                    "가져올 항목이 없습니다"
                   )}
                 </div>
                 <Button

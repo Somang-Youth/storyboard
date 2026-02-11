@@ -9,7 +9,7 @@ pnpm dev          # Start dev server (http://localhost:3000)
 pnpm build        # Production build
 pnpm lint         # ESLint (flat config, Next.js core-web-vitals + typescript)
 npx drizzle-kit generate  # Generate DB migrations
-npx drizzle-kit push      # Push schema to Vercel Postgres database
+set -a && source .env.local && set +a && npx drizzle-kit push  # Push schema to DB (requires .env.local)
 ```
 
 ## Architecture

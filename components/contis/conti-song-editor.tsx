@@ -215,9 +215,17 @@ export function ContiSongEditor({
                       disabled={isSaving}
                     >
                       <span className="truncate font-medium">{p.name}</span>
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1.5">
                         {p.youtubeReference && (
-                          <span className="text-xs text-muted-foreground">YT</span>
+                          <a
+                            href={`https://www.youtube.com/watch?v=${p.youtubeReference}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded bg-red-500/10 px-1.5 py-0.5 text-xs font-medium text-red-600 hover:bg-red-500/20 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            YT
+                          </a>
                         )}
                         {p.isDefault && (
                           <span className="text-sm text-muted-foreground">기본</span>

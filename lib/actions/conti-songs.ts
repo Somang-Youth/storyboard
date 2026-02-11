@@ -166,6 +166,7 @@ const batchImportItemSchema = z.object({
   presetId: z.string().nullable().optional().default(null),
   createNewPreset: z.boolean().optional().default(false),
   presetName: z.string().nullable().optional().default(null),
+  alreadyInConti: z.boolean().optional().default(false),
 })
 
 const batchImportSchema = z.object({
@@ -182,8 +183,9 @@ export async function batchImportSongsToConti(
     presetId?: string | null
     createNewPreset?: boolean
     presetName?: string | null
+    alreadyInConti?: boolean
   }>
-): Promise<ActionResult<{ added: number; created: number }>> {
+): Promise<ActionResult<{ added: number; created: number; presetUpdated: number }>> {
   try {
     const validation = batchImportSchema.safeParse({ contiId, items })
     if (!validation.success) {
@@ -200,6 +202,7 @@ export async function batchImportSongsToConti(
     }
 
     let created = 0
+    let presetUpdated = 0
 
     const maxResult = await db
       .select({ maxOrder: max(contiSongs.sortOrder) })
@@ -250,7 +253,11 @@ export async function batchImportSongsToConti(
         }
       }
 
-      await insertContiSong(db, contiId, resolvedSongId, nextSortOrder++)
+      if (item.alreadyInConti) {
+        presetUpdated++
+      } else {
+        await insertContiSong(db, contiId, resolvedSongId, nextSortOrder++)
+      }
     }
 
     revalidatePath('/contis')
@@ -258,7 +265,7 @@ export async function batchImportSongsToConti(
 
     return {
       success: true,
-      data: { added: items.length, created },
+      data: { added: validatedItems.length - presetUpdated, created, presetUpdated },
     }
   } catch (error) {
     console.error('[batchImportSongsToConti]', error)
