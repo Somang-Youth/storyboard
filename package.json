@@ -20,6 +20,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "diff": "^8.0.3",
     "drizzle-orm": "^0.45.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.1.0",
