@@ -240,7 +240,7 @@ export function usePdfExport(
               : overlay.type === "custom"
                 ? "400"
                 : "600";
-          el.style.whiteSpace = "nowrap";
+          el.style.whiteSpace = "pre-wrap";
           el.style.transform =
             overlay.type === "bpm"
               ? "translateX(-100%)"

@@ -549,7 +549,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                       : overlay.type === "sectionOrder"
                         ? "translateX(-50%)"
                         : "none",
-                  whiteSpace: "nowrap",
+                  whiteSpace: "pre-wrap",
                   fontFamily:
                     '"Pretendard Variable", Pretendard, -apple-system, sans-serif',
                 }}
@@ -563,7 +563,7 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
                   className="outline-none"
                   onBlur={(e) => {
                     const newText =
-                      (e.target as HTMLElement).textContent ?? overlay.text;
+                      (e.target as HTMLElement).innerText ?? overlay.text;
                     if (newText !== overlay.text) {
                       updateOverlay(overlay.id, { text: newText });
                     }
