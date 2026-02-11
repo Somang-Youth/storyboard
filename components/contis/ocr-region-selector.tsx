@@ -82,8 +82,9 @@ export function OcrRegionSelector({
   const overlayRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
 
-  const [extractedTexts, setExtractedTexts] = useState<string[] | null>(null)
+  const [extractedText, setExtractedText] = useState<string | null>(null)
   const [isExtracting, setIsExtracting] = useState(false)
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null)
 
   // Build display pages from sheet music files (images + PDF pages)
   useEffect(() => {
@@ -93,7 +94,7 @@ export function OcrRegionSelector({
     setCurrentPageIndex(0)
     setRegions([])
     setDrawingRegion(null)
-    setExtractedTexts(null)
+    setExtractedText(null)
 
     async function loadPages() {
       const result: DisplayPage[] = []
@@ -124,11 +125,12 @@ export function OcrRegionSelector({
     loadPages()
   }, [open, sheetMusicFiles])
 
-  // Reset regions when page changes
+  // Reset regions and aspect ratio when page changes
   useEffect(() => {
     setRegions([])
     setDrawingRegion(null)
-    setExtractedTexts(null)
+    setExtractedText(null)
+    setImageAspectRatio(null)
   }, [currentPageIndex])
 
   const getRelativePosition = useCallback((e: React.PointerEvent) => {
@@ -142,14 +144,14 @@ export function OcrRegionSelector({
   }, [])
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (extractedTexts !== null) return
+    if (extractedText !== null) return
     e.preventDefault()
     const pos = getRelativePosition(e)
     startPointRef.current = pos
     setDrawingRegion({ x: pos.x, y: pos.y, width: 0, height: 0 })
     setIsDrawing(true)
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-  }, [extractedTexts, getRelativePosition])
+  }, [extractedText, getRelativePosition])
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDrawing || !startPointRef.current) return
@@ -180,7 +182,7 @@ export function OcrRegionSelector({
 
   const resetRegions = () => {
     setRegions([])
-    setExtractedTexts(null)
+    setExtractedText(null)
   }
 
   const handleExtract = async () => {
@@ -198,7 +200,10 @@ export function OcrRegionSelector({
       )
 
       if (result.success && result.data) {
-        setExtractedTexts(result.data.texts)
+        const cleaned = result.data.texts
+          .map(t => t.replace(/\n/g, ' ').replace(/\s{2,}/g, ' ').trim())
+          .filter(t => t !== '')
+        setExtractedText(cleaned.join(' / '))
       } else {
         toast.error(result.error ?? 'OCR 추출에 실패했습니다.')
       }
@@ -211,13 +216,11 @@ export function OcrRegionSelector({
   }
 
   const handleAddToLyrics = () => {
-    if (!extractedTexts) return
-    const nonEmpty = extractedTexts.filter(t => t.trim() !== '')
-    if (nonEmpty.length === 0) {
+    if (!extractedText || !extractedText.trim()) {
       toast.error('추출된 텍스트가 없습니다.')
       return
     }
-    onExtractedTexts(nonEmpty)
+    onExtractedTexts([extractedText.trim()])
     onOpenChange(false)
   }
 
@@ -225,7 +228,14 @@ export function OcrRegionSelector({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+      <DialogContent
+        className="h-[92vh] flex flex-col"
+        style={{
+          maxWidth: imageAspectRatio
+            ? `min(95vw, calc(92vh * ${imageAspectRatio} + 3rem))`
+            : '64rem',
+        }}
+      >
         <DialogHeader>
           <DialogTitle>악보에서 가사 추출</DialogTitle>
         </DialogHeader>
@@ -283,6 +293,12 @@ export function OcrRegionSelector({
                     alt={currentPage.label}
                     className="w-full select-none"
                     draggable={false}
+                    onLoad={(e) => {
+                      const img = e.currentTarget
+                      if (img.naturalWidth && img.naturalHeight) {
+                        setImageAspectRatio(img.naturalWidth / img.naturalHeight)
+                      }
+                    }}
                   />
                 )}
 
@@ -310,7 +326,7 @@ export function OcrRegionSelector({
                         <span className="bg-blue-500 text-white text-xs font-bold rounded-full size-5 flex items-center justify-center">
                           {i + 1}
                         </span>
-                        {extractedTexts === null && (
+                        {extractedText === null && (
                           <button
                             type="button"
                             className="bg-red-500 text-white rounded-full size-4 flex items-center justify-center hover:bg-red-600"
@@ -339,18 +355,16 @@ export function OcrRegionSelector({
               </div>
             </div>
 
-            {/* Extracted text preview */}
-            {extractedTexts !== null && (
-              <div className="border rounded-lg p-4 space-y-3 max-h-48 overflow-auto">
-                <div className="text-sm font-medium">추출된 텍스트</div>
-                {extractedTexts.map((text, i) => (
-                  <div key={i} className="text-sm">
-                    <span className="text-muted-foreground font-medium">영역 {i + 1}:</span>
-                    <pre className="mt-1 whitespace-pre-wrap bg-muted/50 rounded p-2 text-sm">
-                      {text || "(텍스트 없음)"}
-                    </pre>
-                  </div>
-                ))}
+            {/* Extracted text preview (editable) */}
+            {extractedText !== null && (
+              <div className="border rounded-lg p-4 space-y-2">
+                <div className="text-sm font-medium">추출된 텍스트 (수정 가능)</div>
+                <textarea
+                  className="w-full rounded border bg-background p-2 text-sm resize-none"
+                  rows={3}
+                  value={extractedText}
+                  onChange={(e) => setExtractedText(e.target.value)}
+                />
               </div>
             )}
 
@@ -360,7 +374,7 @@ export function OcrRegionSelector({
                 선택 영역: {regions.length}개
               </span>
               <div className="flex gap-2">
-                {extractedTexts === null ? (
+                {extractedText === null ? (
                   <>
                     <Button variant="outline" size="sm" onClick={resetRegions} disabled={regions.length === 0}>
                       영역 초기화
