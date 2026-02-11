@@ -215,9 +215,14 @@ export function ContiSongEditor({
                       disabled={isSaving}
                     >
                       <span className="truncate font-medium">{p.name}</span>
-                      {p.isDefault && (
-                        <span className="text-sm text-muted-foreground">기본</span>
-                      )}
+                      <span className="flex items-center gap-1">
+                        {p.youtubeReference && (
+                          <span className="text-xs text-muted-foreground">YT</span>
+                        )}
+                        {p.isDefault && (
+                          <span className="text-sm text-muted-foreground">기본</span>
+                        )}
+                      </span>
                     </button>
                   ))}
                 </div>

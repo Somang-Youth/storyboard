@@ -148,6 +148,8 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
 
       <YouTubeImportDialog
         contiId={conti.id}
+        contiTitle={conti.title}
+        contiDate={conti.date}
         existingSongIds={existingSongIds}
         allSongs={allSongs}
         open={youtubeImportOpen}
