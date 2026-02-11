@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Loading03Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
@@ -30,15 +30,23 @@ export function SpellCheckDialog({
   const [correctedText, setCorrectedText] = useState<string | null>(null)
   const [errorCount, setErrorCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const prevOpenRef = useRef(false)
 
   useEffect(() => {
-    if (!open || !originalText.trim()) return
+    const wasOpen = prevOpenRef.current
+    prevOpenRef.current = open
 
-    setIsLoading(true)
-    setError(null)
-    setCorrectedText(null)
+    // Only trigger on open transition (closed → open)
+    if (!open || wasOpen || !originalText.trim()) return
 
-    checkSpelling(originalText).then((result) => {
+    let cancelled = false
+
+    async function run() {
+      setIsLoading(true)
+      setError(null)
+      setCorrectedText(null)
+      const result = await checkSpelling(originalText)
+      if (cancelled) return
       if (result.success && result.data) {
         setCorrectedText(result.data.corrected)
         setErrorCount(result.data.errorCount)
@@ -46,7 +54,10 @@ export function SpellCheckDialog({
         setError(result.error ?? "맞춤법 검사에 실패했습니다.")
       }
       setIsLoading(false)
-    })
+    }
+
+    run()
+    return () => { cancelled = true }
   }, [open, originalText])
 
   const hasCorrections = correctedText !== null && correctedText !== originalText

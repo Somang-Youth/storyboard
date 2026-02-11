@@ -5,6 +5,7 @@ import { KeyTempoEditor } from "@/components/contis/key-tempo-editor"
 import { SectionOrderEditor } from "@/components/contis/section-order-editor"
 import { LyricsEditor } from "@/components/contis/lyrics-editor"
 import { SectionLyricsMapper } from "@/components/contis/section-lyrics-mapper"
+import type { SheetMusicFile } from "@/lib/types"
 
 interface OverrideEditorFieldsProps {
   keys: string[]
@@ -13,6 +14,7 @@ interface OverrideEditorFieldsProps {
   lyrics: string[]
   sectionLyricsMap: Record<number, number[]>
   notes: string | null
+  sheetMusicFiles?: SheetMusicFile[]
   onKeysTemposChange: (data: { keys: string[]; tempos: number[] }) => void
   onSectionOrderChange: (data: { sectionOrder: string[] }) => void
   onLyricsChange: (data: { lyrics: string[] }) => void
@@ -27,6 +29,7 @@ export function OverrideEditorFields({
   lyrics,
   sectionLyricsMap,
   notes,
+  sheetMusicFiles,
   onKeysTemposChange,
   onSectionOrderChange,
   onLyricsChange,
@@ -57,10 +60,10 @@ export function OverrideEditorFields({
       <div className="border-t my-8" />
 
       <div>
-        <h3 className="mb-4 text-base font-medium">가사 페이지</h3>
         <LyricsEditor
           initialLyrics={lyrics}
           onChange={onLyricsChange}
+          sheetMusicFiles={sheetMusicFiles}
         />
       </div>
 

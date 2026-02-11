@@ -339,6 +339,11 @@ export function ContiSongEditor({
               lyrics={lyrics}
               sectionLyricsMap={sectionLyricsMap}
               notes={notes}
+              sheetMusicFiles={
+                sheetMusicFileIds
+                  ? songSheetMusic.filter(f => sheetMusicFileIds.includes(f.id))
+                  : songSheetMusic
+              }
               onKeysTemposChange={handleKeysTemposChange}
               onSectionOrderChange={handleSectionOrderChange}
               onLyricsChange={handleLyricsChange}
