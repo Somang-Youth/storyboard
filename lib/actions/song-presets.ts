@@ -30,49 +30,47 @@ export async function createSongPreset(songId: string, data: SongPresetData): Pr
 
     const d = validation.data;
 
-    const preset = await db.transaction(async (tx) => {
-      // If this is set as default, unset others
-      if (d.isDefault) {
-        await tx.update(songPresets).set({ isDefault: false }).where(eq(songPresets.songId, songId));
-      }
+    // If this is set as default, unset others
+    if (d.isDefault) {
+      await db.update(songPresets).set({ isDefault: false }).where(eq(songPresets.songId, songId));
+    }
 
-      // Calculate next sort order
-      const existing = await getSongPresets(songId);
-      const maxSort = existing.length > 0 ? Math.max(...existing.map(p => p.sortOrder)) : -1;
+    // Calculate next sort order
+    const existing = await getSongPresets(songId);
+    const maxSort = existing.length > 0 ? Math.max(...existing.map(p => p.sortOrder)) : -1;
 
-      const now = new Date();
-      const presetRecord = {
-        id: generateId(),
-        songId,
-        name: d.name,
-        keys: JSON.stringify(d.keys),
-        tempos: JSON.stringify(d.tempos),
-        sectionOrder: JSON.stringify(d.sectionOrder),
-        lyrics: JSON.stringify(d.lyrics),
-        sectionLyricsMap: JSON.stringify(d.sectionLyricsMap),
-        notes: d.notes,
-        isDefault: d.isDefault,
-        sortOrder: maxSort + 1,
-        createdAt: now,
-        updatedAt: now,
-      };
+    const now = new Date();
+    const presetRecord = {
+      id: generateId(),
+      songId,
+      name: d.name,
+      keys: JSON.stringify(d.keys),
+      tempos: JSON.stringify(d.tempos),
+      sectionOrder: JSON.stringify(d.sectionOrder),
+      lyrics: JSON.stringify(d.lyrics),
+      sectionLyricsMap: JSON.stringify(d.sectionLyricsMap),
+      notes: d.notes,
+      isDefault: d.isDefault,
+      sortOrder: maxSort + 1,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-      await tx.insert(songPresets).values(presetRecord);
+    await db.insert(songPresets).values(presetRecord);
 
-      // Insert sheet music associations
-      if (d.sheetMusicFileIds && d.sheetMusicFileIds.length > 0) {
-        await tx.insert(presetSheetMusic).values(
-          d.sheetMusicFileIds.map((fileId, index) => ({
-            id: generateId(),
-            presetId: presetRecord.id,
-            sheetMusicFileId: fileId,
-            sortOrder: index,
-          }))
-        );
-      }
+    // Insert sheet music associations
+    if (d.sheetMusicFileIds && d.sheetMusicFileIds.length > 0) {
+      await db.insert(presetSheetMusic).values(
+        d.sheetMusicFileIds.map((fileId, index) => ({
+          id: generateId(),
+          presetId: presetRecord.id,
+          sheetMusicFileId: fileId,
+          sortOrder: index,
+        }))
+      );
+    }
 
-      return presetRecord;
-    });
+    const preset = presetRecord;
 
     revalidatePath(`/songs/${songId}`);
     return { success: true, data: preset as SongPreset };
@@ -90,39 +88,37 @@ export async function updateSongPreset(presetId: string, data: Partial<SongPrese
     }
     const songId = existing[0].songId;
 
-    await db.transaction(async (tx) => {
-      // If setting as default, unset others
-      if (data.isDefault) {
-        await tx.update(songPresets).set({ isDefault: false }).where(eq(songPresets.songId, songId));
+    // If setting as default, unset others
+    if (data.isDefault) {
+      await db.update(songPresets).set({ isDefault: false }).where(eq(songPresets.songId, songId));
+    }
+
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.keys !== undefined) updateData.keys = JSON.stringify(data.keys);
+    if (data.tempos !== undefined) updateData.tempos = JSON.stringify(data.tempos);
+    if (data.sectionOrder !== undefined) updateData.sectionOrder = JSON.stringify(data.sectionOrder);
+    if (data.lyrics !== undefined) updateData.lyrics = JSON.stringify(data.lyrics);
+    if (data.sectionLyricsMap !== undefined) updateData.sectionLyricsMap = JSON.stringify(data.sectionLyricsMap);
+    if (data.notes !== undefined) updateData.notes = data.notes;
+    if (data.isDefault !== undefined) updateData.isDefault = data.isDefault;
+
+    await db.update(songPresets).set(updateData).where(eq(songPresets.id, presetId));
+
+    // Replace sheet music associations if provided
+    if (data.sheetMusicFileIds !== undefined) {
+      await db.delete(presetSheetMusic).where(eq(presetSheetMusic.presetId, presetId));
+      if (data.sheetMusicFileIds && data.sheetMusicFileIds.length > 0) {
+        await db.insert(presetSheetMusic).values(
+          data.sheetMusicFileIds.map((fileId, index) => ({
+            id: generateId(),
+            presetId,
+            sheetMusicFileId: fileId,
+            sortOrder: index,
+          }))
+        );
       }
-
-      const updateData: Record<string, unknown> = { updatedAt: new Date() };
-      if (data.name !== undefined) updateData.name = data.name;
-      if (data.keys !== undefined) updateData.keys = JSON.stringify(data.keys);
-      if (data.tempos !== undefined) updateData.tempos = JSON.stringify(data.tempos);
-      if (data.sectionOrder !== undefined) updateData.sectionOrder = JSON.stringify(data.sectionOrder);
-      if (data.lyrics !== undefined) updateData.lyrics = JSON.stringify(data.lyrics);
-      if (data.sectionLyricsMap !== undefined) updateData.sectionLyricsMap = JSON.stringify(data.sectionLyricsMap);
-      if (data.notes !== undefined) updateData.notes = data.notes;
-      if (data.isDefault !== undefined) updateData.isDefault = data.isDefault;
-
-      await tx.update(songPresets).set(updateData).where(eq(songPresets.id, presetId));
-
-      // Replace sheet music associations if provided
-      if (data.sheetMusicFileIds !== undefined) {
-        await tx.delete(presetSheetMusic).where(eq(presetSheetMusic.presetId, presetId));
-        if (data.sheetMusicFileIds && data.sheetMusicFileIds.length > 0) {
-          await tx.insert(presetSheetMusic).values(
-            data.sheetMusicFileIds.map((fileId, index) => ({
-              id: generateId(),
-              presetId,
-              sheetMusicFileId: fileId,
-              sortOrder: index,
-            }))
-          );
-        }
-      }
-    });
+    }
 
     revalidatePath(`/songs/${songId}`);
     const result = await db.select().from(songPresets).where(eq(songPresets.id, presetId)).limit(1);

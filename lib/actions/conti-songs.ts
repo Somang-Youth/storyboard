@@ -159,17 +159,14 @@ export async function saveContiSongAsPreset(
   }
 }
 
+const batchImportItemSchema = z.object({
+  songId: z.string().nullable(),
+  newSongName: z.string().nullable(),
+})
+
 const batchImportSchema = z.object({
   contiId: z.string().min(1),
-  items: z.array(
-    z.object({
-      songId: z.string().nullable(),
-      newSongName: z.string().nullable(),
-    }).refine(
-      (item) => item.songId !== null || (item.newSongName !== null && item.newSongName.trim().length > 0),
-      { message: '곡 ID 또는 새 곡 이름이 필요합니다' }
-    )
-  ).min(1, '가져올 곡이 없습니다'),
+  items: z.array(batchImportItemSchema).min(1, '가져올 곡이 없습니다'),
 })
 
 export async function batchImportSongsToConti(
@@ -186,41 +183,47 @@ export async function batchImportSongsToConti(
     }
 
     const validatedItems = validation.data.items
+
+    // Manual refine check (Zod 4 .refine() inside .array() is unreliable)
+    for (const item of validatedItems) {
+      if (item.songId === null && (item.newSongName === null || item.newSongName.trim().length === 0)) {
+        return { success: false, error: '곡 ID 또는 새 곡 이름이 필요합니다' }
+      }
+    }
+
     let created = 0
 
-    await db.transaction(async (tx) => {
-      const maxResult = await tx
-        .select({ maxOrder: max(contiSongs.sortOrder) })
-        .from(contiSongs)
-        .where(eq(contiSongs.contiId, contiId))
+    const maxResult = await db
+      .select({ maxOrder: max(contiSongs.sortOrder) })
+      .from(contiSongs)
+      .where(eq(contiSongs.contiId, contiId))
 
-      let nextSortOrder = (maxResult[0]?.maxOrder ?? -1) + 1
+    let nextSortOrder = (maxResult[0]?.maxOrder ?? -1) + 1
 
-      // Deduplicate new song names within the batch
-      const newSongMap = new Map<string, string>() // normalized name -> created song ID
+    // Deduplicate new song names within the batch
+    const newSongMap = new Map<string, string>() // normalized name -> created song ID
 
-      for (const item of validatedItems) {
-        let resolvedSongId: string
+    for (const item of validatedItems) {
+      let resolvedSongId: string
 
-        if (item.songId) {
-          resolvedSongId = item.songId
+      if (item.songId) {
+        resolvedSongId = item.songId
+      } else {
+        const trimmedName = item.newSongName!.trim()
+        const normalizedKey = trimmedName.toLowerCase()
+
+        if (newSongMap.has(normalizedKey)) {
+          resolvedSongId = newSongMap.get(normalizedKey)!
         } else {
-          const trimmedName = item.newSongName!.trim()
-          const normalizedKey = trimmedName.toLowerCase()
-
-          if (newSongMap.has(normalizedKey)) {
-            resolvedSongId = newSongMap.get(normalizedKey)!
-          } else {
-            const newSong = await insertSong(tx, trimmedName)
-            newSongMap.set(normalizedKey, newSong.id)
-            resolvedSongId = newSong.id
-            created++
-          }
+          const newSong = await insertSong(db, trimmedName)
+          newSongMap.set(normalizedKey, newSong.id)
+          resolvedSongId = newSong.id
+          created++
         }
-
-        await insertContiSong(tx, contiId, resolvedSongId, nextSortOrder++)
       }
-    })
+
+      await insertContiSong(db, contiId, resolvedSongId, nextSortOrder++)
+    }
 
     revalidatePath('/contis')
     revalidatePath('/songs')
@@ -230,6 +233,7 @@ export async function batchImportSongsToConti(
       data: { added: items.length, created },
     }
   } catch (error) {
+    console.error('[batchImportSongsToConti]', error)
     const message = error instanceof Error ? error.message : ''
     if (message.includes('conti_song_unique')) {
       return {
