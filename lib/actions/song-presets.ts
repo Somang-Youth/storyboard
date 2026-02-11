@@ -18,6 +18,7 @@ const presetSchema = z.object({
   sectionLyricsMap: z.record(z.string(), z.array(z.number())).optional().default({}),
   notes: z.string().nullable().optional().default(null),
   isDefault: z.boolean().optional().default(false),
+  youtubeReference: z.string().nullable().optional().default(null),
   sheetMusicFileIds: z.array(z.string()).optional().default([]),
 });
 
@@ -50,6 +51,7 @@ export async function createSongPreset(songId: string, data: SongPresetData): Pr
       lyrics: JSON.stringify(d.lyrics),
       sectionLyricsMap: JSON.stringify(d.sectionLyricsMap),
       notes: d.notes,
+      youtubeReference: d.youtubeReference ?? null,
       isDefault: d.isDefault,
       sortOrder: maxSort + 1,
       createdAt: now,
@@ -102,6 +104,7 @@ export async function updateSongPreset(presetId: string, data: Partial<SongPrese
     if (data.sectionLyricsMap !== undefined) updateData.sectionLyricsMap = JSON.stringify(data.sectionLyricsMap);
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.isDefault !== undefined) updateData.isDefault = data.isDefault;
+    if (data.youtubeReference !== undefined) updateData.youtubeReference = data.youtubeReference;
 
     await db.update(songPresets).set(updateData).where(eq(songPresets.id, presetId));
 

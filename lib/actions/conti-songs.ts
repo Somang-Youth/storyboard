@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { stringifyContiSongOverrides, parseContiSongOverrides } from '@/lib/db/helpers';
 import type { ActionResult, ContiSong, ContiSongOverrides } from '@/lib/types';
 import { createSongPreset, updateSongPreset } from './song-presets';
-import { insertContiSong, insertSong } from '@/lib/db/insert-helpers';
+import { insertContiSong, insertSong, insertSongPreset, updateSongPresetYoutubeRef } from '@/lib/db/insert-helpers';
 import { z } from 'zod';
 
 export async function addSongToConti(
@@ -162,6 +162,10 @@ export async function saveContiSongAsPreset(
 const batchImportItemSchema = z.object({
   songId: z.string().nullable(),
   newSongName: z.string().nullable(),
+  videoId: z.string().nullable().optional().default(null),
+  presetId: z.string().nullable().optional().default(null),
+  createNewPreset: z.boolean().optional().default(false),
+  presetName: z.string().nullable().optional().default(null),
 })
 
 const batchImportSchema = z.object({
@@ -174,6 +178,10 @@ export async function batchImportSongsToConti(
   items: Array<{
     songId: string | null
     newSongName: string | null
+    videoId?: string | null
+    presetId?: string | null
+    createNewPreset?: boolean
+    presetName?: string | null
   }>
 ): Promise<ActionResult<{ added: number; created: number }>> {
   try {
@@ -219,6 +227,26 @@ export async function batchImportSongsToConti(
           newSongMap.set(normalizedKey, newSong.id)
           resolvedSongId = newSong.id
           created++
+        }
+      }
+
+      // Preset logic for YouTube import
+      if (item.videoId) {
+        if (!item.songId && item.createNewPreset !== false) {
+          // New song: auto-create preset with youtube reference
+          await insertSongPreset(db, resolvedSongId, {
+            name: item.presetName || 'YouTube Import',
+            youtubeReference: item.videoId,
+          })
+        } else if (item.songId && item.presetId) {
+          // Existing song: update selected preset's youtube reference
+          await updateSongPresetYoutubeRef(db, item.presetId, item.videoId)
+        } else if (item.songId && item.createNewPreset) {
+          // Existing song: create new preset with youtube reference
+          await insertSongPreset(db, resolvedSongId, {
+            name: item.presetName || 'YouTube Import',
+            youtubeReference: item.videoId,
+          })
         }
       }
 
