@@ -1,4 +1,4 @@
-import { diffWords } from 'diff'
+import { diffWordsWithSpace } from 'diff'
 
 export interface DiffPart {
   value: string
@@ -7,7 +7,7 @@ export interface DiffPart {
 }
 
 export function computeWordDiff(original: string, corrected: string): DiffPart[] {
-  return diffWords(original, corrected)
+  return diffWordsWithSpace(original, corrected)
 }
 
 export function getOriginalParts(parts: DiffPart[]): DiffPart[] {
