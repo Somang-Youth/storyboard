@@ -65,36 +65,6 @@ def download_file_by_id(service, file_id, dest_path):
             _, done = downloader.next_chunk()
 
 
-def upload_to_drive(service, folder_id, file_path, file_name, source_file_id):
-    """Create a NEW file on Google Drive by copying the source, then overwriting content.
-
-    Service Accounts have no storage quota, so files().create() fails.
-    Instead, copy the template (inherits folder ownership) then update its content.
-    """
-    copy_metadata = {
-        'name': file_name,
-        'parents': [folder_id],
-    }
-    copied = service.files().copy(
-        fileId=source_file_id,
-        body=copy_metadata,
-        fields='id, name, webViewLink',
-        supportsAllDrives=True,
-    ).execute()
-
-    media = MediaFileUpload(
-        file_path,
-        mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation'
-    )
-    file = service.files().update(
-        fileId=copied['id'],
-        media_body=media,
-        fields='id, name, webViewLink',
-        supportsAllDrives=True,
-    ).execute()
-    return file
-
-
 def overwrite_drive_file(service, file_id, file_path):
     """Overwrite an existing file on Google Drive (update in-place)."""
     media = MediaFileUpload(
@@ -521,6 +491,7 @@ class handler(BaseHTTPRequestHandler):
 
         overwrite = body.get('overwrite', False)
         output_file_name = body.get('output_file_name', '')
+        # Note: output_folder_id is kept for backward compatibility but unused since new files go to Vercel Blob
         output_folder_id = body.get('output_folder_id', os.environ.get('GOOGLE_DRIVE_TEMPLATE_FOLDER_ID'))
         songs = body.get('songs', [])
 
@@ -547,19 +518,28 @@ class handler(BaseHTTPRequestHandler):
 
             if overwrite:
                 result = overwrite_drive_file(service, file_id, output_path)
+                self.send_json(200, {
+                    "success": True,
+                    "data": {
+                        "file_id": result['id'],
+                        "file_name": result['name'],
+                        "web_view_link": result.get('webViewLink', ''),
+                        "songs_processed": result_stats['songs_processed'],
+                        "slides_generated": result_stats['slides_generated'],
+                    }
+                })
             else:
-                result = upload_to_drive(service, output_folder_id, output_path, output_file_name, file_id)
-
-            self.send_json(200, {
-                "success": True,
-                "data": {
-                    "file_id": result['id'],
-                    "file_name": result['name'],
-                    "web_view_link": result.get('webViewLink', ''),
-                    "songs_processed": result_stats['songs_processed'],
-                    "slides_generated": result_stats['slides_generated'],
-                }
-            })
+                # Return binary PPTX directly (no Drive upload - SA has no storage quota)
+                with open(output_path, 'rb') as f:
+                    file_bytes = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+                self.send_header('Content-Disposition', f'attachment; filename="{output_file_name}"')
+                self.send_header('Content-Length', str(len(file_bytes)))
+                self.send_header('X-Songs-Processed', str(result_stats['songs_processed']))
+                self.send_header('X-Slides-Generated', str(result_stats['slides_generated']))
+                self.end_headers()
+                self.wfile.write(file_bytes)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
