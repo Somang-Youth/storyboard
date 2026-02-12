@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { ContiDetail } from "@/components/contis/conti-detail"
 import { ContiDeleteButton } from "@/components/contis/conti-delete-button"
+import { PptxExportButton } from "@/components/contis/pptx-export-button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PencilEdit01Icon, FileExportIcon, Download04Icon } from "@hugeicons/core-free-icons"
 
@@ -57,6 +58,13 @@ export default async function ContiDetailPage({
             </Button>
           </>
         )}
+        {/* PPT 내보내기 */}
+        <span className="sm:hidden">
+          <PptxExportButton conti={conti} iconOnly />
+        </span>
+        <span className="hidden sm:inline-flex">
+          <PptxExportButton conti={conti} />
+        </span>
         {/* 편집 */}
         <Button variant="outline" size="icon" className="sm:hidden" aria-label="편집"
           render={<Link href={`/contis/${conti.id}/edit`} />}>
