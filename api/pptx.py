@@ -179,23 +179,22 @@ def duplicate_slide(prs, slide):
 
     Returns: (new_slide, new_slide_id, new_entry_element)
     """
-    source_part = slide.part
-    prs_part = prs.part
+    new_slide = prs.slides.add_slide(slide.slide_layout)
 
-    new_slide_xml = deepcopy(source_part._element)
+    # Replace new slide's XML content with a copy of the source
+    for child in list(new_slide._element):
+        new_slide._element.remove(child)
+    for child in deepcopy(slide._element):
+        new_slide._element.append(child)
 
-    slide_layout = slide.slide_layout
-    new_slide_part = prs_part.new_sldPart(slide_layout)
-
-    new_slide_part._element = new_slide_xml
-
-    for rel in source_part.rels.values():
+    # Copy non-layout relationships
+    for rel in slide.part.rels.values():
         if rel.reltype == RT.SLIDE_LAYOUT:
             continue
         if rel.is_external:
-            new_slide_part.rels.get_or_add_ext_rel(rel.reltype, rel.target_ref)
+            new_slide.part.rels.get_or_add_ext_rel(rel.reltype, rel.target_ref)
         else:
-            new_slide_part.rels.get_or_add(rel.reltype, rel.target_part)
+            new_slide.part.rels.get_or_add(rel.reltype, rel.target_part)
 
     prs_xml = prs._element
     sld_id_lst = prs_xml.find(_pn('sldIdLst'))
@@ -203,8 +202,6 @@ def duplicate_slide(prs, slide):
     sld_id_entries = sld_id_lst.findall(_pn('sldId'))
     new_entry = sld_id_entries[-1]
     new_slide_id = int(new_entry.get('id'))
-
-    new_slide = prs.slides[-1]
 
     return new_slide, new_slide_id, new_entry
 
