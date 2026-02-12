@@ -132,6 +132,7 @@ export interface PptxExportResult {
   file_id: string;
   file_name: string;
   web_view_link: string;
+  download_url?: string;
   songs_processed: number;
   slides_generated: number;
 }
