@@ -143,9 +143,13 @@ export async function exportContiToPptx(options: {
   outputFolderId?: string;
 }): Promise<ActionResult<PptxExportResult>> {
   try {
-    const response = await fetch(getPptxApiUrl(), {
+    const url = getPptxApiUrl();
+    const headers = getPptxHeaders({ 'Content-Type': 'application/json' });
+    console.log('[exportContiToPptx] url:', url, 'bypass:', !!process.env.VERCEL_AUTOMATION_BYPASS_SECRET, 'headers:', Object.keys(headers).join(','));
+
+    const response = await fetch(url, {
       method: 'POST',
-      headers: getPptxHeaders({ 'Content-Type': 'application/json' }),
+      headers,
       body: JSON.stringify({
         action: 'export_lyrics',
         file_id: options.fileId,
