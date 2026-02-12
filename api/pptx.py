@@ -94,7 +94,7 @@ def overwrite_drive_file(service, file_id, file_path):
 
 def parse_sections(prs):
     """Parse the <p:sectionLst> from presentation.xml."""
-    prs_xml = prs.presentation._element
+    prs_xml = prs._element
     section_lst = prs_xml.find(_pn('sectionLst'))
 
     if section_lst is None:
@@ -129,7 +129,7 @@ def find_section_by_name(sections, name):
 
 def get_slide_id_map(prs):
     """Build a mapping of slide_id (int) -> (slide_index, rId, slide object)."""
-    prs_xml = prs.presentation._element
+    prs_xml = prs._element
     sld_id_lst = prs_xml.find(_pn('sldIdLst'))
 
     sld_entries = []
@@ -173,7 +173,7 @@ def duplicate_slide(prs, slide):
         else:
             new_slide_part.rels.get_or_add(rel.reltype, rel.target_part)
 
-    prs_xml = prs.presentation._element
+    prs_xml = prs._element
     sld_id_lst = prs_xml.find(_pn('sldIdLst'))
 
     sld_id_entries = sld_id_lst.findall(_pn('sldId'))
@@ -187,7 +187,7 @@ def duplicate_slide(prs, slide):
 
 def delete_slide_by_id(prs, slide_id):
     """Remove a slide from the presentation by its numeric slide ID."""
-    prs_xml = prs.presentation._element
+    prs_xml = prs._element
     sld_id_lst = prs_xml.find(_pn('sldIdLst'))
 
     target_el = None
@@ -209,7 +209,7 @@ def delete_slide_by_id(prs, slide_id):
 
 def move_slide_id_after(prs, slide_id_to_move, after_slide_id):
     """Move a <p:sldId> entry to be positioned right after another slide ID."""
-    prs_xml = prs.presentation._element
+    prs_xml = prs._element
     sld_id_lst = prs_xml.find(_pn('sldIdLst'))
 
     move_el = None
