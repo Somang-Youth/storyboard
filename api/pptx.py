@@ -226,7 +226,7 @@ def delete_slide_by_id(prs, slide_id):
         raise ValueError(f"Slide with id={slide_id} not found in presentation")
 
     prs_part = prs.part
-    del prs_part.rels[target_rId]
+    prs_part.rels.pop(target_rId)
 
     sld_id_lst.remove(target_el)
 
