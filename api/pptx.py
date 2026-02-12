@@ -17,6 +17,7 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 # PowerPoint XML namespaces
 P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+P14_NS = 'http://schemas.microsoft.com/office/powerpoint/2010/main'
 R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 
@@ -24,6 +25,11 @@ A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 def _pn(tag):
     """Build a namespaced tag for presentationml namespace."""
     return f'{{{P_NS}}}{tag}'
+
+
+def _p14n(tag):
+    """Build a namespaced tag for PowerPoint 2010 namespace."""
+    return f'{{{P14_NS}}}{tag}'
 
 
 def _rn(tag):
@@ -93,27 +99,45 @@ def overwrite_drive_file(service, file_id, file_path):
 
 
 def parse_sections(prs):
-    """Parse the <p:sectionLst> from presentation.xml."""
+    """Parse sections from presentation.xml.
+
+    Supports both standard <p:sectionLst> and PowerPoint 2010's
+    <p14:sectionLst> inside <p:extLst>.
+    """
     prs_xml = prs._element
+
+    # Try standard namespace first
     section_lst = prs_xml.find(_pn('sectionLst'))
+    ns_fn = _pn
+
+    # Fall back to p14 namespace in extLst
+    if section_lst is None:
+        ext_lst = prs_xml.find(_pn('extLst'))
+        if ext_lst is not None:
+            for ext in ext_lst.findall(_pn('ext')):
+                section_lst = ext.find(_p14n('sectionLst'))
+                if section_lst is not None:
+                    ns_fn = _p14n
+                    break
 
     if section_lst is None:
-        raise ValueError("Template has no <p:sectionLst>. The template must use PowerPoint sections.")
+        raise ValueError("Template has no sections. The template must use PowerPoint sections.")
 
     sections = []
-    for section_el in section_lst.findall(_pn('section')):
+    for section_el in section_lst.findall(ns_fn('section')):
         name = section_el.get('name', '')
         sect_id = section_el.get('id', '')
-        sld_id_lst = section_el.find(_pn('sldIdLst'))
+        sld_id_lst = section_el.find(ns_fn('sldIdLst'))
         slide_ids = []
         if sld_id_lst is not None:
-            for sld_id_el in sld_id_lst.findall(_pn('sldId')):
+            for sld_id_el in sld_id_lst.findall(ns_fn('sldId')):
                 slide_ids.append(int(sld_id_el.get('id')))
         sections.append({
             'name': name,
             'id': sect_id,
             'slide_ids': slide_ids,
             'element': section_el,
+            'ns_fn': ns_fn,
         })
 
     return sections
@@ -353,16 +377,17 @@ def process_song_section(prs, song, section, slide_id_map):
     delete_slide_by_id(prs, base_slide_id)
 
     section_el = section['element']
-    sld_id_lst = section_el.find(_pn('sldIdLst'))
+    ns_fn = section.get('ns_fn', _pn)
+    sld_id_lst = section_el.find(ns_fn('sldIdLst'))
 
     for child in list(sld_id_lst):
         sld_id_lst.remove(child)
 
-    title_entry = etree.SubElement(sld_id_lst, _pn('sldId'))
+    title_entry = etree.SubElement(sld_id_lst, ns_fn('sldId'))
     title_entry.set('id', str(title_slide_id))
 
     for gen_sid in generated_slide_ids:
-        entry = etree.SubElement(sld_id_lst, _pn('sldId'))
+        entry = etree.SubElement(sld_id_lst, ns_fn('sldId'))
         entry.set('id', str(gen_sid))
 
     return len(generated_slide_ids)
