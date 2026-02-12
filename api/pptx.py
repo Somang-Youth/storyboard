@@ -13,6 +13,7 @@ from lxml import etree
 from pptx import Presentation
 from pptx.oxml.ns import qn
 from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+from pptx.opc.packuri import PackURI
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
@@ -213,7 +214,27 @@ def duplicate_slide(prs, slide):
 
     Returns: (new_slide, new_slide_id, new_entry_element)
     """
+    # Find highest slide part number to avoid ZIP duplicate name collisions.
+    # add_slide() uses len(prs.slides)+1 which can collide with existing
+    # slide partnames when slides have been deleted from the collection.
+    max_num = 0
+    for rel in prs.part.rels.values():
+        if rel.is_external:
+            continue
+        pn = str(rel.target_part.partname)
+        if pn.startswith('/ppt/slides/slide') and pn.endswith('.xml'):
+            try:
+                num = int(pn[17:-4])
+                max_num = max(max_num, num)
+            except ValueError:
+                pass
+
     new_slide = prs.slides.add_slide(slide.slide_layout)
+
+    # Rename part to guaranteed-unique name if add_slide assigned a conflicting one
+    safe_name = PackURI('/ppt/slides/slide%d.xml' % (max_num + 1))
+    if new_slide.part.partname != safe_name:
+        new_slide.part.partname = safe_name
 
     # Replace new slide's XML content with a copy of the source
     for child in list(new_slide._element):
