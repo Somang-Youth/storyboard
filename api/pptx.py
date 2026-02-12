@@ -65,19 +65,28 @@ def download_file_by_id(service, file_id, dest_path):
             _, done = downloader.next_chunk()
 
 
-def upload_to_drive(service, folder_id, file_path, file_name):
-    """Create a NEW file on Google Drive."""
-    file_metadata = {
+def upload_to_drive(service, folder_id, file_path, file_name, source_file_id):
+    """Create a NEW file on Google Drive by copying the source, then overwriting content.
+
+    Service Accounts have no storage quota, so files().create() fails.
+    Instead, copy the template (inherits folder ownership) then update its content.
+    """
+    copy_metadata = {
         'name': file_name,
         'parents': [folder_id],
-        'mimeType': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     }
+    copied = service.files().copy(
+        fileId=source_file_id,
+        body=copy_metadata,
+        fields='id, name, webViewLink'
+    ).execute()
+
     media = MediaFileUpload(
         file_path,
         mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation'
     )
-    file = service.files().create(
-        body=file_metadata,
+    file = service.files().update(
+        fileId=copied['id'],
         media_body=media,
         fields='id, name, webViewLink'
     ).execute()
@@ -536,7 +545,7 @@ class handler(BaseHTTPRequestHandler):
             if overwrite:
                 result = overwrite_drive_file(service, file_id, output_path)
             else:
-                result = upload_to_drive(service, output_folder_id, output_path, output_file_name)
+                result = upload_to_drive(service, output_folder_id, output_path, output_file_name, file_id)
 
             self.send_json(200, {
                 "success": True,
