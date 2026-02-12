@@ -15,6 +15,17 @@ function getPptxApiUrl(): string {
   return 'http://localhost:3000/api/pptx';
 }
 
+function getPptxHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${process.env.AUTH_SECRET}`,
+    ...extra,
+  };
+  if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+    headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  }
+  return headers;
+}
+
 /**
  * List .pptx files from Google Drive folder.
  * Uses Google Drive REST API directly (no Python dependency needed).
@@ -133,10 +144,7 @@ export async function exportContiToPptx(options: {
   try {
     const response = await fetch(getPptxApiUrl(), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.AUTH_SECRET}`,
-      },
+      headers: getPptxHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         action: 'export_lyrics',
         file_id: options.fileId,
@@ -175,11 +183,10 @@ export async function inspectPptxTemplate(
   try {
     const response = await fetch(getPptxApiUrl(), {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.AUTH_SECRET}`,
+      headers: getPptxHeaders({
         'X-Action': 'inspect',
         'X-File-Id': fileId,
-      },
+      }),
     });
 
     const result = await response.json();
