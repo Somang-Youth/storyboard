@@ -5,6 +5,7 @@ import hmac
 import tempfile
 import traceback
 import shutil
+import urllib.request
 from copy import deepcopy
 
 from lxml import etree
@@ -78,6 +79,55 @@ def overwrite_drive_file(service, file_id, file_path):
         supportsAllDrives=True,
     ).execute()
     return file
+
+
+def upload_to_blob(file_path, file_name):
+    """Upload a file to Vercel Blob API and return the URL.
+
+    Args:
+        file_path: Path to the file to upload
+        file_name: Desired filename in Blob storage
+
+    Returns:
+        str: The URL of the uploaded blob
+
+    Raises:
+        ValueError: If BLOB_READ_WRITE_TOKEN is not set
+        Exception: If upload fails
+    """
+    token = os.environ.get('BLOB_READ_WRITE_TOKEN')
+    if not token:
+        raise ValueError('BLOB_READ_WRITE_TOKEN environment variable is not set')
+
+    # Read file bytes
+    with open(file_path, 'rb') as f:
+        file_bytes = f.read()
+
+    # Construct Blob API URL
+    blob_url = f'https://blob.vercel-storage.com/pptx-exports/{file_name}'
+
+    # Create request
+    req = urllib.request.Request(
+        blob_url,
+        data=file_bytes,
+        method='PUT',
+        headers={
+            'authorization': f'Bearer {token}',
+            'x-api-version': '7',
+            'x-content-type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        }
+    )
+
+    # Upload
+    try:
+        with urllib.request.urlopen(req) as response:
+            response_data = json.loads(response.read().decode('utf-8'))
+            return response_data.get('url', '')
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8') if e.fp else 'No error body'
+        raise Exception(f'Blob upload failed with status {e.code}: {error_body}')
+    except Exception as e:
+        raise Exception(f'Blob upload failed: {str(e)}')
 
 
 def parse_sections(prs):
@@ -529,17 +579,32 @@ class handler(BaseHTTPRequestHandler):
                     }
                 })
             else:
-                # Return binary PPTX directly (no Drive upload - SA has no storage quota)
-                with open(output_path, 'rb') as f:
-                    file_bytes = f.read()
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
-                self.send_header('Content-Disposition', f'attachment; filename="{output_file_name}"')
-                self.send_header('Content-Length', str(len(file_bytes)))
-                self.send_header('X-Songs-Processed', str(result_stats['songs_processed']))
-                self.send_header('X-Slides-Generated', str(result_stats['slides_generated']))
-                self.end_headers()
-                self.wfile.write(file_bytes)
+                # Upload to Vercel Blob and return JSON with download URL
+                try:
+                    download_url = upload_to_blob(output_path, output_file_name)
+                    self.send_json(200, {
+                        "success": True,
+                        "data": {
+                            "file_id": "",
+                            "file_name": output_file_name,
+                            "web_view_link": "",
+                            "download_url": download_url,
+                            "songs_processed": result_stats['songs_processed'],
+                            "slides_generated": result_stats['slides_generated'],
+                        }
+                    })
+                except ValueError as e:
+                    # BLOB_READ_WRITE_TOKEN not set
+                    self.send_json(500, {
+                        "success": False,
+                        "error": f"Blob storage configuration error: {str(e)}"
+                    })
+                except Exception as e:
+                    # Upload failed
+                    self.send_json(500, {
+                        "success": False,
+                        "error": f"Failed to upload to blob storage: {str(e)}"
+                    })
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 

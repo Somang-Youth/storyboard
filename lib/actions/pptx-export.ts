@@ -7,7 +7,6 @@ import type {
   PptxExportSongData,
   PptxTemplateStructure,
 } from '@/lib/types';
-import { put } from '@vercel/blob';
 
 function getPptxApiUrl(): string {
   if (process.env.VERCEL_URL) {
@@ -145,7 +144,6 @@ export async function exportContiToPptx(options: {
   try {
     const url = getPptxApiUrl();
     const headers = getPptxHeaders({ 'Content-Type': 'application/json' });
-    console.log('[exportContiToPptx] url:', url, 'bypass:', !!process.env.VERCEL_AUTOMATION_BYPASS_SECRET, 'headers:', Object.keys(headers).join(','));
 
     const response = await fetch(url, {
       method: 'POST',
@@ -160,62 +158,29 @@ export async function exportContiToPptx(options: {
       }),
     });
 
-    console.log('[exportContiToPptx] response status:', response.status, 'content-type:', response.headers.get('content-type'));
-
-    const contentType = response.headers.get('content-type') || '';
-
-    if (contentType.startsWith('application/vnd.openxmlformats')) {
-      // Binary PPTX response (new file path - uploaded to Vercel Blob)
-      const arrayBuffer = await response.arrayBuffer();
-      console.log('[exportContiToPptx] binary response size:', arrayBuffer.byteLength);
-      const songsProcessed = parseInt(response.headers.get('x-songs-processed') || '0', 10);
-      const slidesGenerated = parseInt(response.headers.get('x-slides-generated') || '0', 10);
-
-      const fileName = options.outputFileName || 'export.pptx';
-      const blob = await put(
-        `pptx-exports/${fileName}`,
-        Buffer.from(arrayBuffer),
-        { access: 'public' }
-      );
-      console.log('[exportContiToPptx] blob upload success:', blob.url);
-
+    const text = await response.text();
+    let result: { success: boolean; error?: string; data?: PptxExportResult };
+    try {
+      result = JSON.parse(text);
+    } catch {
+      console.error('[exportContiToPptx] Non-JSON response:', response.status, text.slice(0, 500));
       return {
-        success: true,
-        data: {
-          file_id: '',
-          file_name: fileName,
-          web_view_link: '',
-          download_url: blob.url,
-          songs_processed: songsProcessed,
-          slides_generated: slidesGenerated,
-        },
-      };
-    } else {
-      // JSON response (overwrite path or error responses)
-      const text = await response.text();
-      let result: { success: boolean; error?: string; data?: PptxExportResult };
-      try {
-        result = JSON.parse(text);
-      } catch {
-        console.error('[exportContiToPptx] Non-JSON response:', response.status, text.slice(0, 500));
-        return {
-          success: false,
-          error: `PPT 서버 오류 (${response.status}): 응답을 처리할 수 없습니다`,
-        };
-      }
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: result.error || 'PPT 내보내기에 실패했습니다',
-        };
-      }
-
-      return {
-        success: true,
-        data: result.data,
+        success: false,
+        error: `PPT 서버 오류 (${response.status}): 응답을 처리할 수 없습니다`,
       };
     }
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || 'PPT 내보내기에 실패했습니다',
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data,
+    };
   } catch (error) {
     console.error('[exportContiToPptx]', error);
     return {
