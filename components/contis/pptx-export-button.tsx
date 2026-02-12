@@ -68,9 +68,8 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
 
   // Fetch files when dialog opens
   useEffect(() => {
-    if (open && step === "file-list") {
+    if (open && files.length === 0 && !filesError) {
       setFilesLoading(true)
-      setFilesError(null)
       listPptxFiles().then((result) => {
         if (result.success && result.data) {
           setFiles(result.data.files)
@@ -80,7 +79,7 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
         setFilesLoading(false)
       })
     }
-  }, [open, step])
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleOpenChange(newOpen: boolean) {
     setOpen(newOpen)
@@ -89,6 +88,8 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
       setSelectedFile(null)
       setOverwrite(true)
       setOutputFileName("")
+      setFiles([])
+      setFilesError(null)
     }
   }
 
@@ -151,6 +152,195 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
     })
   }
 
+  const dialog = (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] grid-rows-[auto_1fr_auto]">
+        <DialogHeader>
+          <DialogTitle>
+            {step === "file-list" && "PPT 파일 선택"}
+            {step === "mode-select" && "내보내기 방식"}
+            {step === "confirm" && "내보내기 확인"}
+          </DialogTitle>
+          <DialogDescription>
+            {step === "file-list" && "Google Drive에서 수정할 .pptx 파일을 선택하세요."}
+            {step === "mode-select" && "선택한 파일을 덮어쓰거나 새 파일로 저장할 수 있습니다."}
+            {step === "confirm" && "아래 내용을 확인한 후 내보내기를 시작하세요."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Step 1: File List */}
+        {step === "file-list" && (
+          <div className="flex flex-col gap-2 overflow-y-auto min-h-0">
+            {filesLoading && (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                파일 목록을 불러오는 중...
+              </p>
+            )}
+            {filesError && (
+              <p className="text-sm text-destructive py-4 text-center">
+                {filesError}
+              </p>
+            )}
+            {!filesLoading && !filesError && files.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                .pptx 파일이 없습니다
+              </p>
+            )}
+            {!filesLoading && files.map((file) => (
+              <button
+                key={file.file_id}
+                type="button"
+                onClick={() => handleSelectFile(file)}
+                className="flex items-center gap-3 rounded-lg border p-3 text-left hover:border-foreground/30 transition-colors"
+              >
+                <HugeiconsIcon icon={Presentation01Icon} strokeWidth={2} className="shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{file.name}</p>
+                  {file.modified_time && (
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(file.modified_time).toLocaleDateString("ko-KR")}
+                    </p>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Step 2: Mode Selection */}
+        {step === "mode-select" && selectedFile && (
+          <div className="flex flex-col gap-4 overflow-y-auto min-h-0">
+            <div className="rounded-lg border bg-muted/50 p-3">
+              <p className="text-sm text-muted-foreground">선택한 파일</p>
+              <p className="text-sm font-medium">{selectedFile.name}</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setOverwrite(true)}
+                className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                  overwrite ? "border-primary bg-primary/5" : "hover:border-foreground/30"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">덮어쓰기</p>
+                  <p className="text-xs text-muted-foreground">
+                    선택한 파일을 직접 수정합니다
+                  </p>
+                </div>
+                {overwrite && (
+                  <HugeiconsIcon icon={Tick01Icon} strokeWidth={2} className="shrink-0 text-primary" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOverwrite(false)}
+                className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                  !overwrite ? "border-primary bg-primary/5" : "hover:border-foreground/30"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">새 파일</p>
+                  <p className="text-xs text-muted-foreground">
+                    새로운 파일로 저장합니다
+                  </p>
+                </div>
+                {!overwrite && (
+                  <HugeiconsIcon icon={Tick01Icon} strokeWidth={2} className="shrink-0 text-primary" />
+                )}
+              </button>
+            </div>
+
+            {!overwrite && (
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="output-name" className="text-sm font-medium">
+                  파일명
+                </label>
+                <Input
+                  id="output-name"
+                  value={outputFileName}
+                  onChange={(e) => setOutputFileName(e.target.value)}
+                  placeholder="output.pptx"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Confirm */}
+        {step === "confirm" && selectedFile && (
+          <div className="flex flex-col gap-4 overflow-y-auto min-h-0">
+            <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">파일</span>
+                <span className="font-medium">{selectedFile.name}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">방식</span>
+                <span className="font-medium">
+                  {overwrite ? "덮어쓰기" : `새 파일: ${outputFileName}`}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium">곡 목록</p>
+              <div className="space-y-1">
+                {sectionSummary.map((item, idx) => (
+                  <div key={idx} className="flex justify-between text-sm">
+                    <span>
+                      <span className="text-muted-foreground">{item.sectionName}:</span>{" "}
+                      {item.songName}
+                    </span>
+                    <span className="tabular-nums text-xs text-muted-foreground">
+                      ~{item.slideCount}슬라이드
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          {step !== "file-list" && (
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={isPending}
+            >
+              <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} data-icon="inline-start" />
+              뒤로
+            </Button>
+          )}
+          {step === "file-list" && (
+            <Button
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+            >
+              취소
+            </Button>
+          )}
+          {step === "mode-select" && (
+            <Button onClick={handleModeConfirm}>
+              다음
+            </Button>
+          )}
+          {step === "confirm" && (
+            <Button
+              onClick={handleExport}
+              disabled={isPending}
+            >
+              {isPending ? "내보내는 중..." : "내보내기"}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   if (iconOnly) {
     return (
       <>
@@ -163,7 +353,7 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
         >
           <HugeiconsIcon icon={Presentation01Icon} strokeWidth={2} />
         </Button>
-        <PptxExportDialog />
+        {dialog}
       </>
     )
   }
@@ -178,198 +368,7 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
         <HugeiconsIcon icon={Presentation01Icon} strokeWidth={2} data-icon="inline-start" />
         PPT 내보내기
       </Button>
-      <PptxExportDialog />
+      {dialog}
     </>
   )
-
-  function PptxExportDialog() {
-    return (
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {step === "file-list" && "PPT 파일 선택"}
-              {step === "mode-select" && "내보내기 방식"}
-              {step === "confirm" && "내보내기 확인"}
-            </DialogTitle>
-            <DialogDescription>
-              {step === "file-list" && "Google Drive에서 수정할 .pptx 파일을 선택하세요."}
-              {step === "mode-select" && "선택한 파일을 덮어쓰거나 새 파일로 저장할 수 있습니다."}
-              {step === "confirm" && "아래 내용을 확인한 후 내보내기를 시작하세요."}
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Step 1: File List */}
-          {step === "file-list" && (
-            <div className="flex flex-col gap-2">
-              {filesLoading && (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  파일 목록을 불러오는 중...
-                </p>
-              )}
-              {filesError && (
-                <p className="text-sm text-destructive py-4 text-center">
-                  {filesError}
-                </p>
-              )}
-              {!filesLoading && !filesError && files.length === 0 && (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  .pptx 파일이 없습니다
-                </p>
-              )}
-              {!filesLoading && files.map((file) => (
-                <button
-                  key={file.file_id}
-                  type="button"
-                  onClick={() => handleSelectFile(file)}
-                  className="flex items-center gap-3 rounded-lg border p-3 text-left hover:bg-accent transition-colors"
-                >
-                  <HugeiconsIcon icon={Presentation01Icon} strokeWidth={2} className="shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{file.name}</p>
-                    {file.modified_time && (
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(file.modified_time).toLocaleDateString("ko-KR")}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Step 2: Mode Selection */}
-          {step === "mode-select" && selectedFile && (
-            <div className="flex flex-col gap-4">
-              <div className="rounded-lg border bg-muted/50 p-3">
-                <p className="text-sm text-muted-foreground">선택한 파일</p>
-                <p className="text-sm font-medium">{selectedFile.name}</p>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOverwrite(true)}
-                  className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                    overwrite ? "border-primary bg-primary/5" : "hover:bg-accent"
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">덮어쓰기</p>
-                    <p className="text-xs text-muted-foreground">
-                      선택한 파일을 직접 수정합니다
-                    </p>
-                  </div>
-                  {overwrite && (
-                    <HugeiconsIcon icon={Tick01Icon} strokeWidth={2} className="shrink-0 text-primary" />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setOverwrite(false)}
-                  className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                    !overwrite ? "border-primary bg-primary/5" : "hover:bg-accent"
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">새 파일</p>
-                    <p className="text-xs text-muted-foreground">
-                      새로운 파일로 저장합니다
-                    </p>
-                  </div>
-                  {!overwrite && (
-                    <HugeiconsIcon icon={Tick01Icon} strokeWidth={2} className="shrink-0 text-primary" />
-                  )}
-                </button>
-              </div>
-
-              {!overwrite && (
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="output-name" className="text-sm font-medium">
-                    파일명
-                  </label>
-                  <Input
-                    id="output-name"
-                    value={outputFileName}
-                    onChange={(e) => setOutputFileName(e.target.value)}
-                    placeholder="output.pptx"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 3: Confirm */}
-          {step === "confirm" && selectedFile && (
-            <div className="flex flex-col gap-4">
-              <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">파일</span>
-                  <span className="font-medium">{selectedFile.name}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">방식</span>
-                  <span className="font-medium">
-                    {overwrite ? "덮어쓰기" : `새 파일: ${outputFileName}`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <p className="text-sm font-medium">곡 목록</p>
-                <div className="space-y-1">
-                  {sectionSummary.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span>
-                        <span className="text-muted-foreground">{item.sectionName}:</span>{" "}
-                        {item.songName}
-                      </span>
-                      <span className="tabular-nums text-xs text-muted-foreground">
-                        ~{item.slideCount}슬라이드
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            {step !== "file-list" && (
-              <Button
-                variant="outline"
-                onClick={handleBack}
-                disabled={isPending}
-              >
-                <HugeiconsIcon icon={ArrowLeft02Icon} strokeWidth={2} data-icon="inline-start" />
-                뒤로
-              </Button>
-            )}
-            {step === "file-list" && (
-              <Button
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-              >
-                취소
-              </Button>
-            )}
-            {step === "mode-select" && (
-              <Button onClick={handleModeConfirm}>
-                다음
-              </Button>
-            )}
-            {step === "confirm" && (
-              <Button
-                onClick={handleExport}
-                disabled={isPending}
-              >
-                {isPending ? "내보내는 중..." : "내보내기"}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    )
-  }
 }
