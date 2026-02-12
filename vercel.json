@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/pptx.py": {
+      "runtime": "python3.12",
+      "maxDuration": 60
+    }
+  }
+}
