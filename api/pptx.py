@@ -57,7 +57,7 @@ def get_drive_service():
 
 def download_file_by_id(service, file_id, dest_path):
     """Download a file from Google Drive by its file ID."""
-    request = service.files().get_media(fileId=file_id)
+    request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
     with open(dest_path, 'wb') as f:
         downloader = MediaIoBaseDownload(f, request)
         done = False
@@ -78,7 +78,8 @@ def upload_to_drive(service, folder_id, file_path, file_name, source_file_id):
     copied = service.files().copy(
         fileId=source_file_id,
         body=copy_metadata,
-        fields='id, name, webViewLink'
+        fields='id, name, webViewLink',
+        supportsAllDrives=True,
     ).execute()
 
     media = MediaFileUpload(
@@ -88,7 +89,8 @@ def upload_to_drive(service, folder_id, file_path, file_name, source_file_id):
     file = service.files().update(
         fileId=copied['id'],
         media_body=media,
-        fields='id, name, webViewLink'
+        fields='id, name, webViewLink',
+        supportsAllDrives=True,
     ).execute()
     return file
 
@@ -102,7 +104,8 @@ def overwrite_drive_file(service, file_id, file_path):
     file = service.files().update(
         fileId=file_id,
         media_body=media,
-        fields='id, name, webViewLink'
+        fields='id, name, webViewLink',
+        supportsAllDrives=True,
     ).execute()
     return file
 
