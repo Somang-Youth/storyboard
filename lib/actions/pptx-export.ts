@@ -156,25 +156,30 @@ export async function exportContiToPptx(options: {
       }),
     });
 
+    console.log('[exportContiToPptx] response status:', response.status, 'content-type:', response.headers.get('content-type'));
+
     const contentType = response.headers.get('content-type') || '';
 
     if (contentType.startsWith('application/vnd.openxmlformats')) {
       // Binary PPTX response (new file path - uploaded to Vercel Blob)
       const arrayBuffer = await response.arrayBuffer();
+      console.log('[exportContiToPptx] binary response size:', arrayBuffer.byteLength);
       const songsProcessed = parseInt(response.headers.get('x-songs-processed') || '0', 10);
       const slidesGenerated = parseInt(response.headers.get('x-slides-generated') || '0', 10);
 
+      const fileName = options.outputFileName || 'export.pptx';
       const blob = await put(
-        `pptx-exports/${options.outputFileName || 'export.pptx'}`,
+        `pptx-exports/${fileName}`,
         Buffer.from(arrayBuffer),
         { access: 'public' }
       );
+      console.log('[exportContiToPptx] blob upload success:', blob.url);
 
       return {
         success: true,
         data: {
           file_id: '',
-          file_name: options.outputFileName || 'export.pptx',
+          file_name: fileName,
           web_view_link: '',
           download_url: blob.url,
           songs_processed: songsProcessed,
