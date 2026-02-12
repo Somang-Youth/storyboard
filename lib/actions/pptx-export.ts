@@ -155,7 +155,17 @@ export async function exportContiToPptx(options: {
       }),
     });
 
-    const result = await response.json();
+    const text = await response.text();
+    let result: { success: boolean; error?: string; data?: PptxExportResult };
+    try {
+      result = JSON.parse(text);
+    } catch {
+      console.error('[exportContiToPptx] Non-JSON response:', response.status, text.slice(0, 500));
+      return {
+        success: false,
+        error: `PPT 서버 오류 (${response.status}): 응답을 처리할 수 없습니다`,
+      };
+    }
 
     if (!result.success) {
       return {
@@ -189,7 +199,14 @@ export async function inspectPptxTemplate(
       }),
     });
 
-    const result = await response.json();
+    const text = await response.text();
+    let result: { success: boolean; error?: string; data?: PptxTemplateStructure };
+    try {
+      result = JSON.parse(text);
+    } catch {
+      console.error('[inspectPptxTemplate] Non-JSON response:', response.status, text.slice(0, 500));
+      return { success: false, error: `PPT 서버 오류 (${response.status}): 응답을 처리할 수 없습니다` };
+    }
 
     if (!result.success) {
       return { success: false, error: result.error };
