@@ -258,6 +258,14 @@ def duplicate_slide(prs, slide):
     for child in deepcopy(slide._element):
         new_slide._element.append(child)
 
+    # Clear lazyproperty caches that were populated by add_slide().
+    # add_slide() calls clone_layout_placeholders() which accesses .shapes,
+    # caching a SlideShapes referencing the original spTree. After replacing
+    # _element's children with a deepcopy, these caches point to orphaned XML.
+    # Clearing them forces reconstruction from the live _element on next access.
+    for attr in ('shapes', 'placeholders', 'background'):
+        new_slide.__dict__.pop(attr, None)
+
     # Build rId mapping (source rId → new rId) and copy relationships.
     # The copied XML references the source slide's rIds, but get_or_add()
     # may assign different rIds on the new slide. We must remap the XML
