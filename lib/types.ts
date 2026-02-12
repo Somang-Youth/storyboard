@@ -102,3 +102,66 @@ export interface YouTubePlaylistItem {
   videoId: string
   position: number
 }
+
+// PPTX Export types
+
+export interface PptxDriveFile {
+  file_id: string;
+  name: string;
+  modified_time: string;
+}
+
+export interface PptxExportSongData {
+  title: string;
+  section_name: string;
+  section_order: string[];
+  lyrics: string[];
+  section_lyrics_map: Record<string, number[]>;
+}
+
+export interface PptxExportRequest {
+  action: 'export_lyrics';
+  file_id: string;
+  overwrite: boolean;
+  output_file_name?: string;
+  output_folder_id?: string;
+  songs: PptxExportSongData[];
+}
+
+export interface PptxExportResult {
+  file_id: string;
+  file_name: string;
+  web_view_link: string;
+  songs_processed: number;
+  slides_generated: number;
+}
+
+export interface PptxTemplateSectionInfo {
+  name: string;
+  id: string;
+  slide_ids: number[];
+  slide_count: number;
+}
+
+export interface PptxTemplateShape {
+  name: string;
+  shape_type: string;
+  has_text_frame: boolean;
+  text_preview?: string;
+  paragraph_count?: number;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface PptxTemplateSlide {
+  slide_index: number;
+  shapes: PptxTemplateShape[];
+}
+
+export interface PptxTemplateStructure {
+  slide_count: number;
+  slides: PptxTemplateSlide[];
+  sections: PptxTemplateSectionInfo[] | null;
+}
