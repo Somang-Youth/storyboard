@@ -136,7 +136,15 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
 
       handleOpenChange(false)
 
-      if (result.data.web_view_link) {
+      if (result.data.download_url) {
+        toast.success("PPT 내보내기 완료", {
+          description: `${result.data.file_name} (${result.data.slides_generated}슬라이드)`,
+          action: {
+            label: "다운로드",
+            onClick: () => window.open(result.data!.download_url!, "_blank"),
+          },
+        })
+      } else if (result.data.web_view_link) {
         toast.success("PPT 내보내기 완료", {
           description: `${result.data.file_name} (${result.data.slides_generated}슬라이드)`,
           action: {
@@ -146,7 +154,7 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
         })
       } else {
         toast.success("PPT 내보내기 완료", {
-          description: `${result.data.file_name} 파일이 Google Drive에 저장되었습니다`,
+          description: `${result.data.file_name} 파일이 저장되었습니다`,
         })
       }
     })
