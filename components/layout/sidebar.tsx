@@ -88,7 +88,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop: fixed sidebar */}
-      <aside className="hidden md:flex w-64 fixed left-0 top-0 h-screen border-r bg-card flex-col">
+      <aside className="hidden md:flex w-45 fixed left-0 top-0 h-screen border-r bg-card flex-col">
         <SidebarContent />
       </aside>
 

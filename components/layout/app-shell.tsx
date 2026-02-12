@@ -19,7 +19,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className="flex flex-1 flex-col md:ml-64 min-w-0">
+      <div className="flex flex-1 flex-col md:ml-45 min-w-0">
         <header className="md:hidden sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background px-4">
           <Button variant="ghost" size="icon" aria-label="메뉴 열기" onClick={() => setNavOpen(true)}>
             <HugeiconsIcon icon={Menu01Icon} strokeWidth={2} />

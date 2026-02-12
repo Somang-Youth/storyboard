@@ -128,7 +128,7 @@ export function LyricsEditor({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="space-y-2">
         <div className="text-base font-medium">가사 페이지</div>
         <div className="flex gap-1.5">
           {sheetMusicFiles && sheetMusicFiles.length > 0 && (
