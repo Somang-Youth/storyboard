@@ -7,6 +7,7 @@ import traceback
 import shutil
 import urllib.request
 import urllib.parse
+import zipfile
 from copy import deepcopy
 
 from lxml import etree
@@ -131,6 +132,78 @@ def upload_to_blob(file_path, file_name):
         raise Exception(f'Blob upload failed with status {e.code}: {error_body}')
     except Exception as e:
         raise Exception(f'Blob upload failed: {str(e)}')
+
+
+def cleanup_orphaned_parts(pptx_path):
+    """Remove orphaned slide/notesSlide files from PPTX ZIP.
+
+    python-pptx does not fully remove deleted slide parts during
+    serialization.  Orphaned files trigger PowerPoint's repair dialog.
+    This post-processing step rewrites the ZIP, dropping any slide or
+    notesSlide XML files that are not referenced in presentation.xml.rels,
+    and removes their [Content_Types].xml Override entries.
+    """
+    from lxml import etree as _et
+
+    tmp_path = pptx_path + '.tmp'
+    ct_ns = 'http://schemas.openxmlformats.org/package/2006/content-types'
+    rels_ns = 'http://schemas.openxmlformats.org/package/2006/relationships'
+
+    with zipfile.ZipFile(pptx_path, 'r') as zin:
+        # Collect slide partnames referenced by presentation.xml.rels
+        prs_rels_xml = zin.read('ppt/_rels/presentation.xml.rels')
+        prs_rels_root = _et.fromstring(prs_rels_xml)
+        referenced = set()
+        for rel in prs_rels_root.findall(f'{{{rels_ns}}}Relationship'):
+            target = rel.get('Target', '')
+            if target.startswith('/'):
+                referenced.add(target.lstrip('/'))
+            else:
+                referenced.add('ppt/' + target)
+
+        # Identify orphaned slide and notesSlide files
+        orphaned = set()
+        for name in zin.namelist():
+            is_slide = (name.startswith('ppt/slides/slide') and
+                        name.endswith('.xml') and '/_rels/' not in name)
+            is_notes = (name.startswith('ppt/notesSlides/notesSlide') and
+                        name.endswith('.xml') and '/_rels/' not in name)
+            if (is_slide or is_notes) and name not in referenced:
+                orphaned.add(name)
+
+        if not orphaned:
+            return  # Nothing to clean
+
+        # Rewrite ZIP without orphaned files and update Content_Types
+        with zipfile.ZipFile(tmp_path, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                if item.filename in orphaned:
+                    continue
+                # Also skip .rels files for orphaned parts
+                rels_for_orphan = False
+                for orph in orphaned:
+                    base = orph.rsplit('/', 1)
+                    rels_path = base[0] + '/_rels/' + base[1] + '.rels'
+                    if item.filename == rels_path:
+                        rels_for_orphan = True
+                        break
+                if rels_for_orphan:
+                    continue
+
+                data = zin.read(item.filename)
+
+                if item.filename == '[Content_Types].xml':
+                    ct_root = _et.fromstring(data)
+                    for override in ct_root.findall(f'{{{ct_ns}}}Override'):
+                        pn = override.get('PartName', '').lstrip('/')
+                        if pn in orphaned:
+                            ct_root.remove(override)
+                    data = _et.tostring(ct_root, xml_declaration=True,
+                                        encoding='UTF-8', standalone=True)
+
+                zout.writestr(item, data)
+
+    os.replace(tmp_path, pptx_path)
 
 
 def parse_sections(prs):
@@ -640,6 +713,7 @@ class handler(BaseHTTPRequestHandler):
             prs = Presentation(template_path)
             result_stats = process_all_songs(prs, songs)
             prs.save(output_path)
+            cleanup_orphaned_parts(output_path)
 
             if overwrite:
                 result = overwrite_drive_file(service, file_id, output_path)
