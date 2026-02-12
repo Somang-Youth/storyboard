@@ -209,6 +209,22 @@ def get_slide_id_map(prs):
     return slide_map
 
 
+def _remap_slide_rids(element, rId_map):
+    """Remap relationship ID references in slide XML after cloning.
+
+    Scans all attributes in the relationships namespace (r:id, r:embed,
+    r:link, etc.) and replaces old rId values with the new slide's rIds.
+    """
+    if not rId_map or all(k == v for k, v in rId_map.items()):
+        return
+    for el in element.iter():
+        for attr_name in list(el.attrib.keys()):
+            if R_NS in attr_name:
+                val = el.get(attr_name)
+                if val in rId_map:
+                    el.set(attr_name, rId_map[val])
+
+
 def duplicate_slide(prs, slide):
     """Clone a slide and append it to the presentation.
 
@@ -242,14 +258,37 @@ def duplicate_slide(prs, slide):
     for child in deepcopy(slide._element):
         new_slide._element.append(child)
 
-    # Copy non-layout relationships
-    for rel in slide.part.rels.values():
-        if rel.reltype == RT.SLIDE_LAYOUT:
+    # Build rId mapping (source rId → new rId) and copy relationships.
+    # The copied XML references the source slide's rIds, but get_or_add()
+    # may assign different rIds on the new slide. We must remap the XML
+    # references to match, otherwise PowerPoint repair strips the content.
+    rId_map = {}
+
+    # Map the layout relationship (already created by add_slide)
+    for src_rId, src_rel in slide.part.rels.items():
+        if src_rel.reltype == RT.SLIDE_LAYOUT:
+            for new_rId, new_rel in new_slide.part.rels.items():
+                if new_rel.reltype == RT.SLIDE_LAYOUT:
+                    rId_map[src_rId] = new_rId
+                    break
+            break
+
+    # Copy non-layout relationships and record the mapping
+    for src_rId, src_rel in slide.part.rels.items():
+        if src_rel.reltype == RT.SLIDE_LAYOUT:
             continue
-        if rel.is_external:
-            new_slide.part.rels.get_or_add_ext_rel(rel.reltype, rel.target_ref)
+        if src_rel.is_external:
+            new_rId = new_slide.part.rels.get_or_add_ext_rel(
+                src_rel.reltype, src_rel.target_ref
+            )
         else:
-            new_slide.part.rels.get_or_add(rel.reltype, rel.target_part)
+            new_rId = new_slide.part.rels.get_or_add(
+                src_rel.reltype, src_rel.target_part
+            )
+        rId_map[src_rId] = new_rId
+
+    # Remap all r:* attribute references in the copied XML
+    _remap_slide_rids(new_slide._element, rId_map)
 
     prs_xml = prs._element
     sld_id_lst = prs_xml.find(_pn('sldIdLst'))
@@ -278,6 +317,11 @@ def delete_slide_by_id(prs, slide_id):
         raise ValueError(f"Slide with id={slide_id} not found in presentation")
 
     prs_part = prs.part
+    # Clear the deleted slide's own relationships to prevent ghost parts
+    slide_part = prs_part.rels[target_rId].target_part
+    for key in list(slide_part.rels.keys()):
+        slide_part.rels.pop(key)
+
     prs_part.rels.pop(target_rId)
 
     sld_id_lst.remove(target_el)
