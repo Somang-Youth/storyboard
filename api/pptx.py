@@ -6,6 +6,7 @@ import tempfile
 import traceback
 import shutil
 import urllib.request
+import urllib.parse
 from copy import deepcopy
 
 from lxml import etree
@@ -104,7 +105,8 @@ def upload_to_blob(file_path, file_name):
         file_bytes = f.read()
 
     # Construct Blob API URL
-    blob_url = f'https://blob.vercel-storage.com/pptx-exports/{file_name}'
+    encoded_name = urllib.parse.quote(file_name, safe='')
+    blob_url = f'https://blob.vercel-storage.com/pptx-exports/{encoded_name}'
 
     # Create request
     req = urllib.request.Request(
