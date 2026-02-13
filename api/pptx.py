@@ -135,13 +135,14 @@ def upload_to_blob(file_path, file_name):
 
 
 def cleanup_orphaned_parts(pptx_path):
-    """Remove orphaned slide/notesSlide files from PPTX ZIP.
+    """Remove orphaned parts and broken references from PPTX ZIP.
 
-    python-pptx does not fully remove deleted slide parts during
-    serialization.  Orphaned files trigger PowerPoint's repair dialog.
-    This post-processing step rewrites the ZIP, dropping any slide or
-    notesSlide XML files that are not referenced in presentation.xml.rels,
-    and removes their [Content_Types].xml Override entries.
+    python-pptx does not fully clean up deleted slides during serialization.
+    This post-processing step:
+    1. Removes slide XML files not referenced in presentation.xml.rels
+    2. Removes notesSlide XML files not referenced by any remaining slide
+    3. Strips broken notesSlide references from slide .rels files
+    4. Updates [Content_Types].xml to match
     """
     from lxml import etree as _et
 
@@ -150,51 +151,101 @@ def cleanup_orphaned_parts(pptx_path):
     rels_ns = 'http://schemas.openxmlformats.org/package/2006/relationships'
 
     with zipfile.ZipFile(pptx_path, 'r') as zin:
-        # Collect slide partnames referenced by presentation.xml.rels
+        names = set(zin.namelist())
+
+        # Step 1: Find slides referenced by presentation.xml.rels
         prs_rels_xml = zin.read('ppt/_rels/presentation.xml.rels')
         prs_rels_root = _et.fromstring(prs_rels_xml)
-        referenced = set()
+        prs_referenced = set()
         for rel in prs_rels_root.findall(f'{{{rels_ns}}}Relationship'):
             target = rel.get('Target', '')
             if target.startswith('/'):
-                referenced.add(target.lstrip('/'))
+                prs_referenced.add(target.lstrip('/'))
             else:
-                referenced.add('ppt/' + target)
+                prs_referenced.add('ppt/' + target)
 
-        # Identify orphaned slide and notesSlide files
+        # Step 2: Find orphaned slide files
         orphaned = set()
-        for name in zin.namelist():
-            is_slide = (name.startswith('ppt/slides/slide') and
-                        name.endswith('.xml') and '/_rels/' not in name)
-            is_notes = (name.startswith('ppt/notesSlides/notesSlide') and
-                        name.endswith('.xml') and '/_rels/' not in name)
-            if (is_slide or is_notes) and name not in referenced:
+        for name in names:
+            if (name.startswith('ppt/slides/slide') and
+                    name.endswith('.xml') and '/_rels/' not in name
+                    and name not in prs_referenced):
                 orphaned.add(name)
 
-        if not orphaned:
+        # Step 3: Collect notesSlide files actually in the ZIP
+        notes_in_zip = set()
+        for name in names:
+            if (name.startswith('ppt/notesSlides/notesSlide') and
+                    name.endswith('.xml') and '/_rels/' not in name):
+                notes_in_zip.add(name)
+
+        # Step 4: Find notesSlides referenced by remaining (non-orphaned) slides
+        notes_referenced = set()
+        for name in names:
+            if (name.startswith('ppt/slides/_rels/slide') and
+                    name.endswith('.xml.rels')):
+                # Skip rels for orphaned slides
+                slide_name = name.replace('/_rels/', '/').removesuffix('.rels')
+                if slide_name in orphaned:
+                    continue
+                rels_xml = zin.read(name)
+                rels_root = _et.fromstring(rels_xml)
+                for rel in rels_root.findall(f'{{{rels_ns}}}Relationship'):
+                    target = rel.get('Target', '')
+                    if 'notesSlide' in target:
+                        resolved = os.path.normpath(
+                            os.path.join('ppt/slides', target)
+                        ).replace('\\', '/')
+                        notes_referenced.add(resolved)
+
+        # Orphaned notesSlides = in ZIP but not referenced by any remaining slide
+        orphaned_notes = notes_in_zip - notes_referenced
+        orphaned |= orphaned_notes
+
+        # Build set of all files to remove (orphaned parts + their .rels)
+        to_remove = set(orphaned)
+        for orph in orphaned:
+            d, f = orph.rsplit('/', 1)
+            to_remove.add(d + '/_rels/' + f + '.rels')
+
+        # Also find notesSlide files referenced but missing from ZIP
+        # (broken references that need stripping from slide .rels)
+        missing_notes = notes_referenced - notes_in_zip
+
+        if not to_remove and not missing_notes:
             return  # Nothing to clean
 
-        # Rewrite ZIP without orphaned files and update Content_Types
+        # Rewrite ZIP
         with zipfile.ZipFile(tmp_path, 'w', zipfile.ZIP_DEFLATED) as zout:
             for item in zin.infolist():
-                if item.filename in orphaned:
-                    continue
-                # Also skip .rels files for orphaned parts
-                rels_for_orphan = False
-                for orph in orphaned:
-                    base = orph.rsplit('/', 1)
-                    rels_path = base[0] + '/_rels/' + base[1] + '.rels'
-                    if item.filename == rels_path:
-                        rels_for_orphan = True
-                        break
-                if rels_for_orphan:
+                if item.filename in to_remove:
                     continue
 
                 data = zin.read(item.filename)
 
+                # Strip broken notesSlide refs from slide .rels files
+                if (missing_notes and
+                        item.filename.startswith('ppt/slides/_rels/') and
+                        item.filename.endswith('.xml.rels')):
+                    rels_root = _et.fromstring(data)
+                    changed = False
+                    for rel in rels_root.findall(f'{{{rels_ns}}}Relationship'):
+                        target = rel.get('Target', '')
+                        if 'notesSlide' in target:
+                            resolved = os.path.normpath(
+                                os.path.join('ppt/slides', target)
+                            ).replace('\\', '/')
+                            if resolved in missing_notes or resolved in orphaned_notes:
+                                rels_root.remove(rel)
+                                changed = True
+                    if changed:
+                        data = _et.tostring(rels_root, xml_declaration=True,
+                                            encoding='UTF-8', standalone=True)
+
+                # Remove orphaned entries from Content_Types
                 if item.filename == '[Content_Types].xml':
                     ct_root = _et.fromstring(data)
-                    for override in ct_root.findall(f'{{{ct_ns}}}Override'):
+                    for override in list(ct_root.findall(f'{{{ct_ns}}}Override')):
                         pn = override.get('PartName', '').lstrip('/')
                         if pn in orphaned:
                             ct_root.remove(override)
@@ -354,9 +405,13 @@ def duplicate_slide(prs, slide):
                     break
             break
 
-    # Copy non-layout relationships and record the mapping
+    # Copy non-layout relationships and record the mapping.
+    # Skip notesSlide relationships — generated slides don't need speaker notes,
+    # and copying them creates broken references when the base slide is deleted.
     for src_rId, src_rel in slide.part.rels.items():
         if src_rel.reltype == RT.SLIDE_LAYOUT:
+            continue
+        if src_rel.reltype == RT.NOTES_SLIDE:
             continue
         if src_rel.is_external:
             new_rId = new_slide.part.rels.get_or_add_ext_rel(
