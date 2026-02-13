@@ -574,7 +574,7 @@ def set_morph_transition(slide, duration_ms=1000):
     sld.append(etree.fromstring(transition_xml))
 
 
-def process_song_section(prs, song, section, slide_id_map):
+def process_song_section(prs, song, section, slide_id_map, shared_base_slide_id):
     """Process a single song: inject title, clone base slide for lyrics, update section."""
     slide_ids = section['slide_ids']
 
@@ -585,14 +585,14 @@ def process_song_section(prs, song, section, slide_id_map):
         )
 
     title_slide_id = slide_ids[0]
-    base_slide_id = slide_ids[1]
+    section_base_slide_id = slide_ids[1]
 
     title_slide = slide_id_map[title_slide_id]['slide']
     title_shape = get_first_textbox(title_slide)
     if title_shape:
         inject_text_into_shape(title_shape, song['title'])
 
-    base_slide = slide_id_map[base_slide_id]['slide']
+    base_slide = slide_id_map[shared_base_slide_id]['slide']
 
     slides_to_delete = slide_ids[2:]
     for sid in slides_to_delete:
@@ -603,7 +603,7 @@ def process_song_section(prs, song, section, slide_id_map):
     section_lyrics_map = song.get('section_lyrics_map', {})
 
     generated_slide_ids = []
-    last_slide_id = base_slide_id
+    last_slide_id = section_base_slide_id
 
     for sect_idx, sect_name in enumerate(section_order):
         sect_idx_str = str(sect_idx)
@@ -650,7 +650,8 @@ def process_song_section(prs, song, section, slide_id_map):
     move_slide_id_after(prs, blank_sid, last_slide_id)
     generated_slide_ids.append(blank_sid)
 
-    delete_slide_by_id(prs, base_slide_id)
+    if section_base_slide_id != shared_base_slide_id:
+        delete_slide_by_id(prs, section_base_slide_id)
 
     section_el = section['element']
     ns_fn = section.get('ns_fn', _pn)
@@ -674,6 +675,27 @@ def process_all_songs(prs, songs):
     sections = parse_sections(prs)
     slide_id_map = get_slide_id_map(prs)
 
+    # Find shared base slide: try each section's slide_ids[1] until one has text
+    shared_base_slide_id = None
+    for section in sections:
+        if len(section['slide_ids']) >= 2:
+            candidate_id = section['slide_ids'][1]
+            candidate_slide = slide_id_map[candidate_id]['slide']
+            textbox = get_first_textbox(candidate_slide)
+            if textbox is not None and textbox.text_frame.text.strip():
+                shared_base_slide_id = candidate_id
+                break
+
+    # If no section had a text-bearing base, fall back to first section's slide_ids[1]
+    if shared_base_slide_id is None:
+        for section in sections:
+            if len(section['slide_ids']) >= 2:
+                shared_base_slide_id = section['slide_ids'][1]
+                break
+
+    if shared_base_slide_id is None:
+        raise ValueError("No section has a base slide (slide_ids[1]) to use as shared base")
+
     total_slides = 0
     songs_processed = 0
 
@@ -690,11 +712,14 @@ def process_all_songs(prs, songs):
                 f"Available sections: {available}"
             )
 
-        slides = process_song_section(prs, song, section, slide_id_map)
+        slides = process_song_section(prs, song, section, slide_id_map, shared_base_slide_id)
         total_slides += slides
         songs_processed += 1
 
         slide_id_map = get_slide_id_map(prs)
+
+    # Delete the shared base slide now that all songs have been cloned from it
+    delete_slide_by_id(prs, shared_base_slide_id)
 
     return {
         'songs_processed': songs_processed,
