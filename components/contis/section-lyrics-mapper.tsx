@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 interface SectionLyricsMapperProps {
   sectionOrder: string[]
   lyrics: string[]
@@ -22,6 +23,21 @@ export function SectionLyricsMapper({
   useEffect(() => {
     setSectionLyricsMap(initialMap)
   }, [initialMap])
+
+  // Purge ghost page references when lyrics pages are added/removed
+  useEffect(() => {
+    setSectionLyricsMap(prev => {
+      const next: Record<number, number[]> = {}
+      let changed = false
+      for (const [key, indices] of Object.entries(prev)) {
+        const filtered = indices.filter(i => i < lyrics.length)
+        if (filtered.length !== indices.length) changed = true
+        if (filtered.length > 0) next[Number(key)] = filtered
+        else { changed = true }
+      }
+      return changed ? next : prev
+    })
+  }, [lyrics.length])
 
   const onChangeRef = useRef(onChange)
   useEffect(() => {
@@ -86,24 +102,33 @@ export function SectionLyricsMapper({
               <span className="text-base font-medium">{section}</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {lyrics.map((_, lyricsIndex) => {
+              {lyrics.map((lyric, lyricsIndex) => {
                 const isSelected =
                   sectionLyricsMap[sectionIndex]?.includes(lyricsIndex) || false
                 return (
-                  <label
-                    key={lyricsIndex}
-                    className="flex cursor-pointer items-center gap-1.5"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() =>
-                        toggleLyricsForSection(sectionIndex, lyricsIndex)
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <label
+                          key={lyricsIndex}
+                          className="flex cursor-pointer items-center gap-1.5"
+                        />
                       }
-                      className="size-4 cursor-pointer rounded"
-                    />
-                    <span className="text-base">페이지 {lyricsIndex + 1}</span>
-                  </label>
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() =>
+                          toggleLyricsForSection(sectionIndex, lyricsIndex)
+                        }
+                        className="size-4 cursor-pointer rounded"
+                      />
+                      <span className="text-base">페이지 {lyricsIndex + 1}</span>
+                    </TooltipTrigger>
+                    <TooltipContent className="whitespace-pre-wrap">
+                      {lyric || "(빈 페이지)"}
+                    </TooltipContent>
+                  </Tooltip>
                 )
               })}
             </div>
@@ -135,9 +160,16 @@ export function SectionLyricsMapper({
                 </span>
                 <div className="flex flex-wrap gap-1">
                   {lyricsIndices.map((lyricsIndex) => (
-                    <Badge key={lyricsIndex} variant="secondary" className="text-sm">
-                      페이지 {lyricsIndex + 1}
-                    </Badge>
+                    <Tooltip key={lyricsIndex}>
+                      <TooltipTrigger render={<span />}>
+                        <Badge variant="secondary" className="text-sm">
+                          페이지 {lyricsIndex + 1}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent className="whitespace-pre-wrap">
+                        {lyrics[lyricsIndex] || "(빈 페이지)"}
+                      </TooltipContent>
+                    </Tooltip>
                   ))}
                 </div>
               </div>
