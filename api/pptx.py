@@ -22,6 +22,7 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 # PowerPoint XML namespaces
 P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 P14_NS = 'http://schemas.microsoft.com/office/powerpoint/2010/main'
+P159_NS = 'http://schemas.microsoft.com/office/powerpoint/2019/main'
 R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 
@@ -540,6 +541,22 @@ def get_first_textbox(slide):
     return None
 
 
+def set_morph_transition(slide, duration_ms=1000):
+    """Set a morph transition on a slide (Office 365/2019+).
+
+    Older PowerPoint versions ignore the morph element and fall back
+    to the spd attribute for a basic transition.
+    """
+    sld = slide._element
+    for existing in sld.findall(_pn('transition')):
+        sld.remove(existing)
+
+    transition = etree.SubElement(sld, _pn('transition'))
+    transition.set('spd', 'slow')
+    transition.set(f'{{{P14_NS}}}dur', str(duration_ms))
+    etree.SubElement(transition, f'{{{P159_NS}}}morph').set('option', 'byObject')
+
+
 def process_song_section(prs, song, section, slide_id_map):
     """Process a single song: inject title, clone base slide for lyrics, update section."""
     slide_ids = section['slide_ids']
@@ -606,11 +623,12 @@ def process_song_section(prs, song, section, slide_id_map):
                 generated_slide_ids.append(new_sid)
                 last_slide_id = new_sid
 
-    # Append a blank slide at the end of the song
+    # Append a blank slide at the end of the song with morph transition
     blank_slide, blank_sid, blank_el = duplicate_slide(prs, base_slide)
     textbox = get_first_textbox(blank_slide)
     if textbox:
         inject_text_into_shape(textbox, '')
+    set_morph_transition(blank_slide)
     move_slide_id_after(prs, blank_sid, last_slide_id)
     generated_slide_ids.append(blank_sid)
 
