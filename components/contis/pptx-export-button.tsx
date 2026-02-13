@@ -17,6 +17,7 @@ import {
   Presentation01Icon,
   ArrowLeft02Icon,
   Tick01Icon,
+  Loading03Icon,
 } from "@hugeicons/core-free-icons"
 import { listPptxFiles, exportContiToPptx } from "@/lib/actions/pptx-export"
 import { buildPptxSongData } from "@/lib/utils/pptx-helpers"
@@ -340,6 +341,7 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
               onClick={handleExport}
               disabled={isPending}
             >
+              {isPending && <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="animate-spin" data-icon="inline-start" />}
               {isPending ? "내보내는 중..." : "내보내기"}
             </Button>
           )}
