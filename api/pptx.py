@@ -637,7 +637,6 @@ def process_song_section(prs, song, section, slide_id_map):
                 textbox = get_first_textbox(new_slide)
                 if textbox:
                     inject_text_into_shape(textbox, lyrics_text)
-                set_morph_transition(new_slide)
                 move_slide_id_after(prs, new_sid, last_slide_id)
                 generated_slide_ids.append(new_sid)
                 last_slide_id = new_sid
