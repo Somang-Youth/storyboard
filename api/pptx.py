@@ -606,6 +606,14 @@ def process_song_section(prs, song, section, slide_id_map):
                 generated_slide_ids.append(new_sid)
                 last_slide_id = new_sid
 
+    # Append a blank slide at the end of the song
+    blank_slide, blank_sid, blank_el = duplicate_slide(prs, base_slide)
+    textbox = get_first_textbox(blank_slide)
+    if textbox:
+        inject_text_into_shape(textbox, '')
+    move_slide_id_after(prs, blank_sid, last_slide_id)
+    generated_slide_ids.append(blank_sid)
+
     delete_slide_by_id(prs, base_slide_id)
 
     section_el = section['element']
