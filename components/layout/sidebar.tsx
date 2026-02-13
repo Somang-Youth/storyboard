@@ -21,7 +21,7 @@ const navItems = [
     icon: Playlist01Icon,
   },
   {
-    label: "곡 라이브러리",
+    label: "찬양 라이브러리",
     href: "/songs",
     icon: MusicNoteSquare01Icon,
   },

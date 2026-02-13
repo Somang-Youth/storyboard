@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Delete01Icon, Menu09Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, Delete01Icon, Menu09Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { nanoid } from 'nanoid'
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
 
 interface SectionOrderEditorProps {
   initialSectionOrder: string[]
@@ -186,34 +187,44 @@ export function SectionOrderEditor({
         </div>
       </div>
 
-      <div>
-        <div className="mb-2 text-base font-medium">섹션 순서</div>
-        {items.length > 0 ? (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={items.map(item => item.id)}
-              strategy={verticalListSortingStrategy}
+      <Collapsible>
+        <CollapsibleTrigger className="group flex w-full items-center gap-2 text-base font-medium">
+          섹션 순서
+          <span className="text-muted-foreground text-sm font-normal">({items.length})</span>
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            strokeWidth={2}
+            className="ml-auto mr-3.5 size-4 text-muted-foreground transition-transform duration-200 group-data-[panel-open]:rotate-180"
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent keepMounted className="mt-2">
+          {items.length > 0 ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <div className="flex flex-col gap-1.5">
-                {items.map((item, index) => (
-                  <SortableItem
-                    key={item.id}
-                    item={item}
-                    index={index}
-                    onRemove={removeSection}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        ) : (
-          <p className="text-muted-foreground text-base">섹션을 추가하세요</p>
-        )}
-      </div>
+              <SortableContext
+                items={items.map(item => item.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="flex flex-col gap-1.5">
+                  {items.map((item, index) => (
+                    <SortableItem
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      onRemove={removeSection}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <p className="text-muted-foreground text-base">섹션을 추가하세요</p>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   )
 }

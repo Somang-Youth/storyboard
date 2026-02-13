@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 interface SectionLyricsMapperProps {
   sectionOrder: string[]
   lyrics: string[]
@@ -17,6 +19,26 @@ export function SectionLyricsMapper({
 }: SectionLyricsMapperProps) {
   const [sectionLyricsMap, setSectionLyricsMap] =
     useState<Record<number, number[]>>(initialMap)
+
+  // Sync internal state when parent resets the map (e.g. lyrics page reorder)
+  useEffect(() => {
+    setSectionLyricsMap(initialMap)
+  }, [initialMap])
+
+  // Purge ghost page references when lyrics pages are added/removed
+  useEffect(() => {
+    setSectionLyricsMap(prev => {
+      const next: Record<number, number[]> = {}
+      let changed = false
+      for (const [key, indices] of Object.entries(prev)) {
+        const filtered = indices.filter(i => i < lyrics.length)
+        if (filtered.length !== indices.length) changed = true
+        if (filtered.length > 0) next[Number(key)] = filtered
+        else { changed = true }
+      }
+      return changed ? next : prev
+    })
+  }, [lyrics.length])
 
   const onChangeRef = useRef(onChange)
   useEffect(() => {
@@ -52,60 +74,84 @@ export function SectionLyricsMapper({
 
   if (sectionOrder.length === 0) {
     return (
-      <p className="text-muted-foreground text-base">
-        먼저 섹션 순서를 설정하세요
-      </p>
+      <div className="space-y-4">
+        <h3 className="text-base font-medium">섹션-가사 매핑</h3>
+        <p className="text-muted-foreground text-base">
+          먼저 섹션 순서를 설정하세요
+        </p>
+      </div>
     )
   }
 
   if (lyrics.length === 0) {
     return (
-      <p className="text-muted-foreground text-base">
-        먼저 가사 페이지를 추가하세요
-      </p>
+      <div className="space-y-4">
+        <h3 className="text-base font-medium">섹션-가사 매핑</h3>
+        <p className="text-muted-foreground text-base">
+          먼저 가사 페이지를 추가하세요
+        </p>
+      </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
+      <h3 className="text-base font-medium">섹션-가사 매핑</h3>
+      <Accordion multiple defaultValue={[]} className="gap-3">
         {sectionOrder.map((section, sectionIndex) => (
-          <div
+          <AccordionItem
             key={sectionIndex}
-            className="ring-foreground/10 rounded-lg bg-muted/50 p-3 ring-1"
+            value={String(sectionIndex)}
+            className="ring-foreground/10 rounded-lg bg-muted/50 ring-1"
           >
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-muted-foreground text-sm font-medium">
-                [{sectionIndex}]
-              </span>
-              <span className="text-base font-medium">{section}</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {lyrics.map((_, lyricsIndex) => {
-                const isSelected =
-                  sectionLyricsMap[sectionIndex]?.includes(lyricsIndex) || false
-                return (
-                  <label
-                    key={lyricsIndex}
-                    className="flex cursor-pointer items-center gap-1.5"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() =>
-                        toggleLyricsForSection(sectionIndex, lyricsIndex)
-                      }
-                      className="size-4 cursor-pointer rounded"
-                    />
-                    <span className="text-base">페이지 {lyricsIndex + 1}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
+            <AccordionTrigger className="w-full p-3 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-sm font-medium">
+                  [{sectionIndex}]
+                </span>
+                <span className="text-base font-medium">{section}</span>
+                <span className="text-muted-foreground text-sm font-normal">
+                  ({(sectionLyricsMap[sectionIndex] || []).length}페이지)
+                </span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="flex flex-wrap gap-1.5 px-3 pb-3">
+                {lyrics.map((lyric, lyricsIndex) => {
+                  const isSelected =
+                    sectionLyricsMap[sectionIndex]?.includes(lyricsIndex) || false
+                  return (
+                    <Tooltip key={lyricsIndex}>
+                      <TooltipTrigger
+                        render={
+                          <label
+                            className="flex cursor-pointer items-center gap-1.5"
+                          />
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() =>
+                            toggleLyricsForSection(sectionIndex, lyricsIndex)
+                          }
+                          className="size-4 cursor-pointer rounded"
+                        />
+                        <span className="text-base">페이지 {lyricsIndex + 1}</span>
+                      </TooltipTrigger>
+                      <TooltipContent className="whitespace-pre-wrap">
+                        {lyric || "(빈 페이지)"}
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                })}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
         ))}
-      </div>
+      </Accordion>
 
+      {/* Preview section — always visible, outside accordion */}
       <div>
         <div className="mb-2 text-base font-medium">미리보기</div>
         <div className="ring-foreground/10 space-y-2 rounded-lg bg-muted/30 p-3 ring-1">
@@ -114,7 +160,7 @@ export function SectionLyricsMapper({
             if (lyricsIndices.length === 0) {
               return (
                 <div key={sectionIndex} className="flex items-start gap-2">
-                  <span className="text-muted-foreground text-sm">
+                  <span className="text-muted-foreground text-sm shrink-0 whitespace-nowrap">
                     [{sectionIndex}] {section}:
                   </span>
                   <span className="text-muted-foreground text-sm italic">
@@ -125,14 +171,21 @@ export function SectionLyricsMapper({
             }
             return (
               <div key={sectionIndex} className="flex items-start gap-2">
-                <span className="text-muted-foreground text-sm">
+                <span className="text-muted-foreground text-sm shrink-0 whitespace-nowrap">
                   [{sectionIndex}] {section}:
                 </span>
                 <div className="flex flex-wrap gap-1">
                   {lyricsIndices.map((lyricsIndex) => (
-                    <Badge key={lyricsIndex} variant="secondary" className="text-sm">
-                      페이지 {lyricsIndex + 1}
-                    </Badge>
+                    <Tooltip key={lyricsIndex}>
+                      <TooltipTrigger render={<span />}>
+                        <Badge variant="secondary" className="text-sm">
+                          페이지 {lyricsIndex + 1}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent className="whitespace-pre-wrap">
+                        {lyrics[lyricsIndex] || "(빈 페이지)"}
+                      </TooltipContent>
+                    </Tooltip>
                   ))}
                 </div>
               </div>

@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env*.local
 !.env.example
 !.env.local.example
 
@@ -41,4 +42,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-.env*.local
+
+# powerpoint
+*.pptx
+
+# claude code
+.omc/
+settings.local.json
+
+# python
+.venv/
+__pycache__/

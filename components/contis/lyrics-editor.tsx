@@ -1,18 +1,19 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, Fragment } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Delete01Icon, TextCheckIcon, ScanImageIcon, Loading03Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, Delete01Icon, TextCheckIcon, ScanImageIcon, Loading03Icon, ArrowUp01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
 import { OcrRegionSelector } from "@/components/contis/ocr-region-selector"
 import { checkSpelling } from "@/lib/actions/spell-check"
 import { computeWordDiff, getOriginalParts, getCorrectedParts } from "@/lib/utils/text-diff"
 import type { SheetMusicFile } from "@/lib/types"
+import { validateLyricsPage } from "@/lib/utils/lyrics-validation"
 
 interface LyricsEditorProps {
   initialLyrics: string[]
-  onChange: (data: { lyrics: string[] }) => void
+  onChange: (data: { lyrics: string[]; swappedPages?: [number, number]; insertedAt?: number }) => void
   sheetMusicFiles?: SheetMusicFile[]
 }
 
@@ -31,6 +32,8 @@ export function LyricsEditor({
   const [ocrOpen, setOcrOpen] = useState(false)
   // Per-page spell check state, keyed by page index
   const [spellCheck, setSpellCheck] = useState<Record<number, SpellCheckState>>({})
+  const pendingSwapRef = useRef<[number, number] | null>(null)
+  const pendingInsertRef = useRef<number | null>(null)
 
   const onChangeRef = useRef(onChange)
   useEffect(() => {
@@ -43,11 +46,33 @@ export function LyricsEditor({
       isFirstRender.current = false
       return
     }
-    onChangeRef.current({ lyrics })
+    onChangeRef.current({
+      lyrics,
+      swappedPages: pendingSwapRef.current ?? undefined,
+      insertedAt: pendingInsertRef.current ?? undefined,
+    })
+    pendingSwapRef.current = null
+    pendingInsertRef.current = null
   }, [lyrics])
 
   const addPage = () => {
     setLyrics([...lyrics, ""])
+  }
+
+  const insertPage = (atIndex: number) => {
+    const newLyrics = [...lyrics]
+    newLyrics.splice(atIndex, 0, "")
+    pendingInsertRef.current = atIndex
+    setLyrics(newLyrics)
+    setSpellCheck(prev => {
+      const next: Record<number, SpellCheckState> = {}
+      for (const [k, v] of Object.entries(prev)) {
+        const ki = Number(k)
+        if (ki < atIndex) next[ki] = v
+        else next[ki + 1] = v
+      }
+      return next
+    })
   }
 
   const removePage = (index: number) => {
@@ -76,6 +101,25 @@ export function LyricsEditor({
         return next
       })
     }
+  }
+
+  const movePage = (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= lyrics.length) return
+
+    const newLyrics = [...lyrics]
+    ;[newLyrics[index], newLyrics[targetIndex]] = [newLyrics[targetIndex], newLyrics[index]]
+    pendingSwapRef.current = [index, targetIndex]
+    setLyrics(newLyrics)
+
+    setSpellCheck(prev => {
+      const next = { ...prev }
+      const a = prev[index]
+      const b = prev[targetIndex]
+      if (a) next[targetIndex] = a; else delete next[targetIndex]
+      if (b) next[index] = b; else delete next[index]
+      return next
+    })
   }
 
   const handleSpellCheck = async (index: number) => {
@@ -145,15 +189,47 @@ export function LyricsEditor({
       </div>
 
       <div className="space-y-3">
+        {lyrics.length > 0 && (
+          <div className="-my-1 flex justify-center">
+            <button
+              type="button"
+              onClick={() => insertPage(0)}
+              className="text-muted-foreground hover:text-foreground hover:border-foreground flex items-center gap-1 rounded-md border border-dashed px-3 py-0.5 text-xs transition-colors"
+            >
+              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} size={14} />
+              삽입
+            </button>
+          </div>
+        )}
         {lyrics.map((lyric, index) => {
           const sc = spellCheck[index]
+          const warnings = validateLyricsPage(lyric)
           return (
-            <div key={index} className="space-y-1.5">
+            <Fragment key={index}>
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-muted-foreground text-sm font-medium">
                   페이지 {index + 1}
                 </label>
                 <div className="flex gap-0.5">
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    onClick={() => movePage(index, "up")}
+                    disabled={index === 0}
+                    aria-label="위로 이동"
+                  >
+                    <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
+                  </Button>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    onClick={() => movePage(index, "down")}
+                    disabled={index === lyrics.length - 1}
+                    aria-label="아래로 이동"
+                  >
+                    <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
+                  </Button>
                   <Button
                     size="icon-xs"
                     variant="ghost"
@@ -183,6 +259,17 @@ export function LyricsEditor({
                 placeholder="가사를 입력하세요..."
                 rows={3}
               />
+
+              {/* Lyrics validation warnings */}
+              {warnings.length > 0 && (
+                <div className="flex flex-col gap-0.5 px-1">
+                  {warnings.map((w) => (
+                    <p key={w.type} className="text-sm text-amber-600">
+                      {w.message}
+                    </p>
+                  ))}
+                </div>
+              )}
 
               {/* Inline spell check result */}
               {sc?.error && (
@@ -233,6 +320,19 @@ export function LyricsEditor({
                 </div>
               )}
             </div>
+            {index < lyrics.length - 1 && (
+              <div className="-my-1 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => insertPage(index + 1)}
+                  className="text-muted-foreground hover:text-foreground hover:border-foreground flex items-center gap-1 rounded-md border border-dashed px-3 py-0.5 text-xs transition-colors"
+                >
+                  <HugeiconsIcon icon={Add01Icon} strokeWidth={2} size={14} />
+                  삽입
+                </button>
+              </div>
+            )}
+            </Fragment>
           )
         })}
         {lyrics.length === 0 && (
