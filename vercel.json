@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/pptx.py": {
+      "maxDuration": 60
+    }
+  }
+}
