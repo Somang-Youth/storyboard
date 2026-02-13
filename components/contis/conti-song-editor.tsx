@@ -113,8 +113,22 @@ export function ContiSongEditor({
     markDirty()
   }
 
-  const handleLyricsChange = (data: { lyrics: string[] }) => {
+  const handleLyricsChange = (data: { lyrics: string[]; swappedPages?: [number, number] }) => {
     setLyrics(data.lyrics)
+    if (data.swappedPages) {
+      const [a, b] = data.swappedPages
+      setSectionLyricsMap(prev => {
+        const next: Record<number, number[]> = {}
+        for (const [key, indices] of Object.entries(prev)) {
+          const filtered = indices.filter(i => i !== a && i !== b)
+          if (filtered.length > 0) {
+            next[Number(key)] = filtered
+          }
+        }
+        return next
+      })
+      toast.warning(`페이지 ${a + 1}, ${b + 1}의 섹션-가사 매핑이 해제되었습니다`)
+    }
     markDirty()
   }
 

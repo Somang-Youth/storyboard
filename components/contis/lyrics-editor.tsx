@@ -4,15 +4,16 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Delete01Icon, TextCheckIcon, ScanImageIcon, Loading03Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, Delete01Icon, TextCheckIcon, ScanImageIcon, Loading03Icon, ArrowUp01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
 import { OcrRegionSelector } from "@/components/contis/ocr-region-selector"
 import { checkSpelling } from "@/lib/actions/spell-check"
 import { computeWordDiff, getOriginalParts, getCorrectedParts } from "@/lib/utils/text-diff"
 import type { SheetMusicFile } from "@/lib/types"
+import { validateLyricsPage } from "@/lib/utils/lyrics-validation"
 
 interface LyricsEditorProps {
   initialLyrics: string[]
-  onChange: (data: { lyrics: string[] }) => void
+  onChange: (data: { lyrics: string[]; swappedPages?: [number, number] }) => void
   sheetMusicFiles?: SheetMusicFile[]
 }
 
@@ -31,6 +32,7 @@ export function LyricsEditor({
   const [ocrOpen, setOcrOpen] = useState(false)
   // Per-page spell check state, keyed by page index
   const [spellCheck, setSpellCheck] = useState<Record<number, SpellCheckState>>({})
+  const pendingSwapRef = useRef<[number, number] | null>(null)
 
   const onChangeRef = useRef(onChange)
   useEffect(() => {
@@ -43,7 +45,8 @@ export function LyricsEditor({
       isFirstRender.current = false
       return
     }
-    onChangeRef.current({ lyrics })
+    onChangeRef.current({ lyrics, swappedPages: pendingSwapRef.current ?? undefined })
+    pendingSwapRef.current = null
   }, [lyrics])
 
   const addPage = () => {
@@ -76,6 +79,25 @@ export function LyricsEditor({
         return next
       })
     }
+  }
+
+  const movePage = (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= lyrics.length) return
+
+    const newLyrics = [...lyrics]
+    ;[newLyrics[index], newLyrics[targetIndex]] = [newLyrics[targetIndex], newLyrics[index]]
+    pendingSwapRef.current = [index, targetIndex]
+    setLyrics(newLyrics)
+
+    setSpellCheck(prev => {
+      const next = { ...prev }
+      const a = prev[index]
+      const b = prev[targetIndex]
+      if (a) next[targetIndex] = a; else delete next[targetIndex]
+      if (b) next[index] = b; else delete next[index]
+      return next
+    })
   }
 
   const handleSpellCheck = async (index: number) => {
@@ -147,6 +169,7 @@ export function LyricsEditor({
       <div className="space-y-3">
         {lyrics.map((lyric, index) => {
           const sc = spellCheck[index]
+          const warnings = validateLyricsPage(lyric)
           return (
             <div key={index} className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -154,6 +177,24 @@ export function LyricsEditor({
                   페이지 {index + 1}
                 </label>
                 <div className="flex gap-0.5">
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    onClick={() => movePage(index, "up")}
+                    disabled={index === 0}
+                    aria-label="위로 이동"
+                  >
+                    <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
+                  </Button>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    onClick={() => movePage(index, "down")}
+                    disabled={index === lyrics.length - 1}
+                    aria-label="아래로 이동"
+                  >
+                    <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
+                  </Button>
                   <Button
                     size="icon-xs"
                     variant="ghost"
@@ -183,6 +224,17 @@ export function LyricsEditor({
                 placeholder="가사를 입력하세요..."
                 rows={3}
               />
+
+              {/* Lyrics validation warnings */}
+              {warnings.length > 0 && (
+                <div className="flex flex-col gap-0.5 px-1">
+                  {warnings.map((w) => (
+                    <p key={w.type} className="text-sm text-amber-600">
+                      {w.message}
+                    </p>
+                  ))}
+                </div>
+              )}
 
               {/* Inline spell check result */}
               {sc?.error && (

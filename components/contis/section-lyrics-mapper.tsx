@@ -18,6 +18,11 @@ export function SectionLyricsMapper({
   const [sectionLyricsMap, setSectionLyricsMap] =
     useState<Record<number, number[]>>(initialMap)
 
+  // Sync internal state when parent resets the map (e.g. lyrics page reorder)
+  useEffect(() => {
+    setSectionLyricsMap(initialMap)
+  }, [initialMap])
+
   const onChangeRef = useRef(onChange)
   useEffect(() => {
     onChangeRef.current = onChange

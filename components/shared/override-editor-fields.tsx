@@ -17,7 +17,7 @@ interface OverrideEditorFieldsProps {
   sheetMusicFiles?: SheetMusicFile[]
   onKeysTemposChange: (data: { keys: string[]; tempos: number[] }) => void
   onSectionOrderChange: (data: { sectionOrder: string[] }) => void
-  onLyricsChange: (data: { lyrics: string[] }) => void
+  onLyricsChange: (data: { lyrics: string[]; swappedPages?: [number, number] }) => void
   onSectionLyricsMapChange: (data: { sectionLyricsMap: Record<number, number[]> }) => void
   onNotesChange: (notes: string | null) => void
 }
