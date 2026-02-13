@@ -137,13 +137,12 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
       handleOpenChange(false)
 
       if (result.data.download_url) {
-        toast.success("PPT 내보내기 완료", {
-          description: `${result.data.file_name} (${result.data.slides_generated}슬라이드)`,
-          action: {
-            label: "다운로드",
-            onClick: () => window.open(result.data!.download_url!, "_blank"),
-          },
-        })
+        const a = document.createElement("a")
+        a.href = result.data.download_url
+        a.download = result.data.file_name || "export.pptx"
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
       } else if (result.data.web_view_link) {
         toast.success("PPT 내보내기 완료", {
           description: `${result.data.file_name} (${result.data.slides_generated}슬라이드)`,
@@ -234,7 +233,7 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">덮어쓰기</p>
                   <p className="text-xs text-muted-foreground">
-                    선택한 파일을 직접 수정합니다
+                    Google Drive 파일을 직접 수정합니다
                   </p>
                 </div>
                 {overwrite && (
@@ -252,7 +251,7 @@ export function PptxExportButton({ conti, iconOnly = false }: PptxExportButtonPr
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">새 파일</p>
                   <p className="text-xs text-muted-foreground">
-                    새로운 파일로 저장합니다
+                    파일을 다운로드합니다
                   </p>
                 </div>
                 {!overwrite && (
