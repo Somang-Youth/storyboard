@@ -22,7 +22,8 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 # PowerPoint XML namespaces
 P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 P14_NS = 'http://schemas.microsoft.com/office/powerpoint/2010/main'
-P159_NS = 'http://schemas.microsoft.com/office/powerpoint/2019/main'
+P159_NS = 'http://schemas.microsoft.com/office/powerpoint/2015/09/main'
+MC_NS = 'http://schemas.openxmlformats.org/markup-compatibility/2006'
 R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 
@@ -542,19 +543,35 @@ def get_first_textbox(slide):
 
 
 def set_morph_transition(slide, duration_ms=1000):
-    """Set a morph transition on a slide (Office 365/2019+).
+    """Set a morph transition on a slide using mc:AlternateContent.
 
-    Older PowerPoint versions ignore the morph element and fall back
-    to the spd attribute for a basic transition.
+    Uses the same backward-compatible pattern as PowerPoint itself:
+    mc:Choice with p159:morph for 2019+, mc:Fallback with p:fade for older.
     """
     sld = slide._element
+    # Remove existing bare transitions and mc:AlternateContent wrappers
     for existing in sld.findall(_pn('transition')):
         sld.remove(existing)
+    for existing in sld.findall(f'{{{MC_NS}}}AlternateContent'):
+        sld.remove(existing)
 
-    transition = etree.SubElement(sld, _pn('transition'))
-    transition.set('spd', 'slow')
-    transition.set(f'{{{P14_NS}}}dur', str(duration_ms))
-    etree.SubElement(transition, f'{{{P159_NS}}}morph').set('option', 'byObject')
+    transition_xml = (
+        '<mc:AlternateContent'
+        f' xmlns:mc="{MC_NS}"'
+        f' xmlns:p159="{P159_NS}">'
+        '<mc:Choice Requires="p159">'
+        f'<p:transition xmlns:p="{P_NS}" spd="slow">'
+        '<p159:morph option="byObject"/>'
+        '</p:transition>'
+        '</mc:Choice>'
+        '<mc:Fallback xmlns="">'
+        f'<p:transition xmlns:p="{P_NS}" spd="slow">'
+        '<p:fade/>'
+        '</p:transition>'
+        '</mc:Fallback>'
+        '</mc:AlternateContent>'
+    )
+    sld.append(etree.fromstring(transition_xml))
 
 
 def process_song_section(prs, song, section, slide_id_map):
