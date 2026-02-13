@@ -113,7 +113,7 @@ export function ContiSongEditor({
     markDirty()
   }
 
-  const handleLyricsChange = (data: { lyrics: string[]; swappedPages?: [number, number] }) => {
+  const handleLyricsChange = (data: { lyrics: string[]; swappedPages?: [number, number]; insertedAt?: number }) => {
     setLyrics(data.lyrics)
     if (data.swappedPages) {
       const [a, b] = data.swappedPages
@@ -128,6 +128,18 @@ export function ContiSongEditor({
         return next
       })
       toast.warning(`페이지 ${a + 1}, ${b + 1}의 섹션-가사 매핑이 해제되었습니다`)
+    }
+    if (data.insertedAt !== undefined) {
+      const insertIdx = data.insertedAt
+      setSectionLyricsMap(prev => {
+        if (Object.keys(prev).length === 0) return prev
+        const next: Record<number, number[]> = {}
+        for (const [key, indices] of Object.entries(prev)) {
+          next[Number(key)] = indices.map(i => (i >= insertIdx ? i + 1 : i))
+        }
+        return next
+      })
+      toast.info(`페이지 ${insertIdx + 1} 위치에 빈 페이지가 삽입되어 매핑이 조정되었습니다`)
     }
     markDirty()
   }

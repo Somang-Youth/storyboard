@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, Fragment } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -13,7 +13,7 @@ import { validateLyricsPage } from "@/lib/utils/lyrics-validation"
 
 interface LyricsEditorProps {
   initialLyrics: string[]
-  onChange: (data: { lyrics: string[]; swappedPages?: [number, number] }) => void
+  onChange: (data: { lyrics: string[]; swappedPages?: [number, number]; insertedAt?: number }) => void
   sheetMusicFiles?: SheetMusicFile[]
 }
 
@@ -33,6 +33,7 @@ export function LyricsEditor({
   // Per-page spell check state, keyed by page index
   const [spellCheck, setSpellCheck] = useState<Record<number, SpellCheckState>>({})
   const pendingSwapRef = useRef<[number, number] | null>(null)
+  const pendingInsertRef = useRef<number | null>(null)
 
   const onChangeRef = useRef(onChange)
   useEffect(() => {
@@ -45,12 +46,33 @@ export function LyricsEditor({
       isFirstRender.current = false
       return
     }
-    onChangeRef.current({ lyrics, swappedPages: pendingSwapRef.current ?? undefined })
+    onChangeRef.current({
+      lyrics,
+      swappedPages: pendingSwapRef.current ?? undefined,
+      insertedAt: pendingInsertRef.current ?? undefined,
+    })
     pendingSwapRef.current = null
+    pendingInsertRef.current = null
   }, [lyrics])
 
   const addPage = () => {
     setLyrics([...lyrics, ""])
+  }
+
+  const insertPage = (atIndex: number) => {
+    const newLyrics = [...lyrics]
+    newLyrics.splice(atIndex, 0, "")
+    pendingInsertRef.current = atIndex
+    setLyrics(newLyrics)
+    setSpellCheck(prev => {
+      const next: Record<number, SpellCheckState> = {}
+      for (const [k, v] of Object.entries(prev)) {
+        const ki = Number(k)
+        if (ki < atIndex) next[ki] = v
+        else next[ki + 1] = v
+      }
+      return next
+    })
   }
 
   const removePage = (index: number) => {
@@ -167,11 +189,24 @@ export function LyricsEditor({
       </div>
 
       <div className="space-y-3">
+        {lyrics.length > 0 && (
+          <div className="-my-1 flex justify-center">
+            <button
+              type="button"
+              onClick={() => insertPage(0)}
+              className="text-muted-foreground hover:text-foreground hover:border-foreground flex items-center gap-1 rounded-md border border-dashed px-3 py-0.5 text-xs transition-colors"
+            >
+              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} size={14} />
+              삽입
+            </button>
+          </div>
+        )}
         {lyrics.map((lyric, index) => {
           const sc = spellCheck[index]
           const warnings = validateLyricsPage(lyric)
           return (
-            <div key={index} className="space-y-1.5">
+            <Fragment key={index}>
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-muted-foreground text-sm font-medium">
                   페이지 {index + 1}
@@ -285,6 +320,19 @@ export function LyricsEditor({
                 </div>
               )}
             </div>
+            {index < lyrics.length - 1 && (
+              <div className="-my-1 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => insertPage(index + 1)}
+                  className="text-muted-foreground hover:text-foreground hover:border-foreground flex items-center gap-1 rounded-md border border-dashed px-3 py-0.5 text-xs transition-colors"
+                >
+                  <HugeiconsIcon icon={Add01Icon} strokeWidth={2} size={14} />
+                  삽입
+                </button>
+              </div>
+            )}
+            </Fragment>
           )
         })}
         {lyrics.length === 0 && (
