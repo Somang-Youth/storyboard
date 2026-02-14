@@ -9,6 +9,7 @@ import urllib.request
 import urllib.parse
 import zipfile
 from copy import deepcopy
+from collections import Counter
 
 from lxml import etree
 from pptx import Presentation
@@ -542,6 +543,12 @@ def get_first_textbox(slide):
     return None
 
 
+def set_slide_notes(slide, text):
+    """Add speaker notes to a slide using python-pptx."""
+    notes_slide = slide.notes_slide
+    notes_slide.notes_text_frame.text = text
+
+
 def set_morph_transition(slide, duration_ms=1000):
     """Set a morph transition on a slide using mc:AlternateContent.
 
@@ -602,7 +609,16 @@ def process_song_section(prs, song, section, slide_id_map, shared_base_slide_id)
     lyrics = song.get('lyrics', [])
     section_lyrics_map = song.get('section_lyrics_map', {})
 
+    # Count total slides per section name for note labeling
+    sect_page_counts = Counter()
+    for si, sn in enumerate(section_order):
+        if sn.strip().lower() == 'intro':
+            continue
+        mapped = section_lyrics_map.get(str(si), section_lyrics_map.get(si, []))
+        sect_page_counts[sn] += max(len(mapped), 1)
+
     generated_slide_ids = []
+    sect_page_counters = {}
     last_slide_id = section_base_slide_id
 
     for sect_idx, sect_name in enumerate(section_order):
@@ -623,6 +639,13 @@ def process_song_section(prs, song, section, slide_id_map, shared_base_slide_id)
             move_slide_id_after(prs, new_sid, last_slide_id)
             generated_slide_ids.append(new_sid)
             last_slide_id = new_sid
+            # Add section note
+            sect_page_counters.setdefault(sect_name, 0)
+            sect_page_counters[sect_name] += 1
+            if sect_page_counts[sect_name] == 1:
+                set_slide_notes(new_slide, sect_name)
+            else:
+                set_slide_notes(new_slide, f"{sect_name}-{sect_page_counters[sect_name]}")
         else:
             for lyrics_idx in mapped_lyrics_indices:
                 if lyrics_idx >= len(lyrics):
@@ -640,6 +663,13 @@ def process_song_section(prs, song, section, slide_id_map, shared_base_slide_id)
                 move_slide_id_after(prs, new_sid, last_slide_id)
                 generated_slide_ids.append(new_sid)
                 last_slide_id = new_sid
+                # Add section note
+                sect_page_counters.setdefault(sect_name, 0)
+                sect_page_counters[sect_name] += 1
+                if sect_page_counts[sect_name] == 1:
+                    set_slide_notes(new_slide, sect_name)
+                else:
+                    set_slide_notes(new_slide, f"{sect_name}-{sect_page_counters[sect_name]}")
 
     # Append a blank slide at the end of the song with morph transition
     blank_slide, blank_sid, blank_el = duplicate_slide(prs, base_slide)
