@@ -63,116 +63,126 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = (await request.json()) as ThreadControlBody;
+  try {
+    const body = (await request.json()) as ThreadControlBody;
 
-  if (body.action === 'clear_active') {
-    await db
-      .update(discordThreadStates)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(discordThreadStates.isActive, true));
+    if (body.action === 'clear_active') {
+      await db
+        .update(discordThreadStates)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(discordThreadStates.isActive, true));
 
-    return NextResponse.json({
-      success: true,
-      message: 'Cleared active thread state',
-    });
-  }
-
-  if (body.action === 'set_active') {
-    const threadId = body.threadId?.trim();
-    const sundayDate = body.sundayDate?.trim();
-
-    if (!threadId || !sundayDate) {
-      return NextResponse.json(
-        { success: false, message: 'threadId and sundayDate are required for set_active' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: true,
+        message: 'Cleared active thread state',
+      });
     }
 
-    if (!isValidSundayDate(sundayDate)) {
-      return NextResponse.json(
-        { success: false, message: 'sundayDate must be YYMMDD format' },
-        { status: 400 }
-      );
+    if (body.action === 'set_active') {
+      const threadId = body.threadId?.trim();
+      const sundayDate = body.sundayDate?.trim();
+
+      if (!threadId || !sundayDate) {
+        return NextResponse.json(
+          { success: false, message: 'threadId and sundayDate are required for set_active' },
+          { status: 400 }
+        );
+      }
+
+      if (!isValidSundayDate(sundayDate)) {
+        return NextResponse.json(
+          { success: false, message: 'sundayDate must be YYMMDD format' },
+          { status: 400 }
+        );
+      }
+
+      await setActiveThread(threadId, sundayDate);
+
+      return NextResponse.json({
+        success: true,
+        message: 'Active thread updated',
+        data: { threadId, sundayDate },
+      });
     }
 
-    await setActiveThread(threadId, sundayDate);
+    if (body.action === 'send_worship_leader_dropdown') {
+      const threadId = body.threadId?.trim();
+      if (!threadId) {
+        return NextResponse.json(
+          { success: false, message: 'threadId is required for send_worship_leader_dropdown' },
+          { status: 400 }
+        );
+      }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Active thread updated',
-      data: { threadId, sundayDate },
-    });
-  }
+      const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
+      if (options.length === 0) {
+        return NextResponse.json({ success: false, message: 'DB_Options is empty' }, { status: 400 });
+      }
 
-  if (body.action === 'send_worship_leader_dropdown') {
-    const threadId = body.threadId?.trim();
-    if (!threadId) {
-      return NextResponse.json(
-        { success: false, message: 'threadId is required for send_worship_leader_dropdown' },
-        { status: 400 }
-      );
-    }
-
-    const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
-    if (options.length === 0) {
-      return NextResponse.json({ success: false, message: 'DB_Options is empty' }, { status: 400 });
-    }
-
-    const message = await sendDropdownMessage(
-      threadId,
-      '찬양 인도자를 선택하세요',
-      'worship-leader-select',
-      '찬양 인도자 선택',
-      options
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: 'Worship leader dropdown sent',
-      data: {
+      const message = await sendDropdownMessage(
         threadId,
-        messageId: message.id,
-      },
-    });
-  }
-
-  if (body.action === 'send_leader_dropdown') {
-    const threadId = body.threadId?.trim();
-    if (!threadId) {
-      return NextResponse.json(
-        { success: false, message: 'threadId is required for send_leader_dropdown' },
-        { status: 400 }
+        '찬양 인도자를 선택하세요',
+        'worship-leader-select',
+        '찬양 인도자 선택',
+        options
       );
+
+      return NextResponse.json({
+        success: true,
+        message: 'Worship leader dropdown sent',
+        data: {
+          threadId,
+          messageId: message.id,
+        },
+      });
     }
 
-    const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
-    if (options.length === 0) {
-      return NextResponse.json({ success: false, message: 'DB_Options is empty' }, { status: 400 });
-    }
+    if (body.action === 'send_leader_dropdown') {
+      const threadId = body.threadId?.trim();
+      if (!threadId) {
+        return NextResponse.json(
+          { success: false, message: 'threadId is required for send_leader_dropdown' },
+          { status: 400 }
+        );
+      }
 
-    const message = await sendDropdownMessage(
-      threadId,
-      '인도자를 선택하세요',
-      'leader-select',
-      '인도자 선택',
-      options
-    );
+      const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
+      if (options.length === 0) {
+        return NextResponse.json({ success: false, message: 'DB_Options is empty' }, { status: 400 });
+      }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Leader dropdown sent',
-      data: {
+      const message = await sendDropdownMessage(
         threadId,
-        messageId: message.id,
-      },
-    });
-  }
+        '인도자를 선택하세요',
+        'leader-select',
+        '인도자 선택',
+        options
+      );
 
-  return NextResponse.json(
-    {
-      success: false,
-      message: 'action must be one of: set_active, clear_active, send_worship_leader_dropdown, send_leader_dropdown',
-    },
-    { status: 400 }
-  );
+      return NextResponse.json({
+        success: true,
+        message: 'Leader dropdown sent',
+        data: {
+          threadId,
+          messageId: message.id,
+        },
+      });
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'action must be one of: set_active, clear_active, send_worship_leader_dropdown, send_leader_dropdown',
+      },
+      { status: 400 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
+  }
 }
