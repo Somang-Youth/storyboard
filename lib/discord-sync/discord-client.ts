@@ -99,8 +99,7 @@ export async function getThreadMessages(threadId: string): Promise<DiscordMessag
     headers: getHeaders(),
   });
 
-  const messages = await parseDiscordResponse<DiscordMessage[]>(response, 'Failed to fetch thread messages');
-  return messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  return parseDiscordResponse<DiscordMessage[]>(response, 'Failed to fetch thread messages');
 }
 
 export async function addMessageReaction(channelId: string, messageId: string, emoji: string): Promise<void> {

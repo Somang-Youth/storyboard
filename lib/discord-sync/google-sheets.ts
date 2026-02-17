@@ -117,6 +117,15 @@ export async function readRoleOptionsFromSheet(sheetName = 'DB_Options'): Promis
     .filter(Boolean);
 }
 
+export interface SheetWorshipData {
+  preacher?: string;
+  leader?: string;
+  worshipLeader?: string;
+  title?: string;
+  scripture?: string;
+  songs?: string[];
+}
+
 export async function readRoleOptionsWithFallback(sheetName = 'DB_Options'): Promise<string[]> {
   try {
     const fromSheet = await readRoleOptionsFromSheet(sheetName);
@@ -145,7 +154,7 @@ function formatYYMMDDToSheetDate(sundayDate: string): string {
   return `20${yy}.${mm}.${dd}`;
 }
 
-async function findRowByDate(sheetName: string, formattedDate: string): Promise<number | null> {
+export async function findRowByDate(sheetName: string, formattedDate: string): Promise<number | null> {
   const sheetId = getGoogleSheetId();
   const accessToken = await getGoogleAccessToken();
   const range = encodeURIComponent(`${sheetName}!B:B`);
@@ -210,5 +219,54 @@ export async function updateRoleSelectionInSheet(customId: string, selectedValue
   const data = await response.json();
   if (!response.ok) {
     throw new Error(`Failed to update role selection: ${JSON.stringify(data)}`);
+  }
+}
+
+export async function updateWorshipData(sheetName: string, row: number, data: SheetWorshipData): Promise<void> {
+  const updates: Array<{ range: string; values: string[][] }> = [];
+
+  if (data.preacher) {
+    updates.push({ range: `${sheetName}!C${row}`, values: [[data.preacher]] });
+  }
+  if (data.leader) {
+    updates.push({ range: `${sheetName}!D${row}`, values: [[data.leader]] });
+  }
+  if (data.worshipLeader) {
+    updates.push({ range: `${sheetName}!E${row}`, values: [[data.worshipLeader]] });
+  }
+  if (data.title) {
+    updates.push({ range: `${sheetName}!J${row}`, values: [[data.title]] });
+  }
+  if (data.scripture) {
+    updates.push({ range: `${sheetName}!K${row}`, values: [[data.scripture]] });
+  }
+  if (data.songs && data.songs.length > 0) {
+    const songColumns = ['L', 'M', 'N', 'O'];
+    data.songs.slice(0, songColumns.length).forEach((song, index) => {
+      updates.push({ range: `${sheetName}!${songColumns[index]}${row}`, values: [[song]] });
+    });
+  }
+
+  if (updates.length === 0) {
+    return;
+  }
+
+  const sheetId = getGoogleSheetId();
+  const accessToken = await getGoogleAccessToken();
+  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      valueInputOption: 'USER_ENTERED',
+      data: updates,
+    }),
+  });
+
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(`Failed to update worship data: ${JSON.stringify(result)}`);
   }
 }
