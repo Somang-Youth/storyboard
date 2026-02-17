@@ -93,3 +93,38 @@ export const songPageImages = pgTable('song_page_images', {
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
 });
+
+export const discordThreadStates = pgTable('discord_thread_states', {
+  id: text('id').primaryKey(),
+  threadId: text('thread_id').notNull(),
+  sundayDate: text('sunday_date').notNull(),
+  contiId: text('conti_id').references(() => contis.id, { onDelete: 'set null' }),
+  preacher: text('preacher'),
+  leader: text('leader'),
+  worshipLeader: text('worship_leader'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+}, (table) => [
+  uniqueIndex('discord_thread_states_thread_id_unique').on(table.threadId),
+]);
+
+export const discordProcessedMessages = pgTable('discord_processed_messages', {
+  id: text('id').primaryKey(),
+  threadId: text('thread_id').notNull(),
+  messageId: text('message_id').notNull(),
+  parseStatus: text('parse_status').notNull().default('processed'),
+  rawContent: text('raw_content'),
+  processedAt: timestamp('processed_at').notNull(),
+}, (table) => [
+  uniqueIndex('discord_processed_messages_message_id_unique').on(table.messageId),
+]);
+
+export const discordInteractionReceipts = pgTable('discord_interaction_receipts', {
+  id: text('id').primaryKey(),
+  interactionId: text('interaction_id').notNull(),
+  interactionType: integer('interaction_type').notNull(),
+  processedAt: timestamp('processed_at').notNull(),
+}, (table) => [
+  uniqueIndex('discord_interaction_receipts_interaction_id_unique').on(table.interactionId),
+]);
