@@ -5,6 +5,7 @@ import {
   saveRoleSelection,
   verifyDiscordInteraction,
 } from '@/lib/discord-sync';
+import { updateRoleSelectionInSheet } from '@/lib/discord-sync/google-sheets';
 
 const DISCORD_PING = 1;
 const MESSAGE_COMPONENT = 3;
@@ -76,6 +77,18 @@ export async function POST(request: NextRequest) {
       }
 
       await saveRoleSelection(customId, selectedValue);
+
+      try {
+        await updateRoleSelectionInSheet(customId, selectedValue, active.sundayDate);
+      } catch (error) {
+        return NextResponse.json({
+          type: CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: error instanceof Error ? error.message : '구글시트 업데이트 중 오류가 발생했습니다.',
+            flags: 64,
+          },
+        });
+      }
 
       const channelId = interaction.channel_id ?? interaction.message?.channel_id;
       const messageId = interaction.message?.id;
