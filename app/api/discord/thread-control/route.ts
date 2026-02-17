@@ -2,9 +2,9 @@ import { desc, eq } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { discordThreadStates } from '@/lib/db/schema';
-import { setActiveThread } from '@/lib/discord-sync';
+import { getDropdownOptions, sendDropdownMessage, setActiveThread } from '@/lib/discord-sync';
 
-type ThreadControlAction = 'set_active' | 'clear_active';
+type ThreadControlAction = 'set_active' | 'clear_active' | 'send_worship_leader_dropdown';
 
 interface ThreadControlBody {
   action?: ThreadControlAction;
@@ -99,8 +99,40 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  if (body.action === 'send_worship_leader_dropdown') {
+    const threadId = body.threadId?.trim();
+    if (!threadId) {
+      return NextResponse.json(
+        { success: false, message: 'threadId is required for send_worship_leader_dropdown' },
+        { status: 400 }
+      );
+    }
+
+    const options = getDropdownOptions().map((value) => ({ label: value, value }));
+    if (options.length === 0) {
+      return NextResponse.json({ success: false, message: 'DISCORD_ROLE_OPTIONS is empty' }, { status: 400 });
+    }
+
+    const message = await sendDropdownMessage(
+      threadId,
+      '찬양 인도자를 선택하세요',
+      'worship-leader-select',
+      '찬양 인도자 선택',
+      options
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: 'Worship leader dropdown sent',
+      data: {
+        threadId,
+        messageId: message.id,
+      },
+    });
+  }
+
   return NextResponse.json(
-    { success: false, message: 'action must be one of: set_active, clear_active' },
+    { success: false, message: 'action must be one of: set_active, clear_active, send_worship_leader_dropdown' },
     { status: 400 }
   );
 }
