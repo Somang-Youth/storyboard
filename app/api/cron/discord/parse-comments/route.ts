@@ -4,7 +4,7 @@ import { getActiveThread, getThreadMessages, processDiscordMessages } from '@/li
 export const maxDuration = 60;
 
 function isCronAuthorized(request: NextRequest): boolean {
-  const secret = process.env.DISCORD_CRON_SECRET;
+  const secret = process.env.CRON_SECRET ?? process.env.DISCORD_CRON_SECRET;
   const auth = request.headers.get('authorization');
   return Boolean(secret && auth === `Bearer ${secret}`);
 }

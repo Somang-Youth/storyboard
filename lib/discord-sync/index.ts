@@ -17,8 +17,6 @@ export {
   getActiveThread,
   getProcessedMessageIds,
   markMessageProcessed,
-  hasInteractionReceipt,
-  saveInteractionReceipt,
   saveRoleSelection,
 } from '@/lib/discord-sync/state-store';
 export { verifyDiscordInteraction } from '@/lib/discord-sync/interaction-verify';

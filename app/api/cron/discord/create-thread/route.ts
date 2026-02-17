@@ -14,7 +14,7 @@ import {
 export const maxDuration = 60;
 
 function isCronAuthorized(request: NextRequest): boolean {
-  const secret = process.env.DISCORD_CRON_SECRET;
+  const secret = process.env.CRON_SECRET ?? process.env.DISCORD_CRON_SECRET;
   const auth = request.headers.get('authorization');
   return Boolean(secret && auth === `Bearer ${secret}`);
 }
@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const { searchParams } = new URL(request.url);
+    const dryRun = searchParams.get('dryRun') === 'true';
+
     const channelId = process.env.DISCORD_CHANNEL_ID;
     if (!channelId) {
       throw new Error('DISCORD_CHANNEL_ID is not set');
@@ -35,7 +38,9 @@ export async function GET(request: NextRequest) {
     const threadName = buildThreadName(yymmdd);
 
     const thread = await createForumThread(channelId, threadName, buildInitialMessage(sundayDate));
-    await setActiveThread(thread.id, yymmdd);
+    if (!dryRun) {
+      await setActiveThread(thread.id, yymmdd);
+    }
 
     const options = getDropdownOptions().map((value) => ({ label: value, value }));
     const messageIds: string[] = [];
@@ -58,8 +63,10 @@ export async function GET(request: NextRequest) {
       messageIds.push(preacher.id, leader.id, worshipLeader.id);
     }
 
-    for (const messageId of messageIds) {
-      await markMessageProcessed(thread.id, messageId, '', 'system');
+    if (!dryRun) {
+      for (const messageId of messageIds) {
+        await markMessageProcessed(thread.id, messageId, '', 'system');
+      }
     }
 
     return NextResponse.json({
@@ -67,6 +74,7 @@ export async function GET(request: NextRequest) {
       data: {
         threadId: thread.id,
         threadName,
+        dryRun,
       },
     });
   } catch (error) {

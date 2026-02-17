@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  hasInteractionReceipt,
-  saveInteractionReceipt,
+  addMessageReaction,
+  getActiveThread,
   saveRoleSelection,
   verifyDiscordInteraction,
 } from '@/lib/discord-sync';
@@ -9,7 +9,15 @@ import {
 const DISCORD_PING = 1;
 const MESSAGE_COMPONENT = 3;
 const PONG = 1;
-const DEFERRED_UPDATE_MESSAGE = 6;
+const CHANNEL_MESSAGE_WITH_SOURCE = 4;
+const UPDATE_MESSAGE = 7;
+
+function roleLabel(customId: string): string {
+  if (customId === 'preacher-select') return '설교자';
+  if (customId === 'leader-select') return '인도자';
+  if (customId === 'worship-leader-select') return '찬양 인도자';
+  return '선택';
+}
 
 interface DiscordInteractionData {
   custom_id?: string;
@@ -19,6 +27,11 @@ interface DiscordInteractionData {
 interface DiscordInteraction {
   id: string;
   type: number;
+  channel_id?: string;
+  message?: {
+    id?: string;
+    channel_id?: string;
+  };
   data?: DiscordInteractionData;
 }
 
@@ -46,21 +59,54 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ type: PONG });
   }
 
-  if (await hasInteractionReceipt(interaction.id)) {
-    return NextResponse.json({ type: DEFERRED_UPDATE_MESSAGE });
-  }
-
-  await saveInteractionReceipt(interaction.id, interaction.type);
-
   if (interaction.type === MESSAGE_COMPONENT) {
     const customId = interaction.data?.custom_id;
     const selectedValue = interaction.data?.values?.[0];
 
     if (customId && selectedValue) {
+      const active = await getActiveThread();
+      if (!active) {
+        return NextResponse.json({
+          type: CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: '현재 스레드 정보를 찾을 수 없습니다.',
+            flags: 64,
+          },
+        });
+      }
+
       await saveRoleSelection(customId, selectedValue);
-      return NextResponse.json({ type: DEFERRED_UPDATE_MESSAGE });
+
+      const channelId = interaction.channel_id ?? interaction.message?.channel_id;
+      const messageId = interaction.message?.id;
+      if (channelId && messageId) {
+        try {
+          await addMessageReaction(channelId, messageId, '✅');
+        } catch {}
+      }
+
+      return NextResponse.json({
+        type: UPDATE_MESSAGE,
+        data: {
+          content: `${roleLabel(customId)}: ${selectedValue}`,
+        },
+      });
     }
+
+    return NextResponse.json({
+      type: CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: '처리할 수 없는 요청입니다.',
+        flags: 64,
+      },
+    });
   }
 
-  return NextResponse.json({ type: DEFERRED_UPDATE_MESSAGE });
+  return NextResponse.json({
+    type: CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      content: '지원하지 않는 요청입니다.',
+      flags: 64,
+    },
+  });
 }
