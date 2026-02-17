@@ -20,6 +20,10 @@ function roleLabel(customId: string): string {
   return '선택';
 }
 
+function isSupportedCustomId(customId: string): boolean {
+  return customId === 'preacher-select' || customId === 'leader-select' || customId === 'worship-leader-select';
+}
+
 interface DiscordInteractionData {
   custom_id?: string;
   values?: string[];
@@ -64,53 +68,62 @@ export async function POST(request: NextRequest) {
     const customId = interaction.data?.custom_id;
     const selectedValue = interaction.data?.values?.[0];
 
-    if (customId && selectedValue) {
-      const active = await getActiveThread();
-      if (!active) {
-        return NextResponse.json({
-          type: CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            content: '현재 스레드 정보를 찾을 수 없습니다.',
-            flags: 64,
-          },
-        });
-      }
-
-      await saveRoleSelection(customId, selectedValue);
-
-      try {
-        await updateRoleSelectionInSheet(customId, selectedValue, active.sundayDate);
-      } catch (error) {
-        return NextResponse.json({
-          type: CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            content: error instanceof Error ? error.message : '구글시트 업데이트 중 오류가 발생했습니다.',
-            flags: 64,
-          },
-        });
-      }
-
-      const channelId = interaction.channel_id ?? interaction.message?.channel_id;
-      const messageId = interaction.message?.id;
-      if (channelId && messageId) {
-        try {
-          await addMessageReaction(channelId, messageId, '✅');
-        } catch {}
-      }
-
+    if (!customId || !isSupportedCustomId(customId)) {
       return NextResponse.json({
-        type: UPDATE_MESSAGE,
+        type: CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-          content: `${roleLabel(customId)}: ${selectedValue}`,
+          content: '처리할 수 없는 요청입니다.',
+          flags: 64,
         },
       });
     }
 
+    if (!selectedValue) {
+      return NextResponse.json({
+        type: UPDATE_MESSAGE,
+        data: {
+          content: `${roleLabel(customId)}: 선택 없음`,
+        },
+      });
+    }
+
+    const active = await getActiveThread();
+    if (!active) {
+      return NextResponse.json({
+        type: CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content: '현재 스레드 정보를 찾을 수 없습니다.',
+          flags: 64,
+        },
+      });
+    }
+
+    await saveRoleSelection(customId, selectedValue);
+
+    try {
+      await updateRoleSelectionInSheet(customId, selectedValue, active.sundayDate);
+    } catch (error) {
+      return NextResponse.json({
+        type: CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content: error instanceof Error ? error.message : '구글시트 업데이트 중 오류가 발생했습니다.',
+          flags: 64,
+        },
+      });
+    }
+
+    const channelId = interaction.channel_id ?? interaction.message?.channel_id;
+    const messageId = interaction.message?.id;
+    if (channelId && messageId) {
+      try {
+        await addMessageReaction(channelId, messageId, '✅');
+      } catch {}
+    }
+
     return NextResponse.json({
-      type: CHANNEL_MESSAGE_WITH_SOURCE,
+      type: UPDATE_MESSAGE,
       data: {
-        content: '처리할 수 없는 요청입니다.',
-        flags: 64,
+        content: `${roleLabel(customId)}: ${selectedValue}`,
       },
     });
   }
