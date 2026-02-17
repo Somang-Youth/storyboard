@@ -1,5 +1,17 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import type { songs, sheetMusicFiles, contis, contiSongs, songPresets, contiPdfExports, songPageImages, presetSheetMusic } from './db/schema';
+import type {
+  songs,
+  sheetMusicFiles,
+  contis,
+  contiSongs,
+  songPresets,
+  contiPdfExports,
+  songPageImages,
+  presetSheetMusic,
+  discordThreadStates,
+  discordProcessedMessages,
+  discordInteractionReceipts,
+} from './db/schema';
 
 export type Song = InferSelectModel<typeof songs>;
 export type SheetMusicFile = InferSelectModel<typeof sheetMusicFiles>;
@@ -57,6 +69,9 @@ export interface ActionResult<T = void> {
 
 export type ContiPdfExport = InferSelectModel<typeof contiPdfExports>;
 export type SongPageImage = InferSelectModel<typeof songPageImages>;
+export type DiscordThreadState = InferSelectModel<typeof discordThreadStates>;
+export type DiscordProcessedMessage = InferSelectModel<typeof discordProcessedMessages>;
+export type DiscordInteractionReceipt = InferSelectModel<typeof discordInteractionReceipts>;
 
 export interface OverlayElement {
   id: string;

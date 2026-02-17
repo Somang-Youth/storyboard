@@ -9,6 +9,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/pptx') ||
+    pathname.startsWith('/api/discord') ||
+    pathname.startsWith('/api/cron/discord') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico'
   ) {

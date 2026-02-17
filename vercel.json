@@ -3,5 +3,15 @@
     "api/pptx.py": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/discord/create-thread",
+      "schedule": "0 0 * * 1"
+    },
+    {
+      "path": "/api/cron/discord/parse-comments",
+      "schedule": "*/2 * * * *"
+    }
+  ]
 }
