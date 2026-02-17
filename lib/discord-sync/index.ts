@@ -10,7 +10,6 @@ export {
   buildInitialMessage,
   formatToYYMMDD,
   getUpcomingSundayDate,
-  getDropdownOptions,
 } from '@/lib/discord-sync/thread-template';
 export {
   setActiveThread,

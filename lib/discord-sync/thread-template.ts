@@ -5,7 +5,7 @@ function pad2(num: number): string {
 export function getUpcomingSundayDate(baseDate = new Date()): Date {
   const date = new Date(baseDate);
   const day = date.getDay();
-  const diff = day === 0 ? 0 : 7 - day;
+  const diff = day === 0 ? 7 : 7 - day;
   date.setDate(date.getDate() + diff);
   date.setHours(0, 0, 0, 0);
   return date;
@@ -30,21 +30,17 @@ export function buildThreadName(yymmdd: string): string {
 }
 
 export function buildInitialMessage(sundayDate: Date): string {
-  const date = formatToISODate(sundayDate);
-  return [
-    `이번 주 예배 준비 스레드입니다. (${date})`,
-    '',
-    '아래 형식으로 입력해주세요:',
-    '- 말씀: 갈라디아서 1:2-3',
-    '- 제목: 설교 제목',
-    '- 찬양: 곡1 - 곡2 - 곡3',
-  ].join('\n');
-}
+  const yymmdd = formatToYYMMDD(sundayDate);
+  const year = `20${yymmdd.slice(0, 2)}`;
+  const month = yymmdd.slice(2, 4);
+  const day = yymmdd.slice(4, 6);
+  return `**${year}년 ${month}월 ${day}일** 예배 준비 스레드입니다. 예배 준비 관련 내용은 본 스레드에서 나눠주세요.
 
-export function getDropdownOptions(): string[] {
-  const raw = process.env.DISCORD_ROLE_OPTIONS || '';
-  return raw
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
+\`말씀 본문\`, \`설교 제목\`, \`찬양\`은 다음 형식대로 본 스레드에 입력하면 주보 시트에 자동으로 반영됩니다.
+
+**복사/붙여넣기로 작성 부탁드립니다. 형식을 준수해주세요**.
+
+말씀: 창1:1~3
+제목: 설교 제목 예시
+찬양: 찬양1 - 찬양2 - 찬양3`;
 }

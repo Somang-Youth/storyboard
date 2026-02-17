@@ -9,7 +9,7 @@ import {
   sendDropdownMessage,
   setActiveThread,
 } from '@/lib/discord-sync';
-import { readRoleOptionsWithFallback } from '@/lib/discord-sync/google-sheets';
+import { readRoleOptionsFromSheet } from '@/lib/discord-sync/google-sheets';
 
 export const maxDuration = 60;
 
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       await setActiveThread(thread.id, yymmdd);
     }
 
-    const options = (await readRoleOptionsWithFallback()).map((value) => ({ label: value, value }));
+    const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
     if (options.length === 0) {
       throw new Error('DB_Options is empty');
     }
@@ -74,9 +74,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      message: `Thread created: ${threadName}${dryRun ? ' (dry run)' : ''}`,
       data: {
         threadId: thread.id,
         threadName,
+        sundayDate: yymmdd,
         dryRun,
       },
     });
