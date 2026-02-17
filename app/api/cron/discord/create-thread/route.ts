@@ -4,12 +4,12 @@ import {
   buildThreadName,
   createForumThread,
   formatToYYMMDD,
-  getDropdownOptions,
   getUpcomingSundayDate,
   markMessageProcessed,
   sendDropdownMessage,
   setActiveThread,
 } from '@/lib/discord-sync';
+import { readRoleOptionsFromSheet } from '@/lib/discord-sync/google-sheets';
 
 export const maxDuration = 60;
 
@@ -42,7 +42,10 @@ export async function GET(request: NextRequest) {
       await setActiveThread(thread.id, yymmdd);
     }
 
-    const options = getDropdownOptions().map((value) => ({ label: value, value }));
+    const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
+    if (options.length === 0) {
+      throw new Error('DB_Options is empty');
+    }
     const messageIds: string[] = [];
 
     if (thread.message?.id) {

@@ -2,7 +2,8 @@ import { desc, eq } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { discordThreadStates } from '@/lib/db/schema';
-import { getDropdownOptions, sendDropdownMessage, setActiveThread } from '@/lib/discord-sync';
+import { sendDropdownMessage, setActiveThread } from '@/lib/discord-sync';
+import { readRoleOptionsFromSheet } from '@/lib/discord-sync/google-sheets';
 
 type ThreadControlAction = 'set_active' | 'clear_active' | 'send_worship_leader_dropdown';
 
@@ -108,9 +109,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const options = getDropdownOptions().map((value) => ({ label: value, value }));
+    const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
     if (options.length === 0) {
-      return NextResponse.json({ success: false, message: 'DISCORD_ROLE_OPTIONS is empty' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'DB_Options is empty' }, { status: 400 });
     }
 
     const message = await sendDropdownMessage(
