@@ -9,7 +9,7 @@ import {
 const DISCORD_PING = 1;
 const MESSAGE_COMPONENT = 3;
 const PONG = 1;
-const UPDATE_MESSAGE = 7;
+const DEFERRED_UPDATE_MESSAGE = 6;
 
 interface DiscordInteractionData {
   custom_id?: string;
@@ -47,10 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (await hasInteractionReceipt(interaction.id)) {
-    return NextResponse.json({
-      type: UPDATE_MESSAGE,
-      data: { content: '이미 처리된 요청입니다.', components: [] },
-    });
+    return NextResponse.json({ type: DEFERRED_UPDATE_MESSAGE });
   }
 
   await saveInteractionReceipt(interaction.id, interaction.type);
@@ -61,21 +58,9 @@ export async function POST(request: NextRequest) {
 
     if (customId && selectedValue) {
       await saveRoleSelection(customId, selectedValue);
-      return NextResponse.json({
-        type: UPDATE_MESSAGE,
-        data: {
-          content: `선택 완료: ${selectedValue}`,
-          components: [],
-        },
-      });
+      return NextResponse.json({ type: DEFERRED_UPDATE_MESSAGE });
     }
   }
 
-  return NextResponse.json({
-    type: UPDATE_MESSAGE,
-    data: {
-      content: '처리할 수 없는 인터랙션입니다.',
-      components: [],
-    },
-  });
+  return NextResponse.json({ type: DEFERRED_UPDATE_MESSAGE });
 }
