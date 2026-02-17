@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActiveThread, getThreadMessages, processDiscordMessages } from '@/lib/discord-sync';
 
+export const maxDuration = 60;
+
 function isCronAuthorized(request: NextRequest): boolean {
   const secret = process.env.DISCORD_CRON_SECRET;
   const auth = request.headers.get('authorization');

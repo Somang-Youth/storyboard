@@ -2,12 +2,6 @@
   "functions": {
     "api/pptx.py": {
       "maxDuration": 60
-    },
-    "api/cron/discord/create-thread": {
-      "maxDuration": 60
-    },
-    "api/cron/discord/parse-comments": {
-      "maxDuration": 60
     }
   },
   "crons": [
