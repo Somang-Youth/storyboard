@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { discordThreadStates } from '@/lib/db/schema';
 import { sendDropdownMessage, setActiveThread } from '@/lib/discord-sync';
-import { readRoleOptionsFromSheet } from '@/lib/discord-sync/google-sheets';
+import { readRoleOptionsWithFallback } from '@/lib/discord-sync/google-sheets';
 
 type ThreadControlAction =
   | 'set_active'
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
+      const options = (await readRoleOptionsWithFallback()).map((value) => ({ label: value, value }));
       if (options.length === 0) {
         return NextResponse.json({ success: false, message: 'DB_Options is empty' }, { status: 400 });
       }
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
+      const options = (await readRoleOptionsWithFallback()).map((value) => ({ label: value, value }));
       if (options.length === 0) {
         return NextResponse.json({ success: false, message: 'DB_Options is empty' }, { status: 400 });
       }

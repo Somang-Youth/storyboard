@@ -111,6 +111,27 @@ export async function readRoleOptionsFromSheet(sheetName = 'DB_Options'): Promis
     .filter(Boolean);
 }
 
+export async function readRoleOptionsWithFallback(sheetName = 'DB_Options'): Promise<string[]> {
+  try {
+    const fromSheet = await readRoleOptionsFromSheet(sheetName);
+    if (fromSheet.length > 0) {
+      return fromSheet;
+    }
+  } catch {}
+
+  const raw = process.env.DISCORD_ROLE_OPTIONS || '';
+  const fromEnv = raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (fromEnv.length === 0) {
+    throw new Error('Role options are empty. Configure DB_Options sheet or DISCORD_ROLE_OPTIONS env.');
+  }
+
+  return fromEnv;
+}
+
 function formatYYMMDDToSheetDate(sundayDate: string): string {
   const yy = sundayDate.slice(0, 2);
   const mm = sundayDate.slice(2, 4);

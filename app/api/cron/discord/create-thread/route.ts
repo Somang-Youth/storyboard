@@ -9,7 +9,7 @@ import {
   sendDropdownMessage,
   setActiveThread,
 } from '@/lib/discord-sync';
-import { readRoleOptionsFromSheet } from '@/lib/discord-sync/google-sheets';
+import { readRoleOptionsWithFallback } from '@/lib/discord-sync/google-sheets';
 
 export const maxDuration = 60;
 
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       await setActiveThread(thread.id, yymmdd);
     }
 
-    const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
+    const options = (await readRoleOptionsWithFallback()).map((value) => ({ label: value, value }));
     if (options.length === 0) {
       throw new Error('DB_Options is empty');
     }
