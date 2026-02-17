@@ -1,13 +1,15 @@
 function getServiceAccountCredentials(): { clientEmail: string; privateKey: string } {
   const rawJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (rawJson) {
-    const parsed = JSON.parse(rawJson) as { client_email?: string; private_key?: string };
-    if (parsed.client_email && parsed.private_key) {
-      return {
-        clientEmail: parsed.client_email,
-        privateKey: parsed.private_key,
-      };
-    }
+    try {
+      const parsed = JSON.parse(rawJson) as { client_email?: string; private_key?: string };
+      if (parsed.client_email && parsed.private_key) {
+        return {
+          clientEmail: parsed.client_email,
+          privateKey: parsed.private_key,
+        };
+      }
+    } catch {}
   }
 
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -31,7 +33,11 @@ function getGoogleSheetId(): string {
 }
 
 function normalizePrivateKey(value: string): string {
-  return value.replace(/\\n/g, '\n').trim();
+  let normalized = value.trim();
+  while (normalized.startsWith('"') && normalized.endsWith('"') && normalized.length >= 2) {
+    normalized = normalized.slice(1, -1).trim();
+  }
+  return normalized.replace(/\\n/g, '\n').trim();
 }
 
 function toBase64Url(obj: unknown): string {
