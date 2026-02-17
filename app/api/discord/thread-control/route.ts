@@ -5,7 +5,11 @@ import { discordThreadStates } from '@/lib/db/schema';
 import { sendDropdownMessage, setActiveThread } from '@/lib/discord-sync';
 import { readRoleOptionsFromSheet } from '@/lib/discord-sync/google-sheets';
 
-type ThreadControlAction = 'set_active' | 'clear_active' | 'send_worship_leader_dropdown';
+type ThreadControlAction =
+  | 'set_active'
+  | 'clear_active'
+  | 'send_worship_leader_dropdown'
+  | 'send_leader_dropdown';
 
 interface ThreadControlBody {
   action?: ThreadControlAction;
@@ -132,8 +136,43 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  if (body.action === 'send_leader_dropdown') {
+    const threadId = body.threadId?.trim();
+    if (!threadId) {
+      return NextResponse.json(
+        { success: false, message: 'threadId is required for send_leader_dropdown' },
+        { status: 400 }
+      );
+    }
+
+    const options = (await readRoleOptionsFromSheet()).map((value) => ({ label: value, value }));
+    if (options.length === 0) {
+      return NextResponse.json({ success: false, message: 'DB_Options is empty' }, { status: 400 });
+    }
+
+    const message = await sendDropdownMessage(
+      threadId,
+      '인도자를 선택하세요',
+      'leader-select',
+      '인도자 선택',
+      options
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: 'Leader dropdown sent',
+      data: {
+        threadId,
+        messageId: message.id,
+      },
+    });
+  }
+
   return NextResponse.json(
-    { success: false, message: 'action must be one of: set_active, clear_active, send_worship_leader_dropdown' },
+    {
+      success: false,
+      message: 'action must be one of: set_active, clear_active, send_worship_leader_dropdown, send_leader_dropdown',
+    },
     { status: 400 }
   );
 }
