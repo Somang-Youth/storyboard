@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field"
 import { DatePicker } from "@/components/ui/date-picker"
 import { createConti, updateConti } from "@/lib/actions/contis"
+import { sanitizeContiDescription } from "@/lib/conti-description"
 import type { Conti } from "@/lib/types"
 
 export function ContiForm({ conti }: { conti?: Conti }) {
@@ -16,7 +17,7 @@ export function ContiForm({ conti }: { conti?: Conti }) {
   const [isPending, startTransition] = useTransition()
   const [title, setTitle] = useState(conti?.title ?? "")
   const [date, setDate] = useState(conti?.date ?? "")
-  const [description, setDescription] = useState(conti?.description ?? "")
+  const [description, setDescription] = useState(sanitizeContiDescription(conti?.description) ?? "")
 
   const isEdit = !!conti
 
