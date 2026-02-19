@@ -8,6 +8,11 @@ export async function getContis() {
   return await db.select().from(contis).orderBy(desc(contis.date));
 }
 
+export async function getContiByDate(date: string) {
+  const result = await db.select().from(contis).where(eq(contis.date, date)).limit(1);
+  return result[0] ?? null;
+}
+
 export async function getConti(id: string): Promise<ContiWithSongs | null> {
   const conti = await db.select().from(contis).where(eq(contis.id, id)).limit(1);
 
