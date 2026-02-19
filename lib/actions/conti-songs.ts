@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { contiSongs, contiPdfExports } from '@/lib/db/schema';
+import { contiSongs, contiPdfExports, songPresets } from '@/lib/db/schema';
 import { eq, max, and, asc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { stringifyContiSongOverrides, parseContiSongOverrides } from '@/lib/db/helpers';
@@ -192,6 +192,48 @@ export async function saveContiSongAsPreset(
     return { success: true };
   } catch {
     return { success: false, error: '프리셋 저장 중 오류가 발생했습니다' };
+  }
+}
+
+export async function syncPresetPdfMetadataFromContiLayout(
+  contiId: string,
+  layoutStateText: string,
+): Promise<ActionResult<{ updatedPresetCount: number }>> {
+  try {
+    const parsed = JSON.parse(layoutStateText) as PdfLayoutState;
+
+    const orderedSongs = await db
+      .select({ id: contiSongs.id, presetId: contiSongs.presetId })
+      .from(contiSongs)
+      .where(eq(contiSongs.contiId, contiId))
+      .orderBy(asc(contiSongs.sortOrder));
+
+    let updatedPresetCount = 0;
+
+    for (let songIndex = 0; songIndex < orderedSongs.length; songIndex++) {
+      const presetId = orderedSongs[songIndex].presetId;
+      if (!presetId) continue;
+
+      const metadata = extractPresetPdfMetadataFromLayout(parsed.pages, songIndex);
+      await db
+        .update(songPresets)
+        .set({
+          pdfMetadata: metadata ? JSON.stringify(metadata) : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(songPresets.id, presetId));
+      updatedPresetCount += 1;
+    }
+
+    return {
+      success: true,
+      data: { updatedPresetCount },
+    };
+  } catch {
+    return {
+      success: false,
+      error: '프리셋 PDF 메타데이터 동기화 중 오류가 발생했습니다',
+    };
   }
 }
 

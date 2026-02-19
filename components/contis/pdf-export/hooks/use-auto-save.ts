@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { saveContiPdfLayout } from "@/lib/actions/conti-pdf-exports";
+import { syncPresetPdfMetadataFromContiLayout } from "@/lib/actions/conti-songs";
 import type { PdfLayoutState } from "@/lib/types";
 import type { EditorPage } from "../types";
 
@@ -16,10 +17,8 @@ export function useAutoSave(
   const performSaveRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const lastSaveRef = useRef<number>(0);
 
-  // MUST be useCallback with [pages, contiId] to ensure latest state
-  const performSave = useCallback(async () => {
-    setSaveStatus("saving");
-    const layoutState: PdfLayoutState = {
+  const buildLayoutState = useCallback((): PdfLayoutState => {
+    return {
       pages: pages.map((p, i) => ({
         pageIndex: i,
         songIndex: p.songIndex,
@@ -41,19 +40,33 @@ export function useAutoSave(
       canvasWidth: containerRef.current?.clientWidth ?? 800,
       canvasHeight: containerRef.current?.clientHeight ?? 1131,
     };
+  }, [pages, containerRef]);
 
-    const result = await saveContiPdfLayout(
-      contiId,
-      JSON.stringify(layoutState),
-    );
-    if (result.success) {
-      setSaveStatus("saved");
-      lastSaveRef.current = Date.now();
-    } else {
+  const persistLayout = useCallback(
+    async (layoutState: PdfLayoutState): Promise<boolean> => {
+      setSaveStatus("saving");
+      const result = await saveContiPdfLayout(
+        contiId,
+        JSON.stringify(layoutState),
+      );
+      if (result.success) {
+        setSaveStatus("saved");
+        lastSaveRef.current = Date.now();
+        return true;
+      }
+
       setSaveStatus("unsaved");
       toast.error(result.error ?? "저장 중 오류가 발생했습니다");
-    }
-  }, [pages, contiId, containerRef]);
+      return false;
+    },
+    [contiId],
+  );
+
+  // MUST be useCallback with [pages, contiId] to ensure latest state
+  const performSave = useCallback(async () => {
+    const layoutState = buildLayoutState();
+    await persistLayout(layoutState);
+  }, [buildLayoutState, persistLayout]);
 
   // CRITICAL: Sync ref so triggerAutoSave always calls latest performSave
   useEffect(() => {
@@ -81,7 +94,27 @@ export function useAutoSave(
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
-    await performSave();
+    const layoutState = buildLayoutState();
+    const saved = await persistLayout(layoutState);
+    if (!saved) return;
+
+    const layoutStateText = JSON.stringify(layoutState);
+    const syncResult = await syncPresetPdfMetadataFromContiLayout(
+      contiId,
+      layoutStateText,
+    );
+
+    if (!syncResult.success) {
+      toast.warning(syncResult.error ?? "프리셋 동기화 중 오류가 발생했습니다");
+      return;
+    }
+
+    const updatedPresetCount = syncResult.data?.updatedPresetCount ?? 0;
+    if (updatedPresetCount > 0) {
+      toast.success(`레이아웃과 프리셋 ${updatedPresetCount}개가 저장되었습니다`);
+      return;
+    }
+
     toast.success("레이아웃이 저장되었습니다");
   }
 
