@@ -43,6 +43,13 @@
       "when": 1771314358455,
       "tag": "0005_sharp_dormammu",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771508153320,
+      "tag": "0006_slimy_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,20 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { contiSongs } from '@/lib/db/schema';
-import { eq, max } from 'drizzle-orm';
+import { contiSongs, contiPdfExports } from '@/lib/db/schema';
+import { eq, max, and, asc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { stringifyContiSongOverrides, parseContiSongOverrides } from '@/lib/db/helpers';
-import type { ActionResult, ContiSong, ContiSongOverrides } from '@/lib/types';
+import type {
+  ActionResult,
+  ContiSong,
+  ContiSongOverrides,
+  PdfLayoutState,
+  PresetPdfMetadata,
+} from '@/lib/types';
 import { createSongPreset, updateSongPreset } from './song-presets';
 import { insertContiSong, insertSong, insertSongPreset, updateSongPresetYoutubeRef } from '@/lib/db/insert-helpers';
+import { extractPresetPdfMetadataFromLayout } from '@/lib/utils/pdf-export-helpers';
 import { z } from 'zod';
 
 export async function addSongToConti(
@@ -123,6 +130,33 @@ export async function saveContiSongAsPreset(
     const cs = contiSongRow[0];
     const overrides = parseContiSongOverrides(cs);
 
+    const orderedSongs = await db
+      .select({ id: contiSongs.id })
+      .from(contiSongs)
+      .where(eq(contiSongs.contiId, cs.contiId))
+      .orderBy(asc(contiSongs.sortOrder));
+
+    const songIndex = orderedSongs.findIndex((item) => item.id === contiSongId);
+
+    const contiExport = await db
+      .select({ layoutState: contiPdfExports.layoutState })
+      .from(contiPdfExports)
+      .where(eq(contiPdfExports.contiId, cs.contiId))
+      .limit(1);
+
+    let pdfMetadata: PresetPdfMetadata | null = null;
+    if (songIndex >= 0) {
+      const layoutStateText = contiExport[0]?.layoutState;
+      if (layoutStateText) {
+        try {
+          const parsed = JSON.parse(layoutStateText) as PdfLayoutState;
+          pdfMetadata = extractPresetPdfMetadataFromLayout(parsed.pages, songIndex);
+        } catch {
+          pdfMetadata = null;
+        }
+      }
+    }
+
     let result;
     if (existingPresetId) {
       result = await updateSongPreset(existingPresetId, {
@@ -134,6 +168,7 @@ export async function saveContiSongAsPreset(
         sectionLyricsMap: overrides.sectionLyricsMap,
         notes: overrides.notes,
         sheetMusicFileIds: overrides.sheetMusicFileIds ?? [],
+        pdfMetadata,
       });
     } else {
       result = await createSongPreset(cs.songId, {
@@ -145,6 +180,7 @@ export async function saveContiSongAsPreset(
         sectionLyricsMap: overrides.sectionLyricsMap,
         notes: overrides.notes,
         sheetMusicFileIds: overrides.sheetMusicFileIds ?? [],
+        pdfMetadata,
         isDefault: false,
       });
     }

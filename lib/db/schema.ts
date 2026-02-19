@@ -28,6 +28,7 @@ export const songPresets = pgTable('song_presets', {
   sectionLyricsMap: text('section_lyrics_map'),
   notes: text('notes'),
   youtubeReference: text('youtube_reference'),
+  pdfMetadata: text('pdf_metadata'),
   isDefault: boolean('is_default').notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at').notNull(),
@@ -64,6 +65,7 @@ export const contiSongs = pgTable('conti_songs', {
   sectionLyricsMap: text('section_lyrics_map'),
   notes: text('notes'),
   sheetMusicFileIds: text('sheet_music_file_ids'),  // JSON string[] | null
+  presetId: text('preset_id').references(() => songPresets.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
 }, (table) => [

@@ -19,6 +19,7 @@ export function parseContiSongOverrides(raw: {
   sectionLyricsMap: string | null;
   notes: string | null;
   sheetMusicFileIds?: string | null;
+  presetId?: string | null;
 }) {
   return {
     keys: parseJsonColumn<string[]>(raw.keys, []),
@@ -28,6 +29,7 @@ export function parseContiSongOverrides(raw: {
     sectionLyricsMap: parseJsonColumn<Record<number, number[]>>(raw.sectionLyricsMap, {}),
     notes: raw.notes,
     sheetMusicFileIds: raw.sheetMusicFileIds ? parseJsonColumn<string[]>(raw.sheetMusicFileIds, []) : null,
+    presetId: raw.presetId ?? null,
   };
 }
 
@@ -39,6 +41,7 @@ export function stringifyContiSongOverrides(data: {
   sectionLyricsMap?: Record<number, number[]>;
   notes?: string | null;
   sheetMusicFileIds?: string[] | null;
+  presetId?: string | null;
 }) {
   return {
     ...(data.keys !== undefined && { keys: stringifyJsonColumn(data.keys) }),
@@ -50,7 +53,12 @@ export function stringifyContiSongOverrides(data: {
     ...(data.sheetMusicFileIds !== undefined && {
       sheetMusicFileIds: data.sheetMusicFileIds ? stringifyJsonColumn(data.sheetMusicFileIds) : null
     }),
+    ...(data.presetId !== undefined && { presetId: data.presetId }),
   };
 }
 
 export const parseSongPresetOverrides = parseContiSongOverrides;
+
+export function parsePresetPdfMetadata<T>(value: string | null): T | null {
+  return parseJsonColumn<T | null>(value, null);
+}

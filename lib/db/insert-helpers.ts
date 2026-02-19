@@ -50,6 +50,7 @@ export async function insertContiSong(
     sectionLyricsMap: serialized.sectionLyricsMap ?? '{}',
     notes: overrides?.notes ?? null,
     sheetMusicFileIds: serialized.sheetMusicFileIds ?? null,
+    presetId: serialized.presetId ?? null,
     createdAt: now,
     updatedAt: now,
   }
@@ -81,6 +82,7 @@ export async function insertSongPreset(
     sectionLyricsMap: '{}',
     notes: null,
     youtubeReference: data.youtubeReference ?? null,
+    pdfMetadata: null,
     isDefault: false,
     sortOrder: maxSort + 1,
     createdAt: now,
