@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +19,17 @@ import { OverrideEditorFields } from "@/components/shared/override-editor-fields
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { createSongPreset, updateSongPreset } from "@/lib/actions/song-presets"
 import { SheetMusicSelector } from "@/components/shared/sheet-music-selector"
-import type { SongPresetWithSheetMusic, SheetMusicFile } from "@/lib/types"
+import { SheetMusicGallery } from "./sheet-music-gallery"
+import { PresetPdfEditor } from "./preset-pdf-editor"
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog"
+import type {
+  PresetPdfMetadata,
+  SongPresetWithSheetMusic,
+  SheetMusicFile,
+} from "@/lib/types"
 
 interface PresetEditorProps {
   songId: string
@@ -41,7 +51,17 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
   const [youtubeReference, setYoutubeReference] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [sheetMusicFileIds, setSheetMusicFileIds] = useState<string[]>([])
+  const [pdfMetadata, setPdfMetadata] = useState<PresetPdfMetadata | null>(null)
+  const [pdfEditorOpen, setPdfEditorOpen] = useState(false)
   const [editorKey, setEditorKey] = useState(0)
+
+  const previewSheetMusic = useMemo(() => {
+    if (sheetMusicFileIds.length === 0) {
+      return sheetMusic
+    }
+    const selected = new Set(sheetMusicFileIds)
+    return sheetMusic.filter((file) => selected.has(file.id))
+  }, [sheetMusic, sheetMusicFileIds])
 
   // Unsaved changes tracking
   const { isDirty, markDirty: _markDirty, reset: resetDirty } = useUnsavedChanges(preset)
@@ -74,6 +94,7 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
         setIsDefault(preset.isDefault)
         setYoutubeReference(preset.youtubeReference)
         setSheetMusicFileIds(preset.sheetMusicFileIds ?? [])
+        setPdfMetadata(parseJsonField<PresetPdfMetadata | null>(preset.pdfMetadata, null))
       } else {
         setName("")
         setKeys([])
@@ -85,6 +106,7 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
         setIsDefault(false)
         setYoutubeReference(null)
         setSheetMusicFileIds([])
+        setPdfMetadata(null)
       }
       dirtyAllowedRef.current = false
       resetDirty()
@@ -121,6 +143,7 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
         isDefault,
         youtubeReference,
         sheetMusicFileIds,
+        pdfMetadata,
       }
 
       const result = preset
@@ -231,13 +254,32 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
 
           {sheetMusic.length > 0 && (
             <div className="space-y-3">
-              <label className="text-base font-medium">악보 선택</label>
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-base font-medium">악보 선택</label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPdfEditorOpen(true)}
+                >
+                  PDF 편집
+                </Button>
+              </div>
               <SheetMusicSelector
                 songId={songId}
                 selectedFileIds={sheetMusicFileIds}
                 onSelectionChange={(ids) => { setSheetMusicFileIds(ids); markDirty() }}
                 availableFiles={sheetMusic}
               />
+            </div>
+          )}
+
+          {sheetMusic.length > 0 && (
+            <div className="space-y-3">
+              <label className="text-base font-medium">악보 미리보기</label>
+              <p className="text-sm text-muted-foreground">
+                선택된 악보를 바로 확인할 수 있습니다. 선택이 없으면 전체 악보를 표시합니다.
+              </p>
+              <SheetMusicGallery files={previewSheetMusic} />
             </div>
           )}
 
@@ -277,6 +319,24 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
           </div>
         </div>
       </Drawer>
+
+      <Dialog open={pdfEditorOpen} onOpenChange={setPdfEditorOpen}>
+        <DialogContent className="!w-screen !h-[100dvh] !max-w-none sm:!max-w-none rounded-none overflow-x-hidden overflow-y-auto p-3 sm:p-4 flex flex-col">
+          <div className="min-h-0 flex-1">
+            <PresetPdfEditor
+              songName={name.trim() || "제목 없음"}
+              sheetMusic={previewSheetMusic}
+              sectionOrder={sectionOrder}
+              tempos={tempos}
+              initialMetadata={pdfMetadata}
+              onSave={(metadata) => {
+                setPdfMetadata(metadata)
+                markDirty()
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
         <AlertDialogContent size="sm">
