@@ -126,6 +126,101 @@ export interface SheetWorshipData {
   songs?: string[];
 }
 
+export interface SheetWorshipRow {
+  date: string;
+  preacher: string | null;
+  leader: string | null;
+  worshipLeader: string | null;
+  title: string | null;
+  scripture: string | null;
+  songs: string[];
+}
+
+function normalizeCell(value: string | undefined): string | null {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function toIsoDateFromSheetDate(value: string): string | null {
+  if (!/^\d{4}\.\d{2}\.\d{2}$/.test(value)) {
+    return null;
+  }
+
+  return value.replace(/\./g, '-');
+}
+
+function toSheetDateFromIsoDate(value: string): string {
+  const [year, month, day] = value.split('-');
+  return `${year}.${month}.${day}`;
+}
+
+function mapSheetRowToWorshipRow(values: string[]): SheetWorshipRow | null {
+  const date = normalizeCell(values[0]);
+  if (!date) {
+    return null;
+  }
+
+  const isoDate = toIsoDateFromSheetDate(date);
+  if (!isoDate) {
+    return null;
+  }
+
+  const songs = [values[10], values[11], values[12], values[13]].map((song) => normalizeCell(song)).filter(Boolean) as string[];
+
+  return {
+    date: isoDate,
+    preacher: normalizeCell(values[1]),
+    leader: normalizeCell(values[2]),
+    worshipLeader: normalizeCell(values[3]),
+    title: normalizeCell(values[8]),
+    scripture: normalizeCell(values[9]),
+    songs,
+  };
+}
+
+async function readValues(range: string): Promise<string[][]> {
+  const sheetId = getGoogleSheetId();
+  const accessToken = await getGoogleAccessToken();
+
+  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`Failed to read sheet values: ${JSON.stringify(data)}`);
+  }
+
+  return (data.values ?? []) as string[][];
+}
+
+export async function readWorshipDataByDate(isoDate: string, sheetName = 'DB'): Promise<SheetWorshipRow | null> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+    return null;
+  }
+
+  const formattedDate = toSheetDateFromIsoDate(isoDate);
+  const row = await findRowByDate(sheetName, formattedDate);
+  if (!row) {
+    return null;
+  }
+
+  const values = await readValues(`${sheetName}!B${row}:O${row}`);
+  const rowValues = values[0] ?? [];
+  return mapSheetRowToWorshipRow(rowValues);
+}
+
+export async function readRecentWorshipData(weeks = 8, sheetName = 'DB'): Promise<SheetWorshipRow[]> {
+  const values = await readValues(`${sheetName}!B:O`);
+
+  const rows = values
+    .map((row) => mapSheetRowToWorshipRow(row))
+    .filter((row): row is SheetWorshipRow => row !== null)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  return rows.slice(0, Math.max(0, weeks));
+}
+
 export async function readRoleOptionsWithFallback(sheetName = 'DB_Options'): Promise<string[]> {
   try {
     const fromSheet = await readRoleOptionsFromSheet(sheetName);

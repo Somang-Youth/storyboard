@@ -13,6 +13,7 @@ interface SheetMusicSelectorProps {
   selectedFileIds: string[]
   onSelectionChange: (fileIds: string[]) => void
   availableFiles?: SheetMusicFile[]
+  showHeaderControls?: boolean
 }
 
 interface SelectorItem {
@@ -27,6 +28,7 @@ export function SheetMusicSelector({
   selectedFileIds,
   onSelectionChange,
   availableFiles,
+  showHeaderControls = true,
 }: SheetMusicSelectorProps) {
   const [fetchedFiles, setFetchedFiles] = useState<SheetMusicFile[]>([])
   const [items, setItems] = useState<SelectorItem[]>([])
@@ -120,19 +122,21 @@ export function SheetMusicSelector({
 
   // Group items by file ID to render selection per-file (not per-page)
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={handleSelectAll}>
-          {allSelected ? "선택 해제" : "전체 선택"}
-        </Button>
-        {selectedFileIds.length > 0 && (
-          <span className="text-sm text-muted-foreground">
-            {selectedFileIds.length}개 선택됨
-          </span>
-        )}
-      </div>
+    <div className="space-y-4">
+      {showHeaderControls && (
+        <div className="flex items-center gap-4">
+          <Button type="button" variant="outline" size="sm" onClick={handleSelectAll}>
+            {allSelected ? "선택 해제" : "전체 선택"}
+          </Button>
+          {selectedFileIds.length > 0 && (
+            <span className="text-sm text-muted-foreground">
+              {selectedFileIds.length}개 선택됨
+            </span>
+          )}
+        </div>
+      )}
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+      <div className="flex gap-4 overflow-x-auto pb-2">
         {items.map((item) => {
           // For multi-page PDFs, only show selection on the first page
           if (item.pdfPage !== null && item.pdfPage > 1) {
@@ -141,7 +145,7 @@ export function SheetMusicSelector({
             return (
               <div
                 key={`${item.file.id}-p${item.pdfPage}`}
-                className={`relative rounded-lg overflow-hidden border-2 transition-colors cursor-pointer ${
+                className={`relative w-20 sm:w-24 shrink-0 rounded-lg overflow-hidden border-2 transition-colors cursor-pointer ${
                   isFileSelected ? "border-primary" : "border-transparent"
                 }`}
                 onClick={() => toggleFile(item.file.id)}
@@ -150,10 +154,10 @@ export function SheetMusicSelector({
                   <img
                     src={item.thumbnailUrl}
                     alt={`${item.file.fileName} - ${item.pdfPage}페이지`}
-                    className="w-full aspect-auto object-cover"
+                    className="w-full h-auto object-cover"
                   />
                 ) : (
-                  <div className="aspect-[1/1.414] flex items-center justify-center bg-muted animate-pulse">
+                  <div className="aspect-[1/1.414] w-full flex items-center justify-center bg-muted animate-pulse">
                     <span className="text-xs text-muted-foreground">로딩 중...</span>
                   </div>
                 )}
@@ -170,7 +174,7 @@ export function SheetMusicSelector({
           return (
             <div
               key={`${item.file.id}-${item.pdfPage ?? "img"}`}
-              className={`relative rounded-lg overflow-hidden border-2 transition-colors cursor-pointer ${
+              className={`relative w-20 sm:w-24 shrink-0 rounded-lg overflow-hidden border-2 transition-colors cursor-pointer ${
                 isSelected ? "border-primary" : "border-muted hover:border-primary/30"
               }`}
               onClick={() => toggleFile(item.file.id)}
@@ -179,10 +183,10 @@ export function SheetMusicSelector({
                 <img
                   src={item.thumbnailUrl}
                   alt={item.pdfPage ? `${item.file.fileName} - ${item.pdfPage}페이지` : item.file.fileName}
-                  className="w-full aspect-auto object-cover"
+                  className="w-full h-auto object-cover"
                 />
               ) : (
-                <div className="aspect-[1/1.414] flex items-center justify-center bg-muted animate-pulse">
+                <div className="aspect-[1/1.414] w-full flex items-center justify-center bg-muted animate-pulse">
                   <span className="text-xs text-muted-foreground">로딩 중...</span>
                 </div>
               )}

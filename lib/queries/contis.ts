@@ -1,11 +1,21 @@
 import { db } from '@/lib/db';
-import { contis, contiSongs, songs, sheetMusicFiles, contiPdfExports } from '@/lib/db/schema';
+import { contis, contiSongs, songs, sheetMusicFiles, contiPdfExports, songPresets } from '@/lib/db/schema';
 import { eq, desc, inArray } from 'drizzle-orm';
-import { parseContiSongOverrides } from '@/lib/db/helpers';
-import type { ContiWithSongs, ContiWithSongsAndSheetMusic, ContiPdfExport } from '@/lib/types';
+import { parseContiSongOverrides, parsePresetPdfMetadata } from '@/lib/db/helpers';
+import type {
+  ContiWithSongs,
+  ContiWithSongsAndSheetMusic,
+  ContiPdfExport,
+  PresetPdfMetadata,
+} from '@/lib/types';
 
 export async function getContis() {
   return await db.select().from(contis).orderBy(desc(contis.date));
+}
+
+export async function getContiByDate(date: string) {
+  const result = await db.select().from(contis).where(eq(contis.date, date)).limit(1);
+  return result[0] ?? null;
 }
 
 export async function getConti(id: string): Promise<ContiWithSongs | null> {
@@ -33,6 +43,7 @@ export async function getConti(id: string): Promise<ContiWithSongs | null> {
       sectionLyricsMap: row.conti_songs.sectionLyricsMap,
       notes: row.conti_songs.notes,
       sheetMusicFileIds: row.conti_songs.sheetMusicFileIds,
+      presetId: row.conti_songs.presetId,
     }),
   }));
 
@@ -45,6 +56,31 @@ export async function getConti(id: string): Promise<ContiWithSongs | null> {
 export async function getContiForExport(id: string): Promise<ContiWithSongsAndSheetMusic | null> {
   const conti = await getConti(id);
   if (!conti) return null;
+
+  const presetIds = Array.from(
+    new Set(
+      conti.songs
+        .map((contiSong) => contiSong.overrides.presetId)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+
+  const presetRows = presetIds.length > 0
+    ? await db
+        .select({
+          id: songPresets.id,
+          pdfMetadata: songPresets.pdfMetadata,
+        })
+        .from(songPresets)
+        .where(inArray(songPresets.id, presetIds))
+    : [];
+
+  const presetPdfMetadataById = new Map(
+    presetRows.map((row) => [
+      row.id,
+      parsePresetPdfMetadata<PresetPdfMetadata>(row.pdfMetadata),
+    ]),
+  );
 
   const songsWithSheetMusic = await Promise.all(
     conti.songs.map(async (contiSong) => {
@@ -69,7 +105,13 @@ export async function getContiForExport(id: string): Promise<ContiWithSongsAndSh
           .orderBy(sheetMusicFiles.sortOrder);
       }
 
-      return { ...contiSong, sheetMusic };
+      return {
+        ...contiSong,
+        sheetMusic,
+        presetPdfMetadata: contiSong.overrides.presetId
+          ? presetPdfMetadataById.get(contiSong.overrides.presetId) ?? null
+          : null,
+      };
     })
   );
 

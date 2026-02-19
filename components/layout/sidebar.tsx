@@ -8,6 +8,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   MusicNoteSquare01Icon,
   Playlist01Icon,
+  Calendar03Icon,
   Logout01Icon,
 } from "@hugeicons/core-free-icons"
 import { useSidebarHeader } from "@/components/layout/sidebar-header-context"
@@ -24,6 +25,11 @@ const navItems = [
     label: "찬양 라이브러리",
     href: "/songs",
     icon: MusicNoteSquare01Icon,
+  },
+  {
+    label: "예배 준비",
+    href: "/worship-prep",
+    icon: Calendar03Icon,
   },
 ]
 

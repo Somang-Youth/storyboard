@@ -10,6 +10,7 @@ import { ContiSongItem } from "@/components/contis/conti-song-item"
 import { ContiSongEditor } from "./conti-song-editor"
 import { SongPicker } from "@/components/contis/song-picker"
 import { YouTubeImportDialog } from "@/components/contis/youtube-import-dialog"
+import { sanitizeContiDescription } from "@/lib/conti-description"
 import {
   removeSongFromConti,
   reorderContiSongs,
@@ -30,6 +31,7 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
   const [optimisticSongs, setOptimisticSongs] = useOptimistic<ContiSongWithSong[]>(conti.songs)
 
   const existingSongIds = optimisticSongs.map((cs) => cs.songId)
+  const description = sanitizeContiDescription(conti.description)
 
   function handleMoveUp(index: number) {
     if (index === 0) return
@@ -84,8 +86,8 @@ export function ContiDetail({ conti, allSongs }: ContiDetailProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {conti.description && (
-        <p className="text-muted-foreground text-base">{conti.description}</p>
+      {description && (
+        <p className="text-muted-foreground text-base">{description}</p>
       )}
 
       {optimisticSongs.length === 0 ? (

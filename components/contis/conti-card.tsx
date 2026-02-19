@@ -5,6 +5,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card"
+import { sanitizeContiDescription } from "@/lib/conti-description"
 import type { Conti } from "@/lib/types"
 
 function formatDate(dateStr: string): string {
@@ -13,15 +14,17 @@ function formatDate(dateStr: string): string {
 }
 
 export function ContiCard({ conti }: { conti: Conti }) {
+  const description = sanitizeContiDescription(conti.description)
+
   return (
     <Link href={`/contis/${conti.id}`}>
       <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
         <CardHeader>
           <CardDescription>{formatDate(conti.date)}</CardDescription>
           <CardTitle>{conti.title || formatDate(conti.date)}</CardTitle>
-          {conti.description && (
+          {description && (
             <CardDescription className="line-clamp-2">
-              {conti.description}
+              {description}
             </CardDescription>
           )}
         </CardHeader>

@@ -35,10 +35,13 @@ const PRESET_SECTIONS = [
 interface SortableItemProps {
   item: SectionItem
   index: number
+  onRename: (id: string, name: string) => void
   onRemove: (id: string) => void
 }
 
-function SortableItem({ item, index, onRemove }: SortableItemProps) {
+function SortableItem({ item, index, onRename, onRemove }: SortableItemProps) {
+  const [draftName, setDraftName] = useState(item.name)
+
   const {
     attributes,
     listeners,
@@ -51,6 +54,19 @@ function SortableItem({ item, index, onRemove }: SortableItemProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+  }
+
+  const commitName = () => {
+    const trimmed = draftName.trim()
+
+    if (!trimmed) {
+      setDraftName(item.name)
+      return
+    }
+
+    if (trimmed !== item.name) {
+      onRename(item.id, trimmed)
+    }
   }
 
   return (
@@ -75,7 +91,19 @@ function SortableItem({ item, index, onRemove }: SortableItemProps) {
       <span className="text-muted-foreground text-sm font-medium">
         {index}
       </span>
-      <span className="text-base">{item.name}</span>
+      <Input
+        value={draftName}
+        onChange={(e) => setDraftName(e.target.value)}
+        onBlur={commitName}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault()
+            e.currentTarget.blur()
+          }
+        }}
+        className="h-8 flex-1"
+        aria-label="섹션 이름"
+      />
       <button
         onClick={() => onRemove(item.id)}
         className="text-muted-foreground hover:text-foreground ml-auto"
@@ -127,6 +155,10 @@ export function SectionOrderEditor({
 
   const removeSection = (id: string) => {
     setItems(items.filter(item => item.id !== id))
+  }
+
+  const renameSection = (id: string, name: string) => {
+    setItems(items.map(item => (item.id === id ? { ...item, name } : item)))
   }
 
   const addCustomSection = () => {
@@ -214,6 +246,7 @@ export function SectionOrderEditor({
                       key={item.id}
                       item={item}
                       index={index}
+                      onRename={renameSection}
                       onRemove={removeSection}
                     />
                   ))}

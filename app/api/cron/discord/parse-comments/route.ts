@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     const messages = await getThreadMessages(activeThread.threadId);
     const processedIds = new Set(await getProcessedMessageIds(activeThread.threadId));
-    const newMessages = messages.filter((message) => !processedIds.has(message.id));
+    const newMessages = messages.filter((message) => !processedIds.has(message.id) && message.id !== activeThread.threadId);
 
     if (newMessages.length === 0) {
       return NextResponse.json({

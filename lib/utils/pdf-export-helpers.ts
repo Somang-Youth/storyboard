@@ -1,4 +1,10 @@
-import type { OverlayElement } from '@/lib/types';
+import type {
+  OverlayElement,
+  PageLayout,
+  PresetPdfFileMetadata,
+  PresetPdfMetadata,
+  PresetPdfPageMetadata,
+} from '@/lib/types';
 
 const SECTION_ABBREVIATIONS: Record<string, string> = {
   'Intro': 'Intro',
@@ -58,6 +64,75 @@ export function buildDefaultOverlays(
       fontSize: 14,
     },
   ];
+}
+
+export function mergePresetOverlays(
+  overlays: OverlayElement[] | undefined,
+  songIndex: number,
+  sectionOrder: string[],
+  tempos: number[],
+): OverlayElement[] {
+  const defaults = buildDefaultOverlays(songIndex, sectionOrder, tempos);
+  if (!overlays || overlays.length === 0) {
+    return defaults;
+  }
+
+  return overlays;
+}
+
+export function extractPresetPdfMetadataFromLayout(
+  pageLayouts: PageLayout[],
+  songIndex: number,
+): PresetPdfMetadata | null {
+  const songLayouts = pageLayouts.filter(
+    (layout) => layout.songIndex === songIndex && layout.sheetMusicFileId,
+  );
+
+  if (songLayouts.length === 0) {
+    return null;
+  }
+
+  const fileMap = new Map<string, PresetPdfPageMetadata[]>();
+
+  for (const layout of songLayouts) {
+    if (!layout.sheetMusicFileId) continue;
+    const pages = fileMap.get(layout.sheetMusicFileId) ?? [];
+    pages.push({
+      pdfPageIndex: layout.pdfPageIndex ?? null,
+      cropX: layout.cropX,
+      cropY: layout.cropY,
+      cropWidth: layout.cropWidth,
+      cropHeight: layout.cropHeight,
+      imageScale: layout.imageScale,
+      imageOffsetX: layout.imageOffsetX,
+      imageOffsetY: layout.imageOffsetY,
+      overlays: layout.overlays,
+    });
+    fileMap.set(layout.sheetMusicFileId, pages);
+  }
+
+  const files: PresetPdfFileMetadata[] = Array.from(fileMap.entries()).map(
+    ([sheetMusicFileId, pages]) => ({ sheetMusicFileId, pages }),
+  );
+
+  return files.length > 0 ? { files } : null;
+}
+
+export function findPresetPdfPageMetadata(
+  preset: PresetPdfMetadata | null | undefined,
+  sheetMusicFileId: string,
+  pdfPageIndex: number | null,
+): PresetPdfPageMetadata | null {
+  if (!preset) {
+    return null;
+  }
+
+  const file = preset.files.find((item) => item.sheetMusicFileId === sheetMusicFileId);
+  if (!file) {
+    return null;
+  }
+
+  return file.pages.find((page) => page.pdfPageIndex === pdfPageIndex) ?? null;
 }
 
 function formatDateForFilename(dateStr: string): string {

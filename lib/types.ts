@@ -28,6 +28,28 @@ export interface ContiSongOverrides {
   sectionLyricsMap: Record<number, number[]>;
   notes: string | null;
   sheetMusicFileIds: string[] | null;  // null = use all
+  presetId: string | null;
+}
+
+export interface PresetPdfPageMetadata {
+  pdfPageIndex: number | null;
+  cropX?: number;
+  cropY?: number;
+  cropWidth?: number;
+  cropHeight?: number;
+  imageScale?: number;
+  imageOffsetX?: number;
+  imageOffsetY?: number;
+  overlays: OverlayElement[];
+}
+
+export interface PresetPdfFileMetadata {
+  sheetMusicFileId: string;
+  pages: PresetPdfPageMetadata[];
+}
+
+export interface PresetPdfMetadata {
+  files: PresetPdfFileMetadata[];
 }
 
 export interface SongPresetData {
@@ -41,6 +63,7 @@ export interface SongPresetData {
   isDefault: boolean;
   youtubeReference?: string | null;
   sheetMusicFileIds?: string[];  // references to sheet_music_files.id
+  pdfMetadata?: PresetPdfMetadata | null;
 }
 
 export interface SongWithSheetMusic extends Song {
@@ -87,6 +110,7 @@ export interface PageLayout {
   pageIndex: number;
   songIndex: number;
   sheetMusicFileId: string | null;
+  pdfPageIndex?: number | null;
   overlays: OverlayElement[];
   imageScale?: number;
   imageOffsetX?: number;
@@ -106,6 +130,7 @@ export interface PdfLayoutState {
 
 export interface ContiSongWithSheetMusic extends ContiSongWithSong {
   sheetMusic: SheetMusicFile[];
+  presetPdfMetadata?: PresetPdfMetadata | null;
 }
 
 export interface ContiWithSongsAndSheetMusic extends Conti {

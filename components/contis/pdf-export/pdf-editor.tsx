@@ -34,11 +34,26 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 1. Page state (no hook dependencies)
-  const { pages, setPages, currentPageIndex, setCurrentPageIndex, loading, currentPage } =
+  const {
+    pages,
+    setPages,
+    currentPageIndex,
+    setCurrentPageIndex,
+    loading,
+    currentPage,
+    reloadFromPreset,
+  } =
     useEditorPages(conti, existingExport);
 
   // 2. Auto-save (depends on: pages, contiId, containerRef)
-  const { saveStatus, triggerAutoSave, performSave, handleManualSave } =
+  const {
+    saveStatus,
+    triggerAutoSave,
+    performSave,
+    handleManualSave,
+    handlePresetSyncSave,
+    presetSyncing,
+  } =
     useAutoSave(pages, conti.id, containerRef);
 
   // 3. Crop mode (depends on: pages, setPages, currentPageIndex, containerRef, triggerAutoSave)
@@ -70,6 +85,22 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
   // 6. PDF export (depends on: pages, performSave, containerRef)
   const { exporting, pdfUrl, handleExport } =
     usePdfExport(pages, conti, existingExport, containerRef, performSave);
+
+  async function handlePresetReapply() {
+    const confirmed = window.confirm(
+      "현재 콘티 PDF 레이아웃을 무시하고 프리셋 기준으로 다시 적용할까요?",
+    );
+    if (!confirmed) return;
+    await reloadFromPreset();
+  }
+
+  async function handleConfirmedPresetSync() {
+    const confirmed = window.confirm(
+      "현재 레이아웃으로 연결된 곡 프리셋 PDF 메타데이터를 업데이트할까요?",
+    );
+    if (!confirmed) return;
+    await handlePresetSyncSave();
+  }
 
   // Inject custom sidebar header
   useEffect(() => {
@@ -250,6 +281,21 @@ export function PdfEditor({ conti, existingExport }: PdfEditorProps) {
               data-icon="inline-start"
             />
             저장
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleConfirmedPresetSync}
+            disabled={presetSyncing}
+          >
+            {presetSyncing ? "프리셋 업데이트 중..." : "프리셋 업데이트"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePresetReapply}
+          >
+            프리셋 다시 적용
           </Button>
           <Button
             variant="outline"

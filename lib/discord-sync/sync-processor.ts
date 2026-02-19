@@ -95,7 +95,7 @@ export async function processDiscordMessages(threadId: string, sundayDate: strin
 
   const merged = mergeParsedWorshipData(parsed);
   const contiDate = toISODateFromYYMMDD(sundayDate);
-  const contiId = await upsertContiByDate(contiDate, merged.title ?? null, buildContiDescription(threadId));
+  const contiId = await upsertContiByDate(contiDate, null, buildContiDescription(threadId));
   await attachContiToActiveThread(contiId);
 
   if (merged.songs && merged.songs.length > 0) {
