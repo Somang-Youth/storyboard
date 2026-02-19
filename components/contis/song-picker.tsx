@@ -78,6 +78,7 @@ export function SongPicker({
             sectionLyricsMap: defaultPreset.sectionLyricsMap ? JSON.parse(defaultPreset.sectionLyricsMap) : {},
             notes: defaultPreset.notes,
             sheetMusicFileIds: sheetMusicFileIds.length > 0 ? sheetMusicFileIds : null,
+            presetId: defaultPreset.id,
           }
           const addResult = await addSongToConti(contiId, song.id, overrides)
           if (addResult.success) {
@@ -114,6 +115,7 @@ export function SongPicker({
           sectionLyricsMap: preset.sectionLyricsMap ? JSON.parse(preset.sectionLyricsMap) : {},
           notes: preset.notes,
           sheetMusicFileIds: sheetMusicFileIds.length > 0 ? sheetMusicFileIds : null,
+          presetId: preset.id,
         }
       }
       const result = await addSongToConti(contiId, selectedSong.id, overrides)

@@ -63,6 +63,7 @@ export function ContiSongEditor({
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
   const [editorKey, setEditorKey] = useState(0)
   const [sheetMusicFileIds, setSheetMusicFileIds] = useState<string[] | null>(null)
+  const [appliedPresetId, setAppliedPresetId] = useState<string | null>(overrides.presetId)
   const [songSheetMusic, setSongSheetMusic] = useState<SheetMusicFile[]>([])
 
   // Initialize state from contiSong when drawer opens
@@ -75,6 +76,7 @@ export function ContiSongEditor({
       setSectionLyricsMap(overrides.sectionLyricsMap)
       setNotes(overrides.notes)
       setSheetMusicFileIds(overrides.sheetMusicFileIds)
+      setAppliedPresetId(overrides.presetId)
       resetDirty()
       setEditorKey(k => k + 1)
     }
@@ -158,8 +160,8 @@ export function ContiSongEditor({
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const result = await updateContiSong(id, {
-        keys, tempos, sectionOrder, lyrics, sectionLyricsMap, notes, sheetMusicFileIds,
+        const result = await updateContiSong(id, {
+        keys, tempos, sectionOrder, lyrics, sectionLyricsMap, notes, sheetMusicFileIds, presetId: appliedPresetId,
       })
       if (result.success) {
         toast.success("곡 설정이 저장되었습니다")
@@ -196,6 +198,7 @@ export function ContiSongEditor({
     // Load preset's sheet music selection
     const fileIds = await getPresetSheetMusicFileIds(preset.id)
     setSheetMusicFileIds(fileIds.length > 0 ? fileIds : null)
+    setAppliedPresetId(preset.id)
     setEditorKey(k => k + 1)
     markDirty()
     toast.success(`"${preset.name}" 프리셋을 불러왔습니다`)

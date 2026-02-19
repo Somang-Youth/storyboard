@@ -24,6 +24,7 @@ export function useAutoSave(
         pageIndex: i,
         songIndex: p.songIndex,
         sheetMusicFileId: p.sheetMusicFileId,
+        pdfPageIndex: p.pdfPageIndex,
         overlays: p.overlays,
         imageScale: p.imageScale !== 1 ? p.imageScale : undefined,
         imageOffsetX: p.imageOffsetX !== 0 ? p.imageOffsetX : undefined,
