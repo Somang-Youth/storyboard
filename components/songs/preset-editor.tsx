@@ -19,7 +19,8 @@ import { OverrideEditorFields } from "@/components/shared/override-editor-fields
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { createSongPreset, updateSongPreset } from "@/lib/actions/song-presets"
 import { SheetMusicSelector } from "@/components/shared/sheet-music-selector"
-import { SheetMusicGallery } from "./sheet-music-gallery"
+import { renderPdfPageToDataUrl } from "@/lib/utils/pdfjs"
+import { findPresetPdfPageMetadata } from "@/lib/utils/pdf-export-helpers"
 import { PresetPdfEditor } from "./preset-pdf-editor"
 import {
   Dialog,
@@ -53,6 +54,10 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
   const [sheetMusicFileIds, setSheetMusicFileIds] = useState<string[]>([])
   const [pdfMetadata, setPdfMetadata] = useState<PresetPdfMetadata | null>(null)
   const [pdfEditorOpen, setPdfEditorOpen] = useState(false)
+  const [previewThumbUrl, setPreviewThumbUrl] = useState<string | null>(null)
+  const [previewThumbFileId, setPreviewThumbFileId] = useState<string | null>(null)
+  const [previewThumbPdfPageIndex, setPreviewThumbPdfPageIndex] = useState<number | null>(null)
+  const [previewThumbLoading, setPreviewThumbLoading] = useState(false)
   const [editorKey, setEditorKey] = useState(0)
 
   const previewSheetMusic = useMemo(() => {
@@ -62,6 +67,72 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
     const selected = new Set(sheetMusicFileIds)
     return sheetMusic.filter((file) => selected.has(file.id))
   }, [sheetMusic, sheetMusicFileIds])
+
+  const allSheetMusicIds = useMemo(() => sheetMusic.map((file) => file.id), [sheetMusic])
+  const allSheetMusicSelected =
+    allSheetMusicIds.length > 0 &&
+    allSheetMusicIds.every((id) => sheetMusicFileIds.includes(id))
+
+  const previewOverlayPage = useMemo(() => {
+    if (!previewThumbFileId) return null
+    return findPresetPdfPageMetadata(
+      pdfMetadata,
+      previewThumbFileId,
+      previewThumbPdfPageIndex,
+    )
+  }, [pdfMetadata, previewThumbFileId, previewThumbPdfPageIndex])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPreviewThumbnail() {
+      const firstFile = previewSheetMusic[0]
+      if (!firstFile) {
+        setPreviewThumbUrl(null)
+        setPreviewThumbFileId(null)
+        setPreviewThumbPdfPageIndex(null)
+        setPreviewThumbLoading(false)
+        return
+      }
+
+      setPreviewThumbFileId(firstFile.id)
+
+      if (firstFile.fileType.startsWith("image/")) {
+        setPreviewThumbPdfPageIndex(null)
+        setPreviewThumbUrl(firstFile.fileUrl)
+        setPreviewThumbLoading(false)
+        return
+      }
+
+      if (firstFile.fileType === "application/pdf") {
+        setPreviewThumbLoading(true)
+        try {
+          const rendered = await renderPdfPageToDataUrl(firstFile.fileUrl, 1, 0.6)
+          if (cancelled) return
+          setPreviewThumbPdfPageIndex(0)
+          setPreviewThumbUrl(rendered)
+        } catch {
+          if (cancelled) return
+          setPreviewThumbPdfPageIndex(0)
+          setPreviewThumbUrl(null)
+        } finally {
+          if (!cancelled) {
+            setPreviewThumbLoading(false)
+          }
+        }
+        return
+      }
+
+      setPreviewThumbPdfPageIndex(null)
+      setPreviewThumbUrl(null)
+      setPreviewThumbLoading(false)
+    }
+
+    loadPreviewThumbnail()
+    return () => {
+      cancelled = true
+    }
+  }, [previewSheetMusic])
 
   // Unsaved changes tracking
   const { isDirty, markDirty: _markDirty, reset: resetDirty } = useUnsavedChanges(preset)
@@ -253,33 +324,91 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
           />
 
           {sheetMusic.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <label className="text-base font-medium">악보 선택</label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPdfEditorOpen(true)}
-                >
-                  PDF 편집
-                </Button>
+            <div className="flex items-start gap-4">
+              <div className="min-w-0 space-y-4">
+                <div className="flex items-center gap-4">
+                  <label className="text-base font-medium">악보 선택</label>
+                  <span className="text-sm text-muted-foreground">
+                    {sheetMusicFileIds.length}개 선택됨
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSheetMusicFileIds(allSheetMusicSelected ? [] : allSheetMusicIds)
+                      markDirty()
+                    }}
+                  >
+                    {allSheetMusicSelected ? "선택 해제" : "전체 선택"}
+                  </Button>
+                </div>
+                <div>
+                  <SheetMusicSelector
+                    songId={songId}
+                    selectedFileIds={sheetMusicFileIds}
+                    onSelectionChange={(ids) => { setSheetMusicFileIds(ids); markDirty() }}
+                    availableFiles={sheetMusic}
+                    showHeaderControls={false}
+                  />
+                </div>
               </div>
-              <SheetMusicSelector
-                songId={songId}
-                selectedFileIds={sheetMusicFileIds}
-                onSelectionChange={(ids) => { setSheetMusicFileIds(ids); markDirty() }}
-                availableFiles={sheetMusic}
-              />
-            </div>
-          )}
 
-          {sheetMusic.length > 0 && (
-            <div className="space-y-3">
-              <label className="text-base font-medium">악보 미리보기</label>
-              <p className="text-sm text-muted-foreground">
-                선택된 악보를 바로 확인할 수 있습니다. 선택이 없으면 전체 악보를 표시합니다.
-              </p>
-              <SheetMusicGallery files={previewSheetMusic} />
+              <div className="shrink-0 space-y-4">
+                <p className="text-base font-medium">PDF 미리보기</p>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setPdfEditorOpen(true)}
+                    className="relative aspect-[1/1.414] w-20 sm:w-24 rounded-md overflow-hidden border bg-white hover:border-primary transition-colors"
+                    aria-label="악보 미리보기 열기"
+                    title="악보 미리보기"
+                  >
+                    {previewThumbUrl ? (
+                      <img
+                        src={previewThumbUrl}
+                        alt="악보 미리보기"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center bg-muted text-[10px] text-muted-foreground">
+                        {previewThumbLoading ? "로딩" : "미리보기"}
+                      </div>
+                    )}
+                    {previewOverlayPage?.overlays?.map((overlay) => (
+                      <div
+                        key={`preview-overlay-${overlay.id}`}
+                        className="absolute pointer-events-none px-0.5"
+                        style={{
+                          left: `${overlay.x}%`,
+                          top: `${overlay.y}%`,
+                          fontSize: `${Math.max(6, overlay.fontSize * 0.22)}px`,
+                          fontWeight:
+                            overlay.type === "songNumber"
+                              ? 700
+                              : overlay.type === "custom"
+                                ? 400
+                                : 600,
+                          color: overlay.color ?? "#000000",
+                          transform:
+                            overlay.type === "bpm"
+                              ? "translateX(-100%)"
+                              : overlay.type === "sectionOrder"
+                                ? "translateX(-50%)"
+                                : "none",
+                          whiteSpace: "pre-wrap",
+                          lineHeight: 1.2,
+                          fontFamily:
+                            '"Pretendard Variable", Pretendard, -apple-system, sans-serif',
+                          textShadow: "0 0 1px rgba(255,255,255,0.7)",
+                        }}
+                      >
+                        {overlay.text}
+                      </div>
+                    ))}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

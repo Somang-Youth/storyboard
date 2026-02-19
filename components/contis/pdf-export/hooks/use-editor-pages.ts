@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   buildDefaultOverlays,
   findPresetPdfPageMetadata,
@@ -25,24 +25,8 @@ export function useEditorPages(
   // Guards against duplicate PDF page renders
   const renderingPageRef = useRef<Set<number>>(new Set());
 
-  // Initialize pages from conti data
-  useEffect(() => {
-    let cancelled = false;
-
-    async function init() {
-      setLoading(true);
-
-      // Parse existing layout state if available
-      let savedLayouts: PageLayout[] | null = null;
-      if (existingExport?.layoutState) {
-        try {
-          const parsed: PdfLayoutState = JSON.parse(existingExport.layoutState);
-          savedLayouts = parsed.pages;
-        } catch {
-          // Ignore invalid JSON
-        }
-      }
-
+  const buildEditorPages = useCallback(
+    async (savedLayouts: PageLayout[] | null): Promise<EditorPage[]> => {
       const editorPages: EditorPage[] = [];
 
       for (let songIdx = 0; songIdx < conti.songs.length; songIdx++) {
@@ -50,7 +34,6 @@ export function useEditorPages(
         const sheetMusic = contiSong.sheetMusic;
 
         if (sheetMusic.length === 0) {
-          // Metadata-only page
           const defaultOverlays = buildDefaultOverlays(
             songIdx,
             contiSong.overrides.sectionOrder,
@@ -113,7 +96,14 @@ export function useEditorPages(
               cropY: saved?.cropY ?? preset?.cropY ?? null,
               cropWidth: saved?.cropWidth ?? preset?.cropWidth ?? null,
               cropHeight: saved?.cropHeight ?? preset?.cropHeight ?? null,
-              originalImageUrl: saved?.originalImageUrl ?? null,
+              originalImageUrl:
+                saved?.originalImageUrl ??
+                ((preset?.cropX !== undefined ||
+                  preset?.cropY !== undefined ||
+                  preset?.cropWidth !== undefined ||
+                  preset?.cropHeight !== undefined)
+                  ? file.fileUrl
+                  : null),
             });
           } else if (file.fileType.includes("pdf")) {
             try {
@@ -214,7 +204,6 @@ export function useEditorPages(
         }
       }
 
-      // Re-apply saved crops for image files
       for (let idx = 0; idx < editorPages.length; idx++) {
         const ep = editorPages[idx];
         if (
@@ -247,6 +236,31 @@ export function useEditorPages(
         }
       }
 
+      return editorPages;
+    },
+    [conti.songs],
+  );
+
+  // Initialize pages from conti data
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      setLoading(true);
+
+      // Parse existing layout state if available
+      let savedLayouts: PageLayout[] | null = null;
+      if (existingExport?.layoutState) {
+        try {
+          const parsed: PdfLayoutState = JSON.parse(existingExport.layoutState);
+          savedLayouts = parsed.pages;
+        } catch {
+          // Ignore invalid JSON
+        }
+      }
+
+      const editorPages = await buildEditorPages(savedLayouts);
+
       if (!cancelled) {
         setPages(editorPages);
         setLoading(false);
@@ -257,7 +271,15 @@ export function useEditorPages(
     return () => {
       cancelled = true;
     };
-  }, [conti, existingExport]);
+  }, [buildEditorPages, existingExport]);
+
+  const reloadFromPreset = useCallback(async () => {
+    setLoading(true);
+    const editorPages = await buildEditorPages(null);
+    setPages(editorPages);
+    setCurrentPageIndex(0);
+    setLoading(false);
+  }, [buildEditorPages]);
 
   // Render PDF page image lazily when navigating to a PDF page
   useEffect(() => {
@@ -339,5 +361,6 @@ export function useEditorPages(
     setCurrentPageIndex,
     loading,
     currentPage,
+    reloadFromPreset,
   };
 }

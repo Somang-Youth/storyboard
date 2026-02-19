@@ -16,6 +16,7 @@ export function useAutoSave(
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const performSaveRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const lastSaveRef = useRef<number>(0);
+  const [presetSyncing, setPresetSyncing] = useState(false);
 
   const buildLayoutState = useCallback((): PdfLayoutState => {
     return {
@@ -98,24 +99,35 @@ export function useAutoSave(
     const saved = await persistLayout(layoutState);
     if (!saved) return;
 
-    const layoutStateText = JSON.stringify(layoutState);
-    const syncResult = await syncPresetPdfMetadataFromContiLayout(
-      contiId,
-      layoutStateText,
-    );
-
-    if (!syncResult.success) {
-      toast.warning(syncResult.error ?? "프리셋 동기화 중 오류가 발생했습니다");
-      return;
-    }
-
-    const updatedPresetCount = syncResult.data?.updatedPresetCount ?? 0;
-    if (updatedPresetCount > 0) {
-      toast.success(`레이아웃과 프리셋 ${updatedPresetCount}개가 저장되었습니다`);
-      return;
-    }
-
     toast.success("레이아웃이 저장되었습니다");
+  }
+
+  async function handlePresetSyncSave() {
+    const layoutState = buildLayoutState();
+    setPresetSyncing(true);
+
+    try {
+      const layoutStateText = JSON.stringify(layoutState);
+      const syncResult = await syncPresetPdfMetadataFromContiLayout(
+        contiId,
+        layoutStateText,
+      );
+
+      if (!syncResult.success) {
+        toast.warning(syncResult.error ?? "프리셋 동기화 중 오류가 발생했습니다");
+        return;
+      }
+
+      const updatedPresetCount = syncResult.data?.updatedPresetCount ?? 0;
+      if (updatedPresetCount > 0) {
+        toast.success(`프리셋 ${updatedPresetCount}개가 업데이트되었습니다`);
+        return;
+      }
+
+      toast.info("연결된 프리셋이 없어 업데이트할 항목이 없습니다");
+    } finally {
+      setPresetSyncing(false);
+    }
   }
 
   // Cleanup save timer on unmount
@@ -143,5 +155,7 @@ export function useAutoSave(
     triggerAutoSave,
     performSave,
     handleManualSave,
+    handlePresetSyncSave,
+    presetSyncing,
   };
 }
