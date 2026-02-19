@@ -324,9 +324,9 @@ export function PresetEditor({ songId, preset, sheetMusic, open, onOpenChange }:
           />
 
           {sheetMusic.length > 0 && (
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-5">
               <div className="min-w-0 space-y-4">
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-4">
                   <label className="text-base font-medium">악보 선택</label>
                   <span className="text-sm text-muted-foreground">
                     {sheetMusicFileIds.length}개 선택됨
