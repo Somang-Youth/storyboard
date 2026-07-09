@@ -107,3 +107,61 @@ export function pruneInvalidLyricsPages(
 
   return areSectionLyricsMapsEqual(sectionLyricsMap, next) ? sectionLyricsMap : next
 }
+
+export function shiftSectionLyricsMapForRemoval(
+  sectionLyricsMap: SectionLyricsMap,
+  removedIndex: number,
+): SectionLyricsMap {
+  const next: SectionLyricsMap = {}
+
+  for (const [sectionIndex, lyricsIndices] of Object.entries(sectionLyricsMap)) {
+    const shifted = lyricsIndices
+      .filter((lyricsIndex) => lyricsIndex !== removedIndex)
+      .map((lyricsIndex) => (lyricsIndex > removedIndex ? lyricsIndex - 1 : lyricsIndex))
+
+    if (shifted.length > 0) {
+      next[Number(sectionIndex)] = shifted
+    }
+  }
+
+  return next
+}
+
+export function mergeSectionLyricsMapPages(
+  sectionLyricsMap: SectionLyricsMap,
+  keptIndex: number,
+): SectionLyricsMap {
+  const absorbedIndex = keptIndex + 1
+  const next: SectionLyricsMap = {}
+
+  for (const [sectionIndex, lyricsIndices] of Object.entries(sectionLyricsMap)) {
+    const remapped: number[] = []
+
+    lyricsIndices.forEach((lyricsIndex, occurrence) => {
+      // 흔한 (kept, absorbed) 인접쌍만 단일 페이지 참조로 축약하고
+      // 그 외 위치의 의도적 반복 참조는 보존한다.
+      const isMergeAdjacency =
+        lyricsIndex === absorbedIndex
+        && occurrence > 0
+        && lyricsIndices[occurrence - 1] === keptIndex
+
+      if (isMergeAdjacency) {
+        return
+      }
+
+      if (lyricsIndex === absorbedIndex) {
+        remapped.push(keptIndex)
+      } else if (lyricsIndex > absorbedIndex) {
+        remapped.push(lyricsIndex - 1)
+      } else {
+        remapped.push(lyricsIndex)
+      }
+    })
+
+    if (remapped.length > 0) {
+      next[Number(sectionIndex)] = remapped
+    }
+  }
+
+  return next
+}
