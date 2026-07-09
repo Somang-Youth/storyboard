@@ -27,6 +27,12 @@ export function useEditorPages(
   // Guards against duplicate PDF page renders
   const renderingPageRef = useRef<Set<number>>(new Set());
 
+  // Tracks which conti the editor has already been seeded from, so an RSC
+  // refresh (which hands us new conti/existingExport object references without
+  // changing the underlying conti) does not rebuild the editor and clobber
+  // in-progress edits.
+  const seededContiIdRef = useRef<string | null>(null);
+
   const buildEditorPages = useCallback(
     async (savedLayouts: PageLayout[] | null): Promise<EditorPage[]> => {
       const editorPages: EditorPage[] = [];
@@ -290,8 +296,13 @@ export function useEditorPages(
     [conti],
   );
 
-  // Initialize pages from conti data
+  // Seed pages from conti data once per conti. Re-runs when conti/existingExport
+  // change reference (e.g. an RSC refresh), but the seededContiIdRef guard skips
+  // the rebuild unless the conti itself changed — the editor owns its layout
+  // state after seeding, and rebuilding would discard in-progress edits. Use
+  // reloadFromPreset for explicit rebuilds.
   useEffect(() => {
+    if (seededContiIdRef.current === conti.id) return;
     let cancelled = false;
 
     async function init() {
@@ -313,6 +324,9 @@ export function useEditorPages(
       if (!cancelled) {
         setPages(editorPages);
         setLoading(false);
+        // Mark seeded only after a successful build so an interrupted initial
+        // build cannot leave the editor stuck on the loading skeleton.
+        seededContiIdRef.current = conti.id;
       }
     }
 
@@ -320,7 +334,7 @@ export function useEditorPages(
     return () => {
       cancelled = true;
     };
-  }, [buildEditorPages, existingExport]);
+  }, [conti.id, buildEditorPages, existingExport]);
 
   const reloadFromPreset = useCallback(async () => {
     setLoading(true);

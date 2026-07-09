@@ -45,6 +45,22 @@ test("pdf autosave debounces first edit and collapses overlapping saves", async 
   assert.doesNotMatch(triggerBody, /return;\s*\}/)
 })
 
+test("editor seeds pages once per conti and does not rebuild on RSC refresh", async () => {
+  const source = await read("components/contis/pdf-export/hooks/use-editor-pages.ts")
+
+  // The editor owns its layout state after seeding from server data. A guard
+  // ref keyed on conti.id stops the init effect from rebuilding the whole
+  // editor (clobbering in-progress edits + flashing the loading skeleton) when
+  // conti/existingExport arrive as new object references from an RSC refresh
+  // (e.g. an autosave-triggered read-your-writes refresh). Explicit rebuilds go
+  // through reloadFromPreset, not this effect.
+  assert.match(source, /seededContiIdRef/)
+  assert.match(source, /seededContiIdRef\.current\s*===\s*conti\.id/)
+  // The guard is marked seeded only after a successful build so an interrupted
+  // initial build cannot leave the editor stuck on the loading skeleton.
+  assert.match(source, /seededContiIdRef\.current\s*=\s*conti\.id/)
+})
+
 test("overlay dragging updates local state during move and autosaves once on pointer up", async () => {
   const source = await read("components/contis/pdf-export/hooks/use-overlays.ts")
 

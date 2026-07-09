@@ -46,7 +46,13 @@ export function invalidateContiDate(date: string) {
 }
 
 export function invalidateContiPdfExport(contiId: string) {
-  updateCacheTags(cacheTags.contiPdfExport(contiId));
+  // Purge for future reads only — never read-your-writes refresh. This fires on
+  // the open PDF editor's background autosave, which already owns the latest
+  // layout in local state. updateTag() would re-send this route's RSC to the
+  // client, hand the editor fresh conti/existingExport prop references, and force
+  // a full rebuild mid-edit (the "keeps refreshing" bug). expire marks the tag
+  // stale so the next time the editor is opened it refetches the saved layout.
+  expireCacheTags(cacheTags.contiPdfExport(contiId));
 }
 
 export function invalidateContiWithDate(contiId: string, date: string) {
