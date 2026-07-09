@@ -149,3 +149,24 @@ export function validateLyricsPage(text: string): LyricsWarning[] {
 
   return warnings
 }
+
+export function flattenLyricsPageToLine(page: string): string {
+  return page
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' ')
+}
+
+export function canMergeLyricsPages(first: string, second: string): boolean {
+  return (
+    !isLineTooLong(flattenLyricsPageToLine(first))
+    && !isLineTooLong(flattenLyricsPageToLine(second))
+  )
+}
+
+export function mergeLyricsPages(first: string, second: string): string {
+  return [flattenLyricsPageToLine(first), flattenLyricsPageToLine(second)]
+    .filter(Boolean)
+    .join('\n')
+}
