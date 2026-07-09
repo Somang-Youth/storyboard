@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import { AiMagicIcon, AlertCircleIcon, Cancel01Icon, Loading03Icon, RefreshIcon, TextCheckIcon } from "@hugeicons/core-free-icons"
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
+import { AiMagicIcon, AlertCircleIcon, ArrowShrink01Icon, Cancel01Icon, Loading03Icon, RefreshIcon, TextCheckIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,7 @@ import { generateLyricsFromSheetMusicImages } from "@/lib/actions/sheet-music-ly
 import { checkSpelling } from "@/lib/actions/spell-check"
 import type { SheetMusicFile } from "@/lib/types"
 import { computeWordDiff, getCorrectedParts, getOriginalParts } from "@/lib/utils/text-diff"
-import { validateLyricsPage } from "@/lib/utils/lyrics-validation"
+import { canMergeLyricsPages, mergeLyricsPages, validateLyricsPage } from "@/lib/utils/lyrics-validation"
 import { buildSheetMusicLyricsImagePages } from "@/lib/utils/sheet-music-lyrics-images"
 
 type GeneratorStatus = "idle" | "loading" | "ready" | "error"
@@ -149,6 +149,25 @@ export function SheetMusicLyricsGeneratorDialog({
     })
   }
 
+  const mergeGeneratedPages = (index: number) => {
+    setGeneratedLyrics((current) => {
+      if (index < 0 || index + 1 >= current.length) return current
+      const next = [...current]
+      next.splice(index, 2, mergeLyricsPages(current[index], current[index + 1]))
+      return next
+    })
+    setSpellCheck((current) => {
+      const next: Record<number, SpellCheckState> = {}
+      for (const [key, value] of Object.entries(current)) {
+        const pageIndex = Number(key)
+        if (pageIndex < index) next[pageIndex] = value
+        else if (pageIndex === index || pageIndex === index + 1) continue
+        else next[pageIndex - 1] = value
+      }
+      return next
+    })
+  }
+
   const handleSpellCheck = async (index: number) => {
     const text = generatedLyrics[index]
     if (!text?.trim()) return
@@ -259,113 +278,133 @@ export function SheetMusicLyricsGeneratorDialog({
                   const correctedText = sc?.correctedText
 
                   return (
-                    <div key={index} className="space-y-1.5 rounded-lg border p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          <HugeiconsIcon icon={AiMagicIcon} strokeWidth={2} className="size-4 text-primary" />
-                          페이지 {index + 1}
-                        </div>
-                        <div className="flex gap-0.5">
-                          <Button
-                            type="button"
-                            size="xs"
-                            variant="ghost"
-                            onClick={() => handleSpellCheck(index)}
-                            aria-label="맞춤법 검사"
-                            disabled={!page.trim() || sc?.isLoading}
-                          >
-                            {sc?.isLoading ? (
-                              <>
-                                <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="animate-spin" data-icon="inline-start" />
-                                검사 중
-                              </>
-                            ) : (
-                              <>
-                                <HugeiconsIcon icon={TextCheckIcon} strokeWidth={2} data-icon="inline-start" />
-                                맞춤법 검사
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="icon-xs"
-                            variant="ghost"
-                            onClick={() => removeGeneratedPage(index)}
-                            aria-label="페이지 제거"
-                          >
-                            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-                          </Button>
-                        </div>
-                      </div>
-                      <Textarea
-                        rows={Math.min(6, Math.max(3, page.split("\n").length + 1))}
-                        className="resize-none text-sm"
-                        value={page}
-                        onChange={(event) => updateGeneratedPage(index, event.target.value)}
-                      />
-
-                      {warnings.length > 0 && (
-                        <div className="flex flex-col gap-0.5 px-1">
-                          {warnings.map((warning) => (
-                            <p key={warning.type} className="text-sm text-amber-600">
-                              {warning.message}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-
-                      {sc?.error && (
-                        <div className="px-1 text-sm text-destructive">{sc.error}</div>
-                      )}
-
-                      {sc && !sc.isLoading && !sc.error && sc.correctedText === null && (
-                        <div className="px-1 text-sm text-green-600">맞춤법 오류가 없습니다!</div>
-                      )}
-
-                      {correctedText !== null && correctedText !== undefined && (
-                        <div className="space-y-2 px-1">
-                          <div className="text-sm text-muted-foreground">교정 결과를 선택하세요:</div>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <button
+                    <Fragment key={index}>
+                      <div className="space-y-1.5 rounded-lg border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 text-sm font-medium">
+                            <HugeiconsIcon icon={AiMagicIcon} strokeWidth={2} className="size-4 text-primary" />
+                            페이지 {index + 1}
+                          </div>
+                          <div className="flex gap-0.5">
+                            <Button
                               type="button"
-                              className="rounded-lg border-2 border-transparent bg-muted/30 p-3 text-left transition-colors hover:border-muted-foreground/30"
-                              onClick={() => handleDismissSpellCheck(index)}
+                              size="xs"
+                              variant="ghost"
+                              onClick={() => handleSpellCheck(index)}
+                              aria-label="맞춤법 검사"
+                              disabled={!page.trim() || sc?.isLoading}
                             >
-                              <div className="mb-1 text-xs font-medium text-muted-foreground">원본 유지</div>
-                              <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                                {getOriginalParts(computeWordDiff(page, correctedText)).map((part, partIndex) => (
-                                  part.removed ? (
-                                    <span key={partIndex} className="rounded-sm bg-red-100 px-0.5 text-red-800 line-through">
-                                      {part.value}
-                                    </span>
-                                  ) : (
-                                    <span key={partIndex}>{part.value}</span>
-                                  )
-                                ))}
-                              </div>
-                            </button>
-                            <button
+                              {sc?.isLoading ? (
+                                <>
+                                  <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="animate-spin" data-icon="inline-start" />
+                                  검사 중
+                                </>
+                              ) : (
+                                <>
+                                  <HugeiconsIcon icon={TextCheckIcon} strokeWidth={2} data-icon="inline-start" />
+                                  맞춤법 검사
+                                </>
+                              )}
+                            </Button>
+                            <Button
                               type="button"
-                              className="rounded-lg border-2 border-primary/50 bg-primary/5 p-3 text-left transition-colors hover:border-primary"
-                              onClick={() => handleAcceptCorrection(index, correctedText)}
+                              size="icon-xs"
+                              variant="ghost"
+                              onClick={() => removeGeneratedPage(index)}
+                              aria-label="페이지 제거"
                             >
-                              <div className="mb-1 text-xs font-medium text-primary">교정 적용</div>
-                              <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                                {getCorrectedParts(computeWordDiff(page, correctedText)).map((part, partIndex) => (
-                                  part.added ? (
-                                    <span key={partIndex} className="rounded-sm bg-green-100 px-0.5 text-green-800">
-                                      {part.value}
-                                    </span>
-                                  ) : (
-                                    <span key={partIndex}>{part.value}</span>
-                                  )
-                                ))}
-                              </div>
-                            </button>
+                              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+                            </Button>
                           </div>
                         </div>
+                        <Textarea
+                          rows={Math.min(6, Math.max(3, page.split("\n").length + 1))}
+                          className="resize-none text-sm"
+                          value={page}
+                          onChange={(event) => updateGeneratedPage(index, event.target.value)}
+                        />
+
+                        {warnings.length > 0 && (
+                          <div className="flex flex-col gap-0.5 px-1">
+                            {warnings.map((warning) => (
+                              <p key={warning.type} className="text-sm text-amber-600">
+                                {warning.message}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        {sc?.error && (
+                          <div className="px-1 text-sm text-destructive">{sc.error}</div>
+                        )}
+
+                        {sc && !sc.isLoading && !sc.error && sc.correctedText === null && (
+                          <div className="px-1 text-sm text-green-600">맞춤법 오류가 없습니다!</div>
+                        )}
+
+                        {correctedText !== null && correctedText !== undefined && (
+                          <div className="space-y-2 px-1">
+                            <div className="text-sm text-muted-foreground">교정 결과를 선택하세요:</div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <button
+                                type="button"
+                                className="rounded-lg border-2 border-transparent bg-muted/30 p-3 text-left transition-colors hover:border-muted-foreground/30"
+                                onClick={() => handleDismissSpellCheck(index)}
+                              >
+                                <div className="mb-1 text-xs font-medium text-muted-foreground">원본 유지</div>
+                                <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                                  {getOriginalParts(computeWordDiff(page, correctedText)).map((part, partIndex) => (
+                                    part.removed ? (
+                                      <span key={partIndex} className="rounded-sm bg-red-100 px-0.5 text-red-800 line-through">
+                                        {part.value}
+                                      </span>
+                                    ) : (
+                                      <span key={partIndex}>{part.value}</span>
+                                    )
+                                  ))}
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-lg border-2 border-primary/50 bg-primary/5 p-3 text-left transition-colors hover:border-primary"
+                                onClick={() => handleAcceptCorrection(index, correctedText)}
+                              >
+                                <div className="mb-1 text-xs font-medium text-primary">교정 적용</div>
+                                <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                                  {getCorrectedParts(computeWordDiff(page, correctedText)).map((part, partIndex) => (
+                                    part.added ? (
+                                      <span key={partIndex} className="rounded-sm bg-green-100 px-0.5 text-green-800">
+                                        {part.value}
+                                      </span>
+                                    ) : (
+                                      <span key={partIndex}>{part.value}</span>
+                                    )
+                                  ))}
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {index < generatedLyrics.length - 1 && (
+                        <div className="-my-1 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => mergeGeneratedPages(index)}
+                            disabled={!canMergeLyricsPages(generatedLyrics[index], generatedLyrics[index + 1])}
+                            title={
+                              canMergeLyricsPages(generatedLyrics[index], generatedLyrics[index + 1])
+                                ? undefined
+                                : "합치면 글자 수 제한을 초과합니다"
+                            }
+                            className="text-muted-foreground hover:text-foreground hover:border-foreground flex items-center gap-1 rounded-md border border-dashed px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <HugeiconsIcon icon={ArrowShrink01Icon} strokeWidth={2} size={14} />
+                            합치기
+                          </button>
+                        </div>
                       )}
-                    </div>
+                    </Fragment>
                   )
                 })}
               </div>
