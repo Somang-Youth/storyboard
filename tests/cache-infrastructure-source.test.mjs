@@ -69,4 +69,12 @@ test('invalidation helpers use immediate action and route invalidation APIs', as
   assert.doesNotMatch(pdfExportBody, /cacheTags\.contis\(\)/);
   assert.doesNotMatch(pdfExportBody, /cacheTags\.conti\(contiId\)/);
   assert.doesNotMatch(pdfExportBody, /\binvalidateConti\(/);
+
+  // Conti PDF layout autosave must purge the tag for future reads WITHOUT a
+  // read-your-writes refresh. updateTag re-sends the currently-open export
+  // route's RSC to the client, which hands the editor new conti/existingExport
+  // prop references and forces a full rebuild mid-edit (the "keeps refreshing"
+  // bug). Use the non-refreshing expire path instead.
+  assert.match(pdfExportBody, /expireCacheTags\(/);
+  assert.doesNotMatch(pdfExportBody, /updateCacheTags\(/);
 });
