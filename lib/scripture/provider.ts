@@ -25,7 +25,7 @@ export function parseBskoreaChapterHtml(
 ): ScriptureVerse[] {
   const $ = cheerio.load(html);
   const verses: ScriptureVerse[] = [];
-  const seen = new Set<number>();
+  const seen = new Set<string>();
 
   $('.leftCont span').each((_, element) => {
     if ($(element).closest(BSKOREA_NOTE_SELECTOR).length > 0) return;
@@ -35,24 +35,33 @@ export function parseBskoreaChapterHtml(
     verseNode.find(BSKOREA_NOTE_SELECTOR).remove();
 
     const text = verseNode.text().replace(/\u00a0/g, ' ').trim();
-    const match = text.match(/^(\d+)\s+([\s\S]+)$/);
+    const match = text.match(/^(\d+)(?:\s*[-~–—]\s*(\d+))?\s+([\s\S]+)$/);
     if (!match) return;
 
-    const verse = Number.parseInt(match[1], 10);
-    if (!Number.isFinite(verse) || seen.has(verse)) return;
+    const verseStart = Number.parseInt(match[1], 10);
+    const verseEnd = match[2] ? Number.parseInt(match[2], 10) : verseStart;
+    if (
+      !Number.isFinite(verseStart) ||
+      !Number.isFinite(verseEnd) ||
+      verseStart < 1 ||
+      verseEnd < verseStart
+    ) return;
 
-    const verseText = cleanVerseText(match[2], verse);
+    const rangeKey = `${verseStart}:${verseEnd}`;
+    if (seen.has(rangeKey)) return;
+
+    const verseText = cleanVerseText(match[3], verseStart);
     if (!verseText) return;
 
-    seen.add(verse);
-    verses.push({ book, chapter, verse, text: verseText });
+    seen.add(rangeKey);
+    verses.push({ book, chapter, verseStart, verseEnd, text: verseText });
   });
 
   if (verses.length === 0) {
     throw new Error(`${book.abbreviation} ${chapter}장에서 본문을 찾지 못했습니다.`);
   }
 
-  return verses.sort((a, b) => a.verse - b.verse);
+  return verses.sort((a, b) => a.verseStart - b.verseStart || a.verseEnd - b.verseEnd);
 }
 
 async function fetchChapterHtml(book: ScriptureBook, chapter: number): Promise<string> {
@@ -109,34 +118,22 @@ function expectedStartVerse(reference: ScriptureReference, chapter: number): num
   return chapter === reference.start.chapter ? reference.start.verse : 1;
 }
 
-function expectedEndVerse(
-  reference: ScriptureReference,
-  chapter: number,
-  selectedVerses: ScriptureVerse[],
-): number {
-  if (chapter === reference.end.chapter) return reference.end.verse;
-  return selectedVerses[selectedVerses.length - 1]?.verse ?? expectedStartVerse(reference, chapter);
-}
-
 function validateParsedChapterVerses(
   reference: ScriptureReference,
   chapter: number,
   chapterVerses: ScriptureVerse[],
 ): void {
-  const verseNumbers = Array.from(
-    new Set(
-      chapterVerses
-        .filter((verse) => verse.chapter === chapter)
-        .map((verse) => verse.verse),
-    ),
-  ).sort((a, b) => a - b);
+  const sorted = chapterVerses
+    .filter((block) => block.chapter === chapter)
+    .sort((a, b) => a.verseStart - b.verseStart || a.verseEnd - b.verseEnd);
 
-  for (let index = 1; index < verseNumbers.length; index += 1) {
-    const previous = verseNumbers[index - 1];
-    const current = verseNumbers[index];
-    for (let verse = previous + 1; verse < current; verse += 1) {
-      throw missingVerseError(reference, chapter, verse);
+  let coveredEnd = sorted[0]?.verseEnd;
+  for (let index = 1; coveredEnd !== undefined && index < sorted.length; index += 1) {
+    const current = sorted[index];
+    if (current.verseStart > coveredEnd + 1) {
+      throw missingVerseError(reference, chapter, coveredEnd + 1);
     }
+    coveredEnd = Math.max(coveredEnd, current.verseEnd);
   }
 }
 
@@ -150,22 +147,28 @@ export function selectReferenceVerses(
     const chapterVerses = versesByChapter.get(chapter) ?? [];
     validateParsedChapterVerses(reference, chapter, chapterVerses);
 
+    const requestedStart = expectedStartVerse(reference, chapter);
+    const requestedEnd = chapter === reference.end.chapter
+      ? reference.end.verse
+      : Number.POSITIVE_INFINITY;
+
     const selectedVerses = chapterVerses
-      .filter((verse) => {
-        if (verse.chapter === reference.start.chapter && verse.verse < reference.start.verse) return false;
-        if (verse.chapter === reference.end.chapter && verse.verse > reference.end.verse) return false;
-        return true;
-      })
-      .sort((a, b) => a.verse - b.verse);
+      .filter((block) =>
+        block.chapter === chapter &&
+        block.verseEnd >= requestedStart &&
+        block.verseStart <= requestedEnd,
+      )
+      .sort((a, b) => a.verseStart - b.verseStart || a.verseEnd - b.verseEnd);
 
-    const startVerse = expectedStartVerse(reference, chapter);
-    const endVerse = expectedEndVerse(reference, chapter, selectedVerses);
-    const presentVerses = new Set(selectedVerses.map((verse) => verse.verse));
-
-    for (let verse = startVerse; verse <= endVerse; verse += 1) {
-      if (!presentVerses.has(verse)) {
-        throw missingVerseError(reference, chapter, verse);
-      }
+    const endVerse = chapter === reference.end.chapter
+      ? reference.end.verse
+      : selectedVerses[selectedVerses.length - 1]?.verseEnd ?? requestedStart;
+    const covered = new Set<number>();
+    for (const block of selectedVerses) {
+      for (let verse = block.verseStart; verse <= block.verseEnd; verse += 1) covered.add(verse);
+    }
+    for (let verse = requestedStart; verse <= endVerse; verse += 1) {
+      if (!covered.has(verse)) throw missingVerseError(reference, chapter, verse);
     }
 
     allVerses.push(...selectedVerses);
