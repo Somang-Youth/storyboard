@@ -5,6 +5,7 @@ const BSKOREA_LEGACY_URL = 'https://www.bskorea.or.kr/bible/korbibReadpage.php';
 const BSKOREA_REQUEST_TIMEOUT_MS = 10_000;
 const MAX_REFERENCE_CHAPTERS = 5;
 const BSKOREA_NOTE_SELECTOR = '[id^="D_"], .D1, .D2, .D3, .D4, .D5, .D6';
+const BSKOREA_MARKER_SELECTOR = 'a.comment';
 
 function cleanVerseText(value: string, verse?: number): string {
   const cleaned = value
@@ -30,6 +31,7 @@ export function parseBskoreaChapterHtml(
     if ($(element).closest(BSKOREA_NOTE_SELECTOR).length > 0) return;
 
     const verseNode = $(element).clone();
+    verseNode.find(BSKOREA_MARKER_SELECTOR).remove();
     verseNode.find(BSKOREA_NOTE_SELECTOR).remove();
 
     const text = verseNode.text().replace(/\u00a0/g, ' ').trim();
