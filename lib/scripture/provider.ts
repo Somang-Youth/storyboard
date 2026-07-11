@@ -45,7 +45,12 @@ export function parseBskoreaChapterHtml(
       !Number.isFinite(verseEnd) ||
       verseStart < 1 ||
       verseEnd < verseStart
-    ) return;
+    ) {
+      const sourceRange = match[2] ? `${match[1]}-${match[2]}` : match[1];
+      throw new Error(
+        `성경 본문의 절 범위가 올바르지 않습니다: ${book.abbreviation} ${chapter}:${sourceRange}`,
+      );
+    }
 
     const rangeKey = `${verseStart}:${verseEnd}`;
     if (seen.has(rangeKey)) return;

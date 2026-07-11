@@ -22,3 +22,14 @@ test('preserves existing colon notation behavior', () => {
     scripture: '롬 10:14~21',
   });
 });
+
+test('preserves unsupported cross-chapter Korean notation verbatim', () => {
+  for (const scripture of [
+    '로마서10장14절~11장2절',
+    '로마서 10장 14절~11장 2절',
+  ]) {
+    assert.deepEqual(extractWorshipData(`말씀: ${scripture}`), {
+      scripture,
+    });
+  }
+});
