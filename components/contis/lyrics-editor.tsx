@@ -4,17 +4,23 @@ import { useState, useRef, useEffect, Fragment } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Delete01Icon, TextCheckIcon, ScanImageIcon, Loading03Icon, ArrowUp01Icon, ArrowDown01Icon, AiMagicIcon } from "@hugeicons/core-free-icons"
+import { Add01Icon, ArrowShrink01Icon, Delete01Icon, TextCheckIcon, ScanImageIcon, Loading03Icon, ArrowUp01Icon, ArrowDown01Icon, AiMagicIcon } from "@hugeicons/core-free-icons"
 import { OcrRegionSelector } from "@/components/contis/ocr-region-selector"
 import { SheetMusicLyricsGeneratorDialog } from "@/components/contis/sheet-music-lyrics-generator-dialog"
 import { checkSpelling } from "@/lib/actions/spell-check"
 import { computeWordDiff, getOriginalParts, getCorrectedParts } from "@/lib/utils/text-diff"
 import type { SheetMusicFile } from "@/lib/types"
-import { validateLyricsPage } from "@/lib/utils/lyrics-validation"
+import { canMergeLyricsPages, mergeLyricsPages, validateLyricsPage } from "@/lib/utils/lyrics-validation"
 
 interface LyricsEditorProps {
   initialLyrics: string[]
-  onChange: (data: { lyrics: string[]; swappedPages?: [number, number]; insertedAt?: number }) => void
+  onChange: (data: {
+    lyrics: string[]
+    swappedPages?: [number, number]
+    insertedAt?: number
+    mergedAt?: number
+    removedAt?: number
+  }) => void
   sheetMusicFiles?: SheetMusicFile[]
   songName?: string
 }
@@ -38,6 +44,8 @@ export function LyricsEditor({
   const [spellCheck, setSpellCheck] = useState<Record<number, SpellCheckState>>({})
   const pendingSwapRef = useRef<[number, number] | null>(null)
   const pendingInsertRef = useRef<number | null>(null)
+  const pendingMergeRef = useRef<number | null>(null)
+  const pendingRemoveRef = useRef<number | null>(null)
 
   const onChangeRef = useRef(onChange)
   useEffect(() => {
@@ -54,9 +62,13 @@ export function LyricsEditor({
       lyrics,
       swappedPages: pendingSwapRef.current ?? undefined,
       insertedAt: pendingInsertRef.current ?? undefined,
+      mergedAt: pendingMergeRef.current ?? undefined,
+      removedAt: pendingRemoveRef.current ?? undefined,
     })
     pendingSwapRef.current = null
     pendingInsertRef.current = null
+    pendingMergeRef.current = null
+    pendingRemoveRef.current = null
   }, [lyrics])
 
   const addPage = () => {
@@ -80,6 +92,7 @@ export function LyricsEditor({
   }
 
   const removePage = (index: number) => {
+    pendingRemoveRef.current = index
     setLyrics(lyrics.filter((_, i) => i !== index))
     // Clean up spell check state for removed page and shift indices
     setSpellCheck(prev => {
@@ -88,6 +101,25 @@ export function LyricsEditor({
         const ki = Number(k)
         if (ki < index) next[ki] = v
         else if (ki > index) next[ki - 1] = v
+      }
+      return next
+    })
+  }
+
+  const mergePages = (index: number) => {
+    if (index < 0 || index + 1 >= lyrics.length) return
+    const merged = mergeLyricsPages(lyrics[index], lyrics[index + 1])
+    const newLyrics = [...lyrics]
+    newLyrics.splice(index, 2, merged)
+    pendingMergeRef.current = index
+    setLyrics(newLyrics)
+    setSpellCheck(prev => {
+      const next: Record<number, SpellCheckState> = {}
+      for (const [k, v] of Object.entries(prev)) {
+        const ki = Number(k)
+        if (ki < index) next[ki] = v
+        else if (ki === index || ki === index + 1) continue
+        else next[ki - 1] = v
       }
       return next
     })
@@ -335,7 +367,7 @@ export function LyricsEditor({
               )}
             </div>
             {index < lyrics.length - 1 && (
-              <div className="-my-1 flex justify-center">
+              <div className="-my-1 flex justify-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => insertPage(index + 1)}
@@ -343,6 +375,20 @@ export function LyricsEditor({
                 >
                   <HugeiconsIcon icon={Add01Icon} strokeWidth={2} size={14} />
                   삽입
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mergePages(index)}
+                  disabled={!canMergeLyricsPages(lyrics[index], lyrics[index + 1])}
+                  title={
+                    canMergeLyricsPages(lyrics[index], lyrics[index + 1])
+                      ? undefined
+                      : "합치면 글자 수 제한을 초과합니다"
+                  }
+                  className="text-muted-foreground hover:text-foreground hover:border-foreground flex items-center gap-1 rounded-md border border-dashed px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <HugeiconsIcon icon={ArrowShrink01Icon} strokeWidth={2} size={14} />
+                  합치기
                 </button>
               </div>
             )}

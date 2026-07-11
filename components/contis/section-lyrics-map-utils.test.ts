@@ -6,6 +6,8 @@ import {
   moveLyricsPageOccurrence,
   pruneInvalidLyricsPages,
   removeLyricsPageOccurrence,
+  shiftSectionLyricsMapForRemoval,
+  mergeSectionLyricsMapPages,
 } from "./section-lyrics-map-utils.ts"
 
 test("allows adding the same lyrics page to the same section more than once in click order", () => {
@@ -65,4 +67,35 @@ test("prunes invalid page indexes without deduping valid repeated indexes", () =
 
   assert.deepEqual(result, { 0: [0, 2, 0] })
   assert.deepEqual(initial, { 0: [0, 2, 0, 4], 1: [3] })
+})
+
+test("removal shifts later page indices down and drops the removed index", () => {
+  assert.deepEqual(
+    shiftSectionLyricsMapForRemoval({ 0: [0, 1], 1: [2, 3] }, 1),
+    { 0: [0], 1: [1, 2] },
+  )
+})
+
+test("removal drops sections left empty", () => {
+  assert.deepEqual(shiftSectionLyricsMapForRemoval({ 0: [1] }, 1), {})
+})
+
+test("merge maps the absorbed page onto the kept page and shifts the rest down", () => {
+  // keptIndex=2, absorbedIndex=3
+  assert.deepEqual(
+    mergeSectionLyricsMapPages({ 0: [2], 1: [3, 4] }, 2),
+    { 0: [2], 1: [2, 3] },
+  )
+})
+
+test("merge collapses an adjacent kept+absorbed reference into a single page", () => {
+  // 한 섹션이 합쳐질 두 페이지(2,3)에 걸쳐 있던 흔한 경우
+  assert.deepEqual(mergeSectionLyricsMapPages({ 0: [2, 3] }, 2), { 0: [2] })
+})
+
+test("merge preserves intentional repeats that are not the merge adjacency", () => {
+  assert.deepEqual(
+    mergeSectionLyricsMapPages({ 0: [2, 2], 1: [3, 3] }, 2),
+    { 0: [2, 2], 1: [2, 2] },
+  )
 })

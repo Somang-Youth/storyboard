@@ -5,6 +5,9 @@ import {
   normalizeGeneratedLyricsPage,
   normalizeGeneratedLyricsPages,
   validateLyricsPage,
+  flattenLyricsPageToLine,
+  canMergeLyricsPages,
+  mergeLyricsPages,
 } from "./lyrics-validation.ts"
 
 test("calculates Korean lyric visual length with PPT-derived weights", () => {
@@ -92,4 +95,44 @@ test("keeps normal two-line generated pages at their page boundary", () => {
       "어떻게 표현할 수 있나\n수많은 찬양들로",
     ],
   )
+})
+
+test("flattens a multi-line page into one space-joined line, dropping blanks", () => {
+  assert.equal(
+    flattenLyricsPageToLine("수많은 멜로디와\n찬양들을 드렸지만"),
+    "수많은 멜로디와 찬양들을 드렸지만",
+  )
+  assert.equal(flattenLyricsPageToLine("한 줄\n\n  다음 줄  "), "한 줄 다음 줄")
+  assert.equal(flattenLyricsPageToLine(""), "")
+})
+
+test("allows merge when both flattened lines fit the visual length limit", () => {
+  assert.equal(
+    canMergeLyricsPages(`${"가".repeat(10)}\n${"가".repeat(10)}`, "나".repeat(23)),
+    true,
+  )
+})
+
+test("blocks merge when a flattened line exceeds the visual length limit", () => {
+  // 두 번째 페이지 평탄화 = 24 > 23
+  assert.equal(
+    canMergeLyricsPages(`${"가".repeat(11)}\n${"가".repeat(11)}`, "나".repeat(24)),
+    false,
+  )
+  // 첫 페이지 평탄화 = 12 + 0.3 + 12 = 24.3 > 23
+  assert.equal(
+    canMergeLyricsPages(`${"가".repeat(12)}\n${"가".repeat(12)}`, "나"),
+    false,
+  )
+})
+
+test("merges two pages into a two-line page, one line each", () => {
+  assert.equal(
+    mergeLyricsPages("수많은 멜로디와\n찬양들을 드렸지만", "다시 고백하길\n원하네"),
+    "수많은 멜로디와 찬양들을 드렸지만\n다시 고백하길 원하네",
+  )
+})
+
+test("merging with an empty page yields a single-line page", () => {
+  assert.equal(mergeLyricsPages("주님은 나의 사랑", ""), "주님은 나의 사랑")
 })

@@ -26,6 +26,10 @@ import { PresetPdfEditor } from "@/components/songs/preset-pdf-editor"
 import { cn } from "@/lib/utils"
 import { normalizeYouTubeReference } from "@/lib/utils/youtube"
 import {
+  shiftSectionLyricsMapForRemoval,
+  mergeSectionLyricsMapPages,
+} from "@/components/contis/section-lyrics-map-utils"
+import {
   areArrangementDraftsEqual,
   cloneDraft,
 } from "./dirty-state"
@@ -303,6 +307,8 @@ export function ArrangementEditor({
     lyrics: string[]
     swappedPages?: [number, number]
     insertedAt?: number
+    mergedAt?: number
+    removedAt?: number
   }) {
     setDraft((current) => {
       let sectionLyricsMap = current.sectionLyricsMap
@@ -334,6 +340,14 @@ export function ArrangementEditor({
         sectionLyricsMap = nextMap
       }
 
+      if (data.removedAt !== undefined) {
+        sectionLyricsMap = shiftSectionLyricsMapForRemoval(sectionLyricsMap, data.removedAt)
+      }
+
+      if (data.mergedAt !== undefined) {
+        sectionLyricsMap = mergeSectionLyricsMapPages(sectionLyricsMap, data.mergedAt)
+      }
+
       return {
         ...current,
         lyrics: data.lyrics,
@@ -350,6 +364,9 @@ export function ArrangementEditor({
       toast.info(`페이지 ${data.insertedAt + 1} 위치에 빈 페이지가 삽입되어 매핑이 조정되었습니다`)
     }
 
+    if (data.mergedAt !== undefined) {
+      toast.info(`페이지 ${data.mergedAt + 1}, ${data.mergedAt + 2}가 하나로 합쳐졌습니다`)
+    }
   }
 
   function renderSheetMusicWorkspace() {
