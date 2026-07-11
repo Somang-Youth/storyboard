@@ -1,3 +1,5 @@
+import { normalizeScriptureNotation } from '@/lib/scripture/notation';
+
 const BIBLE_BOOK_MAP: Record<string, string> = {
   창세기: '창',
   출애굽기: '출',
@@ -100,7 +102,7 @@ function normalizeBookName(bookName: string): string | null {
 }
 
 function splitBookAndReference(input: string): { book: string; reference: string } | null {
-  const trimmed = input.trim();
+  const trimmed = normalizeScriptureNotation(input).trim();
   const spaceMatch = trimmed.match(/^(.+?)\s+(\d+.*)$/);
   if (spaceMatch) {
     return { book: spaceMatch[1], reference: spaceMatch[2] };

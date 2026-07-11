@@ -26,6 +26,7 @@ async function loadPreviewModule() {
   const sources = [
     ['types.ts', ''],
     ['books.ts', await readFile(new URL('./books.ts', import.meta.url), 'utf8')],
+    ['notation.ts', await readFile(new URL('./notation.ts', import.meta.url), 'utf8')],
     ['reference.ts', await readFile(new URL('./reference.ts', import.meta.url), 'utf8')],
     [
       'provider.ts',
@@ -46,6 +47,7 @@ async function loadPreviewModule() {
     const output = compiled.outputText
       .replaceAll("from './books';", "from './books.mjs';")
       .replaceAll("from './books.ts';", "from './books.mjs';")
+      .replaceAll("from './notation';", "from './notation.mjs';")
       .replaceAll("from './provider';", "from './provider.mjs';")
       .replaceAll("from './provider.ts';", "from './provider.mjs';")
       .replaceAll("from './reference';", "from './reference.mjs';")
@@ -106,11 +108,35 @@ test('rejects references with no fetched verses', async () => {
   );
 });
 
-function verse(reference: TestScriptureReference, verseNumber: number, text: string) {
+test('keeps the requested reference while labeling a combined returned block', async () => {
+  const { buildScripturePreview } = await loadPreviewModule();
+  const result = await buildScripturePreview('롬 9:1', async (reference: TestScriptureReference) => [
+    {
+      book: reference.book,
+      chapter: 9,
+      verseStart: 1,
+      verseEnd: 2,
+      text: '합쳐진 1절과 2절 본문',
+    },
+  ]);
+
+  assert.equal(result.reference, '롬 9:1');
+  assert.deepEqual(result.verses, [
+    { label: '롬 9:1-2', text: '합쳐진 1절과 2절 본문' },
+  ]);
+});
+
+function verse(
+  reference: TestScriptureReference,
+  verseStart: number,
+  text: string,
+  verseEnd = verseStart,
+) {
   return {
     book: reference.book,
     chapter: reference.start.chapter,
-    verse: verseNumber,
+    verseStart,
+    verseEnd,
     text,
   };
 }

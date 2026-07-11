@@ -19,7 +19,8 @@ export interface ScriptureReference {
 export interface ScriptureVerse {
   book: ScriptureBook;
   chapter: number;
-  verse: number;
+  verseStart: number;
+  verseEnd: number;
   text: string;
 }
 

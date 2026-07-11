@@ -1,8 +1,9 @@
 import { findScriptureBook } from './books';
-import type { ScripturePoint, ScriptureReference } from './types';
+import { normalizeScriptureNotation } from './notation';
+import type { ScripturePoint, ScriptureReference, ScriptureVerse } from './types';
 
 function splitBookAndRange(input: string): { book: string; range: string } {
-  const trimmed = input.trim().replace(/\s+/g, ' ');
+  const trimmed = normalizeScriptureNotation(input).trim().replace(/\s+/g, ' ');
   const withSpace = trimmed.match(/^(.+?)\s+(\d+.*)$/);
   if (withSpace) return { book: withSpace[1], range: withSpace[2] };
 
@@ -103,6 +104,10 @@ export function formatScriptureReference(reference: ScriptureReference): string 
   return `${book.abbreviation} ${formatPoint(start)}~${formatPoint(end)}`;
 }
 
-export function formatVerseLabel(reference: ScriptureReference, point: ScripturePoint): string {
-  return `${reference.book.abbreviation} ${formatPoint(point)}`;
+export function formatVerseLabel(reference: ScriptureReference, block: ScriptureVerse): string {
+  const start = `${block.chapter}:${block.verseStart}`;
+  if (block.verseStart === block.verseEnd) {
+    return `${reference.book.abbreviation} ${start}`;
+  }
+  return `${reference.book.abbreviation} ${start}-${block.verseEnd}`;
 }
