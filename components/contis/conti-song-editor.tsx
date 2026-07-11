@@ -5,37 +5,25 @@ import { useRouter } from "next/navigation"
 import {
   ArrangementEditor,
   type ArrangementDraft,
-  type ArrangementEditorPresetOption,
 } from "@/components/shared/arrangement-editor"
 import type { SheetMusicPreviewItem } from "@/components/shared/sheet-music-preview"
 import { SheetMusicUploader } from "@/components/songs/sheet-music-uploader"
 import { SheetMusicGallery } from "@/components/songs/sheet-music-gallery"
 import { updateContiSong, saveContiSongAsPreset } from "@/lib/actions/conti-songs"
-import {
-  getPresetSheetMusicFileIds,
-  getPresetsForSong,
-} from "@/lib/actions/song-presets"
+import { getPresetsForSongWithSheetMusic } from "@/lib/actions/song-presets"
 import { getSheetMusicForSong } from "@/lib/actions/sheet-music"
+import { songPresetToDraft } from "@/lib/utils/song-preset-draft"
 import { normalizeYouTubeReference, toYouTubeInputValue } from "@/lib/utils/youtube"
 import type {
   ContiSongWithSong,
+  ResolvedSongPresetWithSheetMusic,
   SheetMusicFile,
-  SongPreset,
 } from "@/lib/types"
 
 interface ContiSongEditorProps {
   contiSong: ContiSongWithSong
   open: boolean
   onOpenChange: (open: boolean) => void
-}
-
-function parseJsonField<T>(field: string | null, fallback: T): T {
-  if (!field) return fallback
-  try {
-    return JSON.parse(field) as T
-  } catch {
-    return fallback
-  }
 }
 
 function contiSongToDraft(contiSong: ContiSongWithSong): ArrangementDraft {
@@ -54,29 +42,6 @@ function contiSongToDraft(contiSong: ContiSongWithSong): ArrangementDraft {
     youtubeTitle: contiSong.appliedPreset?.youtubeTitle ?? null,
     isDefault: false,
     appliedPresetId: contiSong.overrides.presetId,
-  }
-}
-
-function presetToDraft(
-  preset: ArrangementEditorPresetOption,
-  sheetMusicFileIds: string[],
-  songName: string,
-): ArrangementDraft {
-  return {
-    name: songName,
-    displayTitle: null,
-    keys: parseJsonField<string[]>(preset.keys, []),
-    tempos: parseJsonField<number[]>(preset.tempos, []),
-    sectionOrder: parseJsonField<string[]>(preset.sectionOrder, []),
-    lyrics: parseJsonField<string[]>(preset.lyrics, []),
-    sectionLyricsMap: parseJsonField<Record<number, number[]>>(preset.sectionLyricsMap, {}),
-    notes: preset.notes,
-    sheetMusicFileIds: sheetMusicFileIds.length > 0 ? sheetMusicFileIds : null,
-    pdfMetadata: parseJsonField(preset.pdfMetadata, null),
-    youtubeReference: toYouTubeInputValue(preset.youtubeReference),
-    youtubeTitle: preset.youtubeTitle ?? null,
-    isDefault: false,
-    appliedPresetId: preset.id,
   }
 }
 
@@ -102,7 +67,7 @@ export function ContiSongEditor({
   onOpenChange,
 }: ContiSongEditorProps) {
   const router = useRouter()
-  const [presets, setPresets] = useState<SongPreset[]>([])
+  const [presets, setPresets] = useState<ResolvedSongPresetWithSheetMusic[]>([])
   const [songSheetMusic, setSongSheetMusic] = useState<SheetMusicFile[]>([])
   const [sheetMusicLoading, setSheetMusicLoading] = useState(false)
   const [sheetMusicPreviewLoading, setSheetMusicPreviewLoading] = useState(false)
@@ -116,7 +81,7 @@ export function ContiSongEditor({
 
   const refreshPresets = useCallback(async () => {
     const songId = contiSong.songId
-    const result = await getPresetsForSong(songId)
+    const result = await getPresetsForSongWithSheetMusic(songId)
     if (currentSongIdRef.current !== songId) {
       return []
     }
@@ -238,13 +203,15 @@ export function ContiSongEditor({
           )}
         </div>
       }
-      presetOptions={presets as ArrangementEditorPresetOption[]}
+      presetOptions={presets}
       savingLabel="이 콘티에만 저장"
       onOpenChange={onOpenChange}
-      onLoadPreset={async (preset) => {
-        const fileIds = await getPresetSheetMusicFileIds(preset.id)
-        return presetToDraft(preset, fileIds, contiSong.song.name)
-      }}
+      onLoadPreset={async (preset) => ({
+        ...songPresetToDraft(preset),
+        name: contiSong.song.name,
+        displayTitle: null,
+        isDefault: false,
+      })}
       onSave={async (draft) => {
         const result = await updateContiSong(
           contiSong.id,

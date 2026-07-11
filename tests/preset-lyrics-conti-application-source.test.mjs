@@ -36,3 +36,19 @@ test("server conti application hydrates presets before conversion", async () => 
     /appliedPresetOverrides = songPresetToContiOverrides\(preset\)/,
   )
 })
+
+test("conti clients consume resolved preset lyrics", async () => {
+  const [picker, editor] = await Promise.all([
+    read("components/contis/song-picker.tsx"),
+    read("components/contis/conti-song-editor.tsx"),
+  ])
+
+  for (const source of [picker, editor]) {
+    assert.match(source, /getPresetsForSongWithSheetMusic/)
+    assert.doesNotMatch(source, /getPresetSheetMusicFileIds/)
+    assert.doesNotMatch(source, /preset\.lyrics/)
+  }
+
+  assert.match(picker, /songPresetToContiOverrides/)
+  assert.match(editor, /songPresetToDraft/)
+})
