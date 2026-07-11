@@ -23,3 +23,16 @@ test("resolved preset actions expose the resolved DTO", async () => {
   assert.match(types, /Promise<ResolvedSongPresetWithSheetMusic \| null>/)
   assert.match(actions, /ActionResult<ResolvedSongPresetWithSheetMusic\[\]>/)
 })
+
+test("server conti application hydrates presets before conversion", async () => {
+  const repository = await read("lib/repositories/storyboard/turso-repository.ts")
+
+  assert.match(
+    repository,
+    /getPresetOverridesForSong[\s\S]*hydrateSongPreset[\s\S]*songPresetToContiOverrides/,
+  )
+  assert.doesNotMatch(
+    repository,
+    /appliedPresetOverrides = songPresetToContiOverrides\(preset\)/,
+  )
+})

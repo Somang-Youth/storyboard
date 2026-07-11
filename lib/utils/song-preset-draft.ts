@@ -1,5 +1,9 @@
 import type { ArrangementDraft } from "../../components/shared/arrangement-editor/types.ts"
-import type { PresetPdfMetadata, SongPresetData, SongPresetWithSheetMusic } from "../types.ts"
+import type {
+  PresetPdfMetadata,
+  ResolvedSongPresetWithSheetMusic,
+  SongPresetData,
+} from "../types.ts"
 import { normalizeYouTubeReference, toYouTubeInputValue } from "./youtube.ts"
 
 function parseJsonField<T>(field: string | null, fallback: T): T {
@@ -11,22 +15,16 @@ function parseJsonField<T>(field: string | null, fallback: T): T {
   }
 }
 
-function getPresetLyrics(preset: SongPresetWithSheetMusic | undefined): string[] {
-  const lyrics = parseJsonField<string[]>(preset?.lyrics ?? null, [])
-  if (lyrics.length > 0) return lyrics
-  if (preset?.presetType === "single") return preset.songLyrics ?? []
-  if (preset?.presetType === "mashup") return preset.fallbackLyrics ?? []
-  return lyrics
-}
-
-export function songPresetToDraft(preset: SongPresetWithSheetMusic | undefined): ArrangementDraft {
+export function songPresetToDraft(
+  preset: ResolvedSongPresetWithSheetMusic | undefined,
+): ArrangementDraft {
   return {
     name: preset?.name ?? "",
     displayTitle: preset?.displayTitle ?? null,
     keys: parseJsonField<string[]>(preset?.keys ?? null, []),
     tempos: parseJsonField<number[]>(preset?.tempos ?? null, []),
     sectionOrder: parseJsonField<string[]>(preset?.sectionOrder ?? null, []),
-    lyrics: getPresetLyrics(preset),
+    lyrics: preset?.resolvedLyrics ? [...preset.resolvedLyrics] : [],
     sectionLyricsMap: parseJsonField<Record<number, number[]>>(preset?.sectionLyricsMap ?? null, {}),
     notes: preset?.notes ?? null,
     sheetMusicFileIds: preset?.sheetMusicFileIds?.length ? preset.sheetMusicFileIds : null,

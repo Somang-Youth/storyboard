@@ -295,16 +295,11 @@ async function getPresetOverridesForSong(presetId: string, songId: string): Prom
 
   if (presetRows.length === 0) return null;
 
-  const sheetMusicRows = await tursoDb
-    .select({ sheetMusicFileId: presetSheetMusic.sheetMusicFileId })
-    .from(presetSheetMusic)
-    .where(eq(presetSheetMusic.presetId, presetId))
-    .orderBy(presetSheetMusic.sortOrder);
-
-  return songPresetToContiOverrides(
+  const preset = await hydrateSongPreset(
     mapSongPreset(presetRows[0].song_presets),
-    sheetMusicRows.map((row) => row.sheetMusicFileId),
   );
+
+  return songPresetToContiOverrides(preset, preset.sheetMusicFileIds);
 }
 
 async function getPresetEditorSheetMusicRows(
@@ -1116,7 +1111,6 @@ export const tursoStoryboardRepository: StoryboardRepository = {
             youtubeTitle: item.title,
           });
           appliedPresetId = preset.id;
-          appliedPresetOverrides = songPresetToContiOverrides(preset);
         } else if (item.songId && item.presetId) {
           appliedPresetOverrides = await getPresetOverridesForSong(item.presetId, resolvedSongId);
           if (!appliedPresetOverrides) {
@@ -1133,7 +1127,6 @@ export const tursoStoryboardRepository: StoryboardRepository = {
             youtubeTitle: item.title,
           });
           appliedPresetId = preset.id;
-          appliedPresetOverrides = songPresetToContiOverrides(preset);
         }
       }
 
