@@ -110,12 +110,12 @@ test("songPresetToDraft uses server-resolved lyrics instead of raw storage", () 
     ...preset,
     presetType: "single",
     lyrics: JSON.stringify([]),
-    songLyrics: ["canonical page"],
-    resolvedLyrics: ["canonical page"],
+    songLyrics: ["canonical fallback page"],
+    resolvedLyrics: ["server-resolved page"],
     lyricsSource: "song",
   })
 
-  assert.deepEqual(draft.lyrics, ["canonical page"])
+  assert.deepEqual(draft.lyrics, ["server-resolved page"])
 })
 
 test("missing preset pdf metadata is normalized to null in the editor draft", () => {
