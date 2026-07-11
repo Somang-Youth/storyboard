@@ -1,8 +1,9 @@
 import { findScriptureBook } from './books';
+import { normalizeScriptureNotation } from './notation';
 import type { ScripturePoint, ScriptureReference } from './types';
 
 function splitBookAndRange(input: string): { book: string; range: string } {
-  const trimmed = input.trim().replace(/\s+/g, ' ');
+  const trimmed = normalizeScriptureNotation(input).trim().replace(/\s+/g, ' ');
   const withSpace = trimmed.match(/^(.+?)\s+(\d+.*)$/);
   if (withSpace) return { book: withSpace[1], range: withSpace[2] };
 

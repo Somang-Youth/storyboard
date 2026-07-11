@@ -26,6 +26,7 @@ async function loadPreviewModule() {
   const sources = [
     ['types.ts', ''],
     ['books.ts', await readFile(new URL('./books.ts', import.meta.url), 'utf8')],
+    ['notation.ts', await readFile(new URL('./notation.ts', import.meta.url), 'utf8')],
     ['reference.ts', await readFile(new URL('./reference.ts', import.meta.url), 'utf8')],
     [
       'provider.ts',
@@ -46,6 +47,7 @@ async function loadPreviewModule() {
     const output = compiled.outputText
       .replaceAll("from './books';", "from './books.mjs';")
       .replaceAll("from './books.ts';", "from './books.mjs';")
+      .replaceAll("from './notation';", "from './notation.mjs';")
       .replaceAll("from './provider';", "from './provider.mjs';")
       .replaceAll("from './provider.ts';", "from './provider.mjs';")
       .replaceAll("from './reference';", "from './reference.mjs';")
