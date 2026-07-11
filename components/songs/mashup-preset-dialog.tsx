@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { createMashupPreset, findMashupPresetBySongs } from "@/lib/actions/song-presets"
-import type { Song, SongPresetWithSheetMusic } from "@/lib/types"
+import type { ResolvedSongPresetWithSheetMusic, Song } from "@/lib/types"
 import { buildBlankMashupPresetData } from "@/lib/utils/mashup-presets"
 import { cn } from "@/lib/utils"
 
@@ -26,7 +26,7 @@ interface MashupPresetDialogProps {
   allSongs: Song[]
   open: boolean
   onOpenChange: (open: boolean) => void
-  onPresetReady: (preset: SongPresetWithSheetMusic) => void
+  onPresetReady: (preset: ResolvedSongPresetWithSheetMusic) => void
 }
 
 type CurrentSongPosition = "first" | "second"

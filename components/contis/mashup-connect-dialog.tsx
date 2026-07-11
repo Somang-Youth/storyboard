@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { applyMashupToContiSongs } from "@/lib/actions/conti-songs"
 import { createMashupPreset, findMashupPresetBySongs } from "@/lib/actions/song-presets"
-import type { ContiSongWithSong, SongPresetWithSheetMusic } from "@/lib/types"
+import type { ContiSongWithSong, ResolvedSongPresetWithSheetMusic } from "@/lib/types"
 import { buildBlankMashupPresetData } from "@/lib/utils/mashup-presets"
 
 interface MashupConnectDialogProps {
@@ -31,7 +31,7 @@ interface MashupConnectDialogProps {
 type PresetCheckState =
   | { status: "idle" | "loading" }
   | { status: "error"; message: string }
-  | { status: "found"; preset: SongPresetWithSheetMusic }
+  | { status: "found"; preset: ResolvedSongPresetWithSheetMusic }
   | { status: "empty" }
 
 export function MashupConnectDialog({

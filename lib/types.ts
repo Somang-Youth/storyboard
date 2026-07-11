@@ -136,7 +136,7 @@ export interface SongPresetData {
 
 export interface SongWithSheetMusic extends Song {
   sheetMusic: SheetMusicFile[];
-  presets?: SongPresetWithSheetMusic[];
+  presets?: ResolvedSongPresetWithSheetMusic[];
 }
 
 export type PresetLyricsSource =

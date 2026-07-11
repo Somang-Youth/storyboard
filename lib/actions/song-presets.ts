@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { ActionResult, SongPreset, SongPresetData, SongPresetWithSheetMusic } from '@/lib/types';
+import type { ActionResult, ResolvedSongPresetWithSheetMusic, SongPreset, SongPresetData } from '@/lib/types';
 import { invalidateSongPresets } from '@/lib/cache/invalidation';
 import { getSongPresets, getSongPresetsWithSheetMusic } from '@/lib/queries/songs';
 import { resolveYouTubeReferenceMetadata } from '@/lib/actions/youtube-metadata';
@@ -71,7 +71,7 @@ export async function createSongPreset(songId: string, data: SongPresetData): Pr
 export async function findMashupPresetBySongs(
   firstSongId: string,
   secondSongId: string,
-): Promise<ActionResult<SongPresetWithSheetMusic | null>> {
+): Promise<ActionResult<ResolvedSongPresetWithSheetMusic | null>> {
   try {
     const preset = await getStoryboardRepository().findMashupPresetBySongs([firstSongId, secondSongId]);
     return { success: true, data: preset };
@@ -83,7 +83,7 @@ export async function findMashupPresetBySongs(
 export async function createMashupPreset(
   songIds: [string, string],
   data: SongPresetData,
-): Promise<ActionResult<SongPresetWithSheetMusic>> {
+): Promise<ActionResult<ResolvedSongPresetWithSheetMusic>> {
   try {
     const validation = createMashupPresetSchema.safeParse({ songIds, data });
     if (!validation.success) {
@@ -224,7 +224,7 @@ export async function getPresetSheetMusicFileIds(presetId: string): Promise<stri
   return await getStoryboardRepository().getPresetSheetMusicFileIds(presetId);
 }
 
-export async function getPresetsForSongWithSheetMusic(songId: string): Promise<ActionResult<SongPresetWithSheetMusic[]>> {
+export async function getPresetsForSongWithSheetMusic(songId: string): Promise<ActionResult<ResolvedSongPresetWithSheetMusic[]>> {
   try {
     const presets = await getSongPresetsWithSheetMusic(songId);
     return { success: true, data: presets };
@@ -233,7 +233,7 @@ export async function getPresetsForSongWithSheetMusic(songId: string): Promise<A
   }
 }
 
-export async function getSongPresetWithSheetMusic(presetId: string): Promise<ActionResult<SongPresetWithSheetMusic>> {
+export async function getSongPresetWithSheetMusic(presetId: string): Promise<ActionResult<ResolvedSongPresetWithSheetMusic>> {
   try {
     const preset = await getStoryboardRepository().getSongPresetWithSheetMusic(presetId);
     if (!preset) {
