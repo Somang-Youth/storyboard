@@ -8,13 +8,13 @@ import type {
   ContiWithSongsAndSheetMusic,
   PdfLayoutState,
   PresetPdfMetadata,
+  ResolvedSongPresetWithSheetMusic,
   SheetMusicFile,
   Song,
   SongPageImage,
   SongPreset,
   SongPresetData,
   SongPresetMember,
-  SongPresetWithSheetMusic,
   SongWithSheetMusic,
 } from '@/lib/types';
 import type { SongPresetType } from '@/lib/song-preset-types';
@@ -233,10 +233,10 @@ export interface StoryboardRepository {
   getSongs(): Promise<Song[]>;
   getSong(id: string): Promise<SongWithSheetMusic | null>;
   getSongPresets(songId: string): Promise<SongPreset[]>;
-  getSongPresetsWithSheetMusic(songId: string): Promise<SongPresetWithSheetMusic[]>;
-  getSongPresetWithSheetMusic(presetId: string): Promise<SongPresetWithSheetMusic | null>;
+  getSongPresetsWithSheetMusic(songId: string): Promise<ResolvedSongPresetWithSheetMusic[]>;
+  getSongPresetWithSheetMusic(presetId: string): Promise<ResolvedSongPresetWithSheetMusic | null>;
   getPresetMembers(presetId: string): Promise<SongPresetMember[]>;
-  findMashupPresetBySongs(songIds: [string, string]): Promise<SongPresetWithSheetMusic | null>;
+  findMashupPresetBySongs(songIds: [string, string]): Promise<ResolvedSongPresetWithSheetMusic | null>;
   getPresetSheetMusicFileIds(presetId: string): Promise<string[]>;
   searchSongs(query: string): Promise<Song[]>;
   getContis(): Promise<Conti[]>;

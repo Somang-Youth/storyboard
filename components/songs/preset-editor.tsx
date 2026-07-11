@@ -12,16 +12,16 @@ import {
 } from "@/lib/utils/song-preset-draft"
 import { buildPresetEditorSheetMusic } from "@/lib/utils/preset-editor-sheet-music"
 import type {
+  ResolvedSongPresetWithSheetMusic,
   SheetMusicFile,
   SongPresetData,
-  SongPresetWithSheetMusic,
 } from "@/lib/types"
 import type { ArrangementEditorSaveOptions } from "@/components/shared/arrangement-editor/types"
 
 interface PresetEditorProps {
   songId: string
   songLyrics: string[]
-  preset?: SongPresetWithSheetMusic
+  preset?: ResolvedSongPresetWithSheetMusic
   sheetMusic: SheetMusicFile[]
   open: boolean
   onOpenChange: (open: boolean) => void

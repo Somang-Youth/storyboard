@@ -22,13 +22,13 @@ import { deleteSongPreset, setDefaultPreset } from "@/lib/actions/song-presets"
 import { cn } from "@/lib/utils"
 import { MashupPresetDialog } from "./mashup-preset-dialog"
 import { PresetEditor } from "./preset-editor"
-import type { Song, SongPresetWithSheetMusic, SheetMusicFile } from "@/lib/types"
+import type { ResolvedSongPresetWithSheetMusic, SheetMusicFile, Song } from "@/lib/types"
 
 interface PresetListProps {
   songId: string
   songName: string
   songLyrics: string[]
-  presets: SongPresetWithSheetMusic[]
+  presets: ResolvedSongPresetWithSheetMusic[]
   sheetMusic: SheetMusicFile[]
   allSongs: Song[]
 }
@@ -37,7 +37,9 @@ export function PresetList({ songId, songName, songLyrics, presets, sheetMusic, 
   const router = useRouter()
   const [editorOpen, setEditorOpen] = useState(false)
   const [mashupDialogOpen, setMashupDialogOpen] = useState(false)
-  const [editingPreset, setEditingPreset] = useState<SongPresetWithSheetMusic | undefined>()
+  const [editingPreset, setEditingPreset] = useState<
+    ResolvedSongPresetWithSheetMusic | undefined
+  >()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingPresetId, setDeletingPresetId] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
@@ -63,12 +65,14 @@ export function PresetList({ songId, songName, songLyrics, presets, sheetMusic, 
     setEditorOpen(true)
   }
 
-  const handleMashupPresetReady = (preset: SongPresetWithSheetMusic) => {
+  const handleMashupPresetReady = (
+    preset: ResolvedSongPresetWithSheetMusic,
+  ) => {
     setEditingPreset(preset)
     setEditorOpen(true)
   }
 
-  const handleEditClick = (preset: SongPresetWithSheetMusic) => {
+  const handleEditClick = (preset: ResolvedSongPresetWithSheetMusic) => {
     setEditingPreset(preset)
     setEditorOpen(true)
   }

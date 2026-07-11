@@ -7,7 +7,8 @@ const preset = {
   keys: JSON.stringify(["G", "A"]),
   tempos: JSON.stringify([72, 84]),
   sectionOrder: JSON.stringify(["Intro", "V", "C"]),
-  lyrics: JSON.stringify(["line 1", "line 2"]),
+  lyrics: JSON.stringify([]),
+  resolvedLyrics: ["line 1", "line 2"],
   sectionLyricsMap: JSON.stringify({ 0: [0], 2: [1] }),
   notes: "soft intro",
 }

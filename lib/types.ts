@@ -136,8 +136,15 @@ export interface SongPresetData {
 
 export interface SongWithSheetMusic extends Song {
   sheetMusic: SheetMusicFile[];
-  presets?: SongPresetWithSheetMusic[];
+  presets?: ResolvedSongPresetWithSheetMusic[];
 }
+
+export type PresetLyricsSource =
+  | "preset-override"
+  | "song"
+  | "mashup-snapshot"
+  | "mashup-fallback"
+  | "empty"
 
 export interface SongPresetWithSheetMusic extends SongPreset {
   sheetMusicFileIds: string[];
@@ -145,6 +152,11 @@ export interface SongPresetWithSheetMusic extends SongPreset {
   availableSheetMusic?: SheetMusicFile[];
   songLyrics?: string[];
   fallbackLyrics?: string[];
+}
+
+export interface ResolvedSongPresetWithSheetMusic extends SongPresetWithSheetMusic {
+  resolvedLyrics: string[]
+  lyricsSource: PresetLyricsSource
 }
 
 export interface ContiSongWithSong extends ContiSong {

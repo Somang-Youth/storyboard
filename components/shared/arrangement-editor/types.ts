@@ -1,6 +1,11 @@
 import type { ReactNode } from "react"
 import type { SheetMusicPreviewItem } from "@/components/shared/sheet-music-preview"
-import type { PresetPdfMetadata, SheetMusicFile, SongPreset } from "@/lib/types"
+import type {
+  PresetPdfMetadata,
+  ResolvedSongPresetWithSheetMusic,
+  SheetMusicFile,
+  SongPreset,
+} from "@/lib/types"
 
 export interface ArrangementDraft {
   name: string
@@ -20,9 +25,7 @@ export interface ArrangementDraft {
   appliedPresetId: string | null
 }
 
-export interface ArrangementEditorPresetOption extends SongPreset {
-  sheetMusicFileIds?: string[]
-}
+export type ArrangementEditorPresetOption = ResolvedSongPresetWithSheetMusic
 
 export type ArrangementEditorMode = "conti-song" | "preset"
 

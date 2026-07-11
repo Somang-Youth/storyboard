@@ -1,12 +1,12 @@
 import assert from "node:assert/strict"
 import { test } from "vitest"
-import type { SongPresetWithSheetMusic } from "../types.ts"
+import type { ResolvedSongPresetWithSheetMusic } from "../types.ts"
 import {
   arrangementDraftToSongPresetData,
   songPresetToDraft,
 } from "./song-preset-draft.ts"
 
-const preset: SongPresetWithSheetMusic = {
+const preset: ResolvedSongPresetWithSheetMusic = {
   id: "preset-1",
   songId: "song-1",
   presetType: "mashup",
@@ -52,6 +52,8 @@ const preset: SongPresetWithSheetMusic = {
       songName: "부르심",
     },
   ],
+  resolvedLyrics: ["line 1", "line 2"],
+  lyricsSource: "mashup-snapshot",
 }
 
 test("songPresetToDraft restores all arrangement fields", () => {
@@ -103,35 +105,17 @@ test("empty preset sheet music rows mean all sheet music in the editor", () => {
   assert.equal(draft.sheetMusicFileIds, null)
 })
 
-test("songPresetToDraft uses mashup fallback lyrics when preset lyrics are empty", () => {
-  const draft = songPresetToDraft({
-    ...preset,
-    lyrics: JSON.stringify([]),
-    fallbackLyrics: ["first song page", "second song page"],
-  })
-
-  assert.deepEqual(draft.lyrics, ["first song page", "second song page"])
-})
-
-test("songPresetToDraft uses song lyrics fallback for single presets", () => {
+test("songPresetToDraft uses server-resolved lyrics instead of raw storage", () => {
   const draft = songPresetToDraft({
     ...preset,
     presetType: "single",
     lyrics: JSON.stringify([]),
-    songLyrics: ["song page 1", "song page 2"],
-    fallbackLyrics: ["mashup fallback page"],
+    songLyrics: ["canonical fallback page"],
+    resolvedLyrics: ["server-resolved page"],
+    lyricsSource: "song",
   })
 
-  assert.deepEqual(draft.lyrics, ["song page 1", "song page 2"])
-})
-
-test("songPresetToDraft keeps saved lyrics before mashup fallback lyrics", () => {
-  const draft = songPresetToDraft({
-    ...preset,
-    fallbackLyrics: ["fallback page"],
-  })
-
-  assert.deepEqual(draft.lyrics, ["line 1", "line 2"])
+  assert.deepEqual(draft.lyrics, ["server-resolved page"])
 })
 
 test("missing preset pdf metadata is normalized to null in the editor draft", () => {

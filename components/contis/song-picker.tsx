@@ -12,8 +12,13 @@ import { Input } from "@/components/ui/input"
 import { YouTubeReferenceLink } from "@/components/shared/youtube-reference-link"
 import { addSongToConti } from "@/lib/actions/conti-songs"
 import { createSong } from "@/lib/actions/songs"
-import { getPresetsForSong, getPresetSheetMusicFileIds } from "@/lib/actions/song-presets"
-import type { Song, SongPreset, ContiSongOverrides } from "@/lib/types"
+import { getPresetsForSongWithSheetMusic } from "@/lib/actions/song-presets"
+import { songPresetToContiOverrides } from "@/lib/utils/preset-overrides"
+import type {
+  ContiSongOverrides,
+  ResolvedSongPresetWithSheetMusic,
+  Song,
+} from "@/lib/types"
 
 interface SongPickerProps {
   contiId: string
@@ -33,7 +38,7 @@ export function SongPicker({
   const [search, setSearch] = useState("")
   const [isPending, startTransition] = useTransition()
   const [selectedSong, setSelectedSong] = useState<Song | null>(null)
-  const [presets, setPresets] = useState<SongPreset[]>([])
+  const [presets, setPresets] = useState<ResolvedSongPresetWithSheetMusic[]>([])
   const [showPresetStep, setShowPresetStep] = useState(false)
 
   const availableSongs = useMemo(() => {
@@ -64,23 +69,14 @@ export function SongPicker({
 
   function handleSongClick(song: Song) {
     startTransition(async () => {
-      const result = await getPresetsForSong(song.id)
+      const result = await getPresetsForSongWithSheetMusic(song.id)
       if (result.success && result.data && result.data.length > 0) {
-        // Check for default preset
-        const defaultPreset = result.data.find(p => p.isDefault)
+        const defaultPreset = result.data.find((preset) => preset.isDefault)
         if (defaultPreset) {
-          // Auto-apply default preset
-          const sheetMusicFileIds = await getPresetSheetMusicFileIds(defaultPreset.id)
-          const overrides: Partial<ContiSongOverrides> = {
-            keys: defaultPreset.keys ? JSON.parse(defaultPreset.keys) : [],
-            tempos: defaultPreset.tempos ? JSON.parse(defaultPreset.tempos) : [],
-            sectionOrder: defaultPreset.sectionOrder ? JSON.parse(defaultPreset.sectionOrder) : [],
-            lyrics: defaultPreset.lyrics ? JSON.parse(defaultPreset.lyrics) : [],
-            sectionLyricsMap: defaultPreset.sectionLyricsMap ? JSON.parse(defaultPreset.sectionLyricsMap) : {},
-            notes: defaultPreset.notes,
-            sheetMusicFileIds: sheetMusicFileIds.length > 0 ? sheetMusicFileIds : null,
-            presetId: defaultPreset.id,
-          }
+          const overrides = songPresetToContiOverrides(
+            defaultPreset,
+            defaultPreset.sheetMusicFileIds,
+          )
           const addResult = await addSongToConti(contiId, song.id, overrides)
           if (addResult.success) {
             toast.success(`"${defaultPreset.name}" 프리셋이 적용되었습니다`)
@@ -90,36 +86,31 @@ export function SongPicker({
             toast.error(addResult.error ?? "곡 추가 중 오류가 발생했습니다")
           }
         } else {
-          // No default -- show preset picker (existing behavior)
           setSelectedSong(song)
           setPresets(result.data)
           setShowPresetStep(true)
         }
       } else {
-        // No presets -- add directly (existing behavior)
         handleSelect(song.id)
       }
     })
   }
 
-  function handlePresetSelect(preset: SongPreset | null) {
+  function handlePresetSelect(
+    preset: ResolvedSongPresetWithSheetMusic | null,
+  ) {
     if (!selectedSong) return
+
     startTransition(async () => {
-      let overrides: Partial<ContiSongOverrides> | undefined
-      if (preset) {
-        const sheetMusicFileIds = await getPresetSheetMusicFileIds(preset.id)
-        overrides = {
-          keys: preset.keys ? JSON.parse(preset.keys) : [],
-          tempos: preset.tempos ? JSON.parse(preset.tempos) : [],
-          sectionOrder: preset.sectionOrder ? JSON.parse(preset.sectionOrder) : [],
-          lyrics: preset.lyrics ? JSON.parse(preset.lyrics) : [],
-          sectionLyricsMap: preset.sectionLyricsMap ? JSON.parse(preset.sectionLyricsMap) : {},
-          notes: preset.notes,
-          sheetMusicFileIds: sheetMusicFileIds.length > 0 ? sheetMusicFileIds : null,
-          presetId: preset.id,
-        }
-      }
-      const result = await addSongToConti(contiId, selectedSong.id, overrides)
+      const overrides: Partial<ContiSongOverrides> | undefined = preset
+        ? songPresetToContiOverrides(preset, preset.sheetMusicFileIds)
+        : undefined
+      const result = await addSongToConti(
+        contiId,
+        selectedSong.id,
+        overrides,
+      )
+
       if (result.success) {
         toast.success("곡이 추가되었습니다")
         onOpenChange(false)

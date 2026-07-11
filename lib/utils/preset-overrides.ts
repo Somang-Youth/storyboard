@@ -1,12 +1,15 @@
-import type { ContiSongOverrides, SongPreset } from "../types"
+import type {
+  ContiSongOverrides,
+  ResolvedSongPresetWithSheetMusic,
+} from "../types"
 
 type PresetArrangementSource = Pick<
-  SongPreset,
+  ResolvedSongPresetWithSheetMusic,
   | "id"
   | "keys"
   | "tempos"
   | "sectionOrder"
-  | "lyrics"
+  | "resolvedLyrics"
   | "sectionLyricsMap"
   | "notes"
 >
@@ -28,7 +31,7 @@ export function songPresetToContiOverrides(
     keys: parseJsonField<string[]>(preset.keys, []),
     tempos: parseJsonField<number[]>(preset.tempos, []),
     sectionOrder: parseJsonField<string[]>(preset.sectionOrder, []),
-    lyrics: parseJsonField<string[]>(preset.lyrics, []),
+    lyrics: [...preset.resolvedLyrics],
     sectionLyricsMap: parseJsonField<Record<number, number[]>>(
       preset.sectionLyricsMap,
       {},

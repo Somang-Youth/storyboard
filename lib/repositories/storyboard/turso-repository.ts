@@ -28,6 +28,7 @@ import type {
   ContiWithSongsAndSheetMusic,
   PdfLayoutState,
   PresetPdfMetadata,
+  ResolvedSongPresetWithSheetMusic,
   SheetMusicFile,
   Song,
   SongPageImage,
@@ -48,6 +49,7 @@ import type {
 import { extractPresetPdfMetadataFromLayout } from '@/lib/utils/pdf-export-helpers';
 import { buildArrangementItems } from '@/lib/utils/arrangement-items';
 import { getOrderedSongPairKey, resolveMashupPresetForImport } from '@/lib/utils/mashup-presets';
+import { resolvePresetLyrics } from '@/lib/utils/preset-lyrics';
 import { songPresetToContiOverrides } from '@/lib/utils/preset-overrides';
 import { normalizeYouTubeReference } from '@/lib/utils/youtube';
 import { and, asc, desc, eq, inArray, max, sql } from 'drizzle-orm';
@@ -293,16 +295,11 @@ async function getPresetOverridesForSong(presetId: string, songId: string): Prom
 
   if (presetRows.length === 0) return null;
 
-  const sheetMusicRows = await tursoDb
-    .select({ sheetMusicFileId: presetSheetMusic.sheetMusicFileId })
-    .from(presetSheetMusic)
-    .where(eq(presetSheetMusic.presetId, presetId))
-    .orderBy(presetSheetMusic.sortOrder);
-
-  return songPresetToContiOverrides(
+  const preset = await hydrateSongPreset(
     mapSongPreset(presetRows[0].song_presets),
-    sheetMusicRows.map((row) => row.sheetMusicFileId),
   );
+
+  return songPresetToContiOverrides(preset, preset.sheetMusicFileIds);
 }
 
 async function getPresetEditorSheetMusicRows(
@@ -378,6 +375,49 @@ async function getMashupFallbackLyrics(members: readonly SongPresetMember[]): Pr
   return getSongLyricsInOrder(memberSongIds);
 }
 
+async function hydrateSongPreset(
+  preset: SongPreset,
+): Promise<ResolvedSongPresetWithSheetMusic> {
+  const tursoDb = getTursoDb();
+  const [sheetMusicRows, members] = await Promise.all([
+    tursoDb
+      .select({ sheetMusicFileId: presetSheetMusic.sheetMusicFileId })
+      .from(presetSheetMusic)
+      .where(eq(presetSheetMusic.presetId, preset.id))
+      .orderBy(presetSheetMusic.sortOrder),
+    getPresetMemberRows(preset.id),
+  ]);
+  const sheetMusicFileIds = sheetMusicRows.map((row) => row.sheetMusicFileId);
+  let availableSheetMusic: SheetMusicFile[] | undefined;
+  let songLyrics: string[] | undefined;
+  let fallbackLyrics: string[] | undefined;
+
+  if (preset.presetType === "mashup") {
+    [availableSheetMusic, fallbackLyrics] = await Promise.all([
+      getPresetEditorSheetMusicRows(members, sheetMusicFileIds),
+      getMashupFallbackLyrics(members),
+    ]);
+  } else {
+    songLyrics = await getSongLyrics(preset.songId);
+  }
+
+  const hydrated: SongPresetWithSheetMusic = {
+    ...preset,
+    sheetMusicFileIds,
+    members,
+    availableSheetMusic,
+    songLyrics,
+    fallbackLyrics,
+  };
+  const resolution = resolvePresetLyrics(hydrated);
+
+  return {
+    ...hydrated,
+    resolvedLyrics: resolution.lyrics,
+    lyricsSource: resolution.source,
+  };
+}
+
 export const tursoStoryboardRepository: StoryboardRepository = {
   async getSongs() {
     const tursoDb = getTursoDb();
@@ -431,47 +471,16 @@ export const tursoStoryboardRepository: StoryboardRepository = {
     return rows.map(mapSong);
   },
 
-  async getSongPresetsWithSheetMusic(songId: string): Promise<SongPresetWithSheetMusic[]> {
-    const tursoDb = getTursoDb();
+  async getSongPresetsWithSheetMusic(
+    songId: string,
+  ): Promise<ResolvedSongPresetWithSheetMusic[]> {
     const presets = await this.getSongPresets(songId);
-
-    const presetsWithSheetMusic = await Promise.all(
-      presets.map(async (preset) => {
-        const sheetMusicRows = await tursoDb
-          .select({ sheetMusicFileId: presetSheetMusic.sheetMusicFileId })
-          .from(presetSheetMusic)
-          .where(eq(presetSheetMusic.presetId, preset.id))
-          .orderBy(presetSheetMusic.sortOrder);
-        const sheetMusicFileIds = sheetMusicRows.map(r => r.sheetMusicFileId);
-        const members = await this.getPresetMembers(preset.id);
-        let availableSheetMusic: SheetMusicFile[] | undefined;
-        let songLyrics: string[] | undefined;
-        let fallbackLyrics: string[] | undefined;
-
-        if (preset.presetType === "mashup") {
-          [availableSheetMusic, fallbackLyrics] = await Promise.all([
-            getPresetEditorSheetMusicRows(members, sheetMusicFileIds),
-            getMashupFallbackLyrics(members),
-          ]);
-        } else {
-          songLyrics = await getSongLyrics(preset.songId);
-        }
-
-        return {
-          ...preset,
-          sheetMusicFileIds,
-          members,
-          availableSheetMusic,
-          songLyrics,
-          fallbackLyrics,
-        };
-      })
-    );
-
-    return presetsWithSheetMusic;
+    return Promise.all(presets.map(hydrateSongPreset));
   },
 
-  async getSongPresetWithSheetMusic(presetId: string): Promise<SongPresetWithSheetMusic | null> {
+  async getSongPresetWithSheetMusic(
+    presetId: string,
+  ): Promise<ResolvedSongPresetWithSheetMusic | null> {
     const tursoDb = getTursoDb();
     const presetRows = await tursoDb
       .select()
@@ -479,33 +488,9 @@ export const tursoStoryboardRepository: StoryboardRepository = {
       .where(eq(songPresets.id, presetId))
       .limit(1);
 
-    if (presetRows.length === 0) {
-      return null;
-    }
-
-    const sheetMusicFileIds = await this.getPresetSheetMusicFileIds(presetId);
-    const members = await this.getPresetMembers(presetId);
-    let availableSheetMusic: SheetMusicFile[] | undefined;
-    let songLyrics: string[] | undefined;
-    let fallbackLyrics: string[] | undefined;
-
-    if (presetRows[0].presetType === "mashup") {
-      [availableSheetMusic, fallbackLyrics] = await Promise.all([
-        getPresetEditorSheetMusicRows(members, sheetMusicFileIds),
-        getMashupFallbackLyrics(members),
-      ]);
-    } else {
-      songLyrics = await getSongLyrics(presetRows[0].songId);
-    }
-
-    return {
-      ...mapSongPreset(presetRows[0]),
-      sheetMusicFileIds,
-      members,
-      availableSheetMusic,
-      songLyrics,
-      fallbackLyrics,
-    };
+    return presetRows[0]
+      ? hydrateSongPreset(mapSongPreset(presetRows[0]))
+      : null;
   },
 
   async getPresetMembers(presetId: string) {
@@ -1126,7 +1111,6 @@ export const tursoStoryboardRepository: StoryboardRepository = {
             youtubeTitle: item.title,
           });
           appliedPresetId = preset.id;
-          appliedPresetOverrides = songPresetToContiOverrides(preset);
         } else if (item.songId && item.presetId) {
           appliedPresetOverrides = await getPresetOverridesForSong(item.presetId, resolvedSongId);
           if (!appliedPresetOverrides) {
@@ -1143,7 +1127,6 @@ export const tursoStoryboardRepository: StoryboardRepository = {
             youtubeTitle: item.title,
           });
           appliedPresetId = preset.id;
-          appliedPresetOverrides = songPresetToContiOverrides(preset);
         }
       }
 
