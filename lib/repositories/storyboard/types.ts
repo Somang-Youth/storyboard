@@ -229,6 +229,20 @@ export interface SplitMashupInput {
   mode: 'restore' | 'clear';
 }
 
+/**
+ * Arrangement fields editable for a mashup group from the conti screen.
+ * Excludes presetId so the shared mashup preset stays applied to both rows.
+ */
+export type MashupContiSongOverrides = Partial<
+  Omit<ContiSongOverrides, 'presetId'>
+>;
+
+export interface UpdateMashupContiSongsInput {
+  contiId: string;
+  mashupGroupId: string;
+  overrides: MashupContiSongOverrides;
+}
+
 export interface StoryboardRepository {
   getSongs(): Promise<Song[]>;
   getSong(id: string): Promise<SongWithSheetMusic | null>;
@@ -271,6 +285,7 @@ export interface StoryboardRepository {
   createSongPreset(songId: string, data: SongPresetData, resolvedYoutube: ResolvedYouTubeMetadata | null): Promise<SongPreset>;
   createMashupPreset(input: CreateMashupPresetInput, resolvedYoutube: ResolvedYouTubeMetadata | null): Promise<SongPreset>;
   applyMashupToContiSongs(input: ApplyMashupToContiInput): Promise<{ mashupGroupId: string }>;
+  updateMashupContiSongs(input: UpdateMashupContiSongsInput): Promise<void>;
   splitMashup(input: SplitMashupInput): Promise<void>;
   updateSongPreset(
     presetId: string,

@@ -10,6 +10,7 @@ import type {
 import { createSongPreset, updateSongPreset } from './song-presets';
 import { z } from 'zod';
 import { getStoryboardRepository } from '@/lib/repositories/storyboard';
+import type { MashupContiSongOverrides } from '@/lib/repositories/storyboard/types';
 import { invalidateConti, invalidateSong, invalidateSongs } from '@/lib/cache/invalidation';
 
 export async function addSongToConti(
@@ -208,6 +209,28 @@ export async function applyMashupToContiSongs(
     if (message === 'MASHUP_ALREADY_GROUPED') return { success: false, error: '이미 매시업으로 연결된 곡입니다' };
     if (message === 'MASHUP_PRESET_SONGS_MISMATCH') return { success: false, error: '선택한 매시업 프리셋의 곡 순서가 현재 콘티와 맞지 않습니다' };
     return { success: false, error: '매시업 연결 중 오류가 발생했습니다' };
+  }
+}
+
+export async function updateMashupContiSongs(input: {
+  contiId: string;
+  mashupGroupId: string;
+  overrides: MashupContiSongOverrides;
+}): Promise<ActionResult> {
+  try {
+    if (!input.contiId || !input.mashupGroupId) {
+      return { success: false, error: '매시업 정보가 올바르지 않습니다' };
+    }
+    await getStoryboardRepository().updateMashupContiSongs(input);
+    invalidateConti(input.contiId);
+    revalidatePath('/contis');
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'MASHUP_GROUP_NOT_FOUND') {
+      return { success: false, error: '매시업 그룹을 찾을 수 없습니다' };
+    }
+    return { success: false, error: '매시업 편집 저장 중 오류가 발생했습니다' };
   }
 }
 

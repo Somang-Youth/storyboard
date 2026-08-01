@@ -1378,6 +1378,30 @@ export const tursoStoryboardRepository: StoryboardRepository = {
     return { mashupGroupId };
   },
 
+  async updateMashupContiSongs(input) {
+    const tursoDb = getTursoDb();
+    const rows = await tursoDb
+      .select()
+      .from(contiSongs)
+      .where(and(eq(contiSongs.contiId, input.contiId), eq(contiSongs.mashupGroupId, input.mashupGroupId)))
+      .orderBy(asc(contiSongs.mashupPartOrder));
+
+    if (rows.length !== 2) throw new Error("MASHUP_GROUP_NOT_FOUND");
+
+    // Arrangement fields only — presetId is intentionally omitted so both rows
+    // keep pointing at the shared mashup preset and the group stays valid.
+    const serialized = stringifyContiSongOverrides(input.overrides);
+
+    await tursoDb.transaction(async (tx) => {
+      for (const row of rows) {
+        await tx.update(contiSongs).set({
+          ...serialized,
+          updatedAt: dateToDbText(new Date()),
+        }).where(eq(contiSongs.id, row.id));
+      }
+    });
+  },
+
   async splitMashup(input) {
     const tursoDb = getTursoDb();
     const rows = await tursoDb

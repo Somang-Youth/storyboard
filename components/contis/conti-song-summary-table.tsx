@@ -205,7 +205,7 @@ export function ContiSongSummaryTable({
           const editRow = () => onEdit?.(primary.id)
           const canMoveUp = canMoveItem(item, -1)
           const canMoveDown = canMoveItem(item, 1)
-          const canEdit = !isMashupItem(item) && Boolean(onEdit)
+          const canEdit = Boolean(onEdit)
           const nextItem = items[index + 1]
           const canConnectNext =
             contiId &&
@@ -390,7 +390,7 @@ export function ContiSongSummaryTable({
           const editRow = () => onEdit?.(primary.id)
           const canMoveUp = canMoveItem(item, -1)
           const canMoveDown = canMoveItem(item, 1)
-          const canEdit = !isMashupItem(item) && Boolean(onEdit)
+          const canEdit = Boolean(onEdit)
           const nextItem = items[index + 1]
           const canConnectNext =
             contiId &&
