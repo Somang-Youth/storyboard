@@ -7,6 +7,7 @@ import re
 import tempfile
 import traceback
 import shutil
+import unicodedata
 import urllib.request
 import urllib.parse
 import zipfile
@@ -566,7 +567,15 @@ def move_slide_id_after(prs, slide_id_to_move, after_slide_id):
 
 
 def inject_text_into_shape(shape, text):
-    """Replace text in a shape while preserving formatting."""
+    """Replace text in a shape while preserving formatting.
+
+    Text is normalized to Unicode NFC so decomposed Hangul (e.g. from OCR,
+    YouTube titles, or pasted macOS text) renders as composed syllables
+    instead of splitting into separate jamo in PowerPoint.
+    """
+    if text:
+        text = unicodedata.normalize('NFC', text)
+
     tf = shape.text_frame
 
     template_pPr = None
