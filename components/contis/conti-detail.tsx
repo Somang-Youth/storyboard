@@ -19,6 +19,7 @@ import {
 import { useOptionalDrawerState } from "@/components/ui/drawer-context"
 import { ContiSongSummaryTable } from "@/components/contis/conti-song-summary-table"
 import { ContiSongEditor } from "./conti-song-editor"
+import { ContiMashupEditor } from "./conti-mashup-editor"
 import { SongPicker } from "@/components/contis/song-picker"
 import { YouTubeImportDialog } from "@/components/contis/youtube-import-dialog"
 import { sanitizeContiDescription } from "@/lib/conti-description"
@@ -142,8 +143,30 @@ export function ContiDetail({
               onMoveDown={handleMoveDown}
               onRemove={setRemovingId}
             />
-            {optimisticSongs.map((contiSong) => (
-              editingId === contiSong.id ? (
+            {optimisticSongs.map((contiSong) => {
+              if (editingId !== contiSong.id) return null
+
+              if (contiSong.mashupGroupId) {
+                const group = optimisticSongs
+                  .filter((s) => s.mashupGroupId === contiSong.mashupGroupId)
+                  .sort((a, b) => (a.mashupPartOrder ?? 0) - (b.mashupPartOrder ?? 0))
+
+                if (group.length === 2) {
+                  return (
+                    <ContiMashupEditor
+                      key={contiSong.id}
+                      contiId={conti.id}
+                      group={group}
+                      open={true}
+                      onOpenChange={(open) => {
+                        if (!open) setEditingId(null)
+                      }}
+                    />
+                  )
+                }
+              }
+
+              return (
                 <ContiSongEditor
                   key={contiSong.id}
                   contiSong={contiSong}
@@ -152,8 +175,8 @@ export function ContiDetail({
                     if (!open) setEditingId(null)
                   }}
                 />
-              ) : null
-            ))}
+              )
+            })}
           </div>
         )}
 

@@ -107,6 +107,50 @@ print(shape.text.strip().replace("\\n", " | "))
   ]);
 });
 
+test('normalizes injected text to NFC so Hangul jamo do not split', () => {
+  const script = `
+import importlib.util
+import json
+import unicodedata
+from pathlib import Path
+
+from pptx import Presentation
+
+spec = importlib.util.spec_from_file_location("pptx_api", Path("api/pptx.py"))
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+# Decomposed (NFD) Korean text, e.g. as produced by OCR / pasted macOS titles.
+nfd = unicodedata.normalize("NFD", "첫째 줄 찬양\\n둘째 줄")
+
+prs = Presentation()
+slide = prs.slides.add_slide(prs.slide_layouts[6])
+shape = slide.shapes.add_textbox(1000, 1000, 4000, 1000)
+
+module.inject_text_into_shape(shape, nfd)
+out = shape.text
+
+print(json.dumps({
+    "input_was_nfd": nfd != unicodedata.normalize("NFC", nfd),
+    "output_is_nfc": out == unicodedata.normalize("NFC", nfd),
+    "output_has_conjoining_jamo": any(0x1100 <= ord(c) <= 0x11FF for c in out),
+    "output": out,
+}, ensure_ascii=False))
+`;
+  const result = spawnSync(pythonExecutable, ['-c', script], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout.trim()), {
+    input_was_nfd: true,
+    output_is_nfc: true,
+    output_has_conjoining_jamo: false,
+    output: '첫째 줄 찬양\n둘째 줄',
+  });
+});
+
 test('inspect text template skips volatile generated section slides', () => {
   const script = `
 import importlib.util
