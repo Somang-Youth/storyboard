@@ -387,7 +387,7 @@ export function SheetMusicLyricsGeneratorDialog({
                         )}
                       </div>
                       {index < generatedLyrics.length - 1 && (
-                        <div className="-my-1 flex justify-center">
+                        <div className="flex justify-center">
                           <button
                             type="button"
                             onClick={() => mergeGeneratedPages(index)}
