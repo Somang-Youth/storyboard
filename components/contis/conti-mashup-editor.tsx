@@ -9,7 +9,7 @@ import {
 import type { SheetMusicPreviewItem } from "@/components/shared/sheet-music-preview"
 import { SheetMusicGallery } from "@/components/songs/sheet-music-gallery"
 import { updateMashupContiSongs } from "@/lib/actions/conti-songs"
-import { getPresetsForSongWithSheetMusic } from "@/lib/actions/song-presets"
+import { getPresetsForSongWithSheetMusic, updateSongPreset } from "@/lib/actions/song-presets"
 import { getMashupDisplayTitle } from "@/lib/utils/mashup-presets"
 import { draftToMashupContiSongOverrides } from "@/lib/utils/mashup-conti-overrides"
 import { toYouTubeInputValue } from "@/lib/utils/youtube"
@@ -143,6 +143,7 @@ export function ContiMashupEditor({ contiId, group, open, onOpenChange }: ContiM
         ) : null
       }
       savingLabel="이 콘티에만 저장"
+      saveToPresetLabel="프리셋에 저장"
       onOpenChange={onOpenChange}
       onSave={async (draft) => {
         if (!primary.mashupGroupId) {
@@ -157,6 +158,36 @@ export function ContiMashupEditor({ contiId, group, open, onOpenChange }: ContiM
           router.refresh()
         }
         return { success: result.success, error: result.error }
+      }}
+      onSaveToPreset={async (draft) => {
+        if (!primary.mashupGroupId || !presetId) {
+          return { success: false, error: "매시업 프리셋을 찾을 수 없습니다" }
+        }
+        // Persist to the current conti (both grouped rows) so the change is
+        // visible immediately, then update the shared mashup preset so it
+        // carries over to future uses.
+        const contiResult = await updateMashupContiSongs({
+          contiId,
+          mashupGroupId: primary.mashupGroupId,
+          overrides: draftToMashupContiSongOverrides(draft),
+        })
+        if (!contiResult.success) {
+          return { success: false, error: contiResult.error }
+        }
+
+        const presetResult = await updateSongPreset(presetId, {
+          keys: draft.keys,
+          tempos: draft.tempos,
+          sectionOrder: draft.sectionOrder,
+          lyrics: draft.lyrics,
+          sectionLyricsMap: draft.sectionLyricsMap,
+          notes: draft.notes,
+          sheetMusicFileIds: draft.sheetMusicFileIds ?? [],
+        })
+        if (presetResult.success) {
+          router.refresh()
+        }
+        return { success: presetResult.success, error: presetResult.error }
       }}
     />
   )

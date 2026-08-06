@@ -82,10 +82,12 @@ export function ArrangementEditor({
   presetOptions = [],
   sheetMusicManagementSlot,
   savingLabel = "저장",
+  saveToPresetLabel = "프리셋에 저장",
   onOpenChange,
   onSave,
   onLoadPreset,
   onSaveAsPreset,
+  onSaveToPreset,
   onRefreshPresetOptions,
 }: ArrangementEditorProps) {
   const [draft, setDraft] = useState<ArrangementDraft>(() => cloneDraft(initialDraft))
@@ -303,6 +305,40 @@ export function ArrangementEditor({
     }
   }
 
+  async function handleSaveToPreset() {
+    if (!onSaveToPreset) return
+
+    const prunedDraft = pruneUnavailableSheetMusicIds(draft)
+    const selectionError = getSheetMusicSelectionSaveError(
+      prunedDraft.sheetMusicFileIds,
+      allSheetMusicIds.length,
+    )
+    if (selectionError) {
+      toast.error(selectionError)
+      return
+    }
+
+    const draftToSave = prepareDraftForSave(prunedDraft)
+    if (!draftToSave) return
+
+    setIsPresetSaving(true)
+    try {
+      const result = await onSaveToPreset(draftToSave)
+      if (result.success) {
+        toast.success("프리셋에 저장되었습니다")
+        const savedDraft = cloneDraft(draftToSave)
+        setDraft(savedDraft)
+        setInitialDirtyDraft(cloneDraft(savedDraft))
+      } else {
+        toast.error(result.error ?? "프리셋 저장 중 오류가 발생했습니다")
+      }
+    } catch {
+      toast.error("프리셋 저장 중 오류가 발생했습니다")
+    } finally {
+      setIsPresetSaving(false)
+    }
+  }
+
   function handleLyricsChange(data: {
     lyrics: string[]
     swappedPages?: [number, number]
@@ -420,7 +456,21 @@ export function ArrangementEditor({
             <Button variant="outline" className="flex-1" onClick={handleClose}>
               취소
             </Button>
-            <Button className="flex-1" onClick={handleSave} disabled={isSaving}>
+            {onSaveToPreset && (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleSaveToPreset}
+                disabled={isSaving || isPresetSaving}
+              >
+                {isPresetSaving ? "저장 중..." : saveToPresetLabel}
+              </Button>
+            )}
+            <Button
+              className="flex-1"
+              onClick={handleSave}
+              disabled={isSaving || isPresetSaving}
+            >
               {isSaving ? "저장 중..." : savingLabel}
             </Button>
           </div>
