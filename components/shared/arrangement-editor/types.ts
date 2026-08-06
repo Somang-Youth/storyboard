@@ -56,6 +56,10 @@ export interface ArrangementEditorProps {
   hasExistingPreset?: boolean
   sheetMusicManagementSlot?: ReactNode
   savingLabel?: string
+  // Optional secondary save that persists to a shared preset (e.g. a mashup
+  // preset) in addition to the primary conti-scoped save. When provided, the
+  // footer shows an extra button labelled `saveToPresetLabel`.
+  saveToPresetLabel?: string
   onOpenChange: (open: boolean) => void
   onSave: (
     draft: ArrangementDraft,
@@ -67,5 +71,6 @@ export interface ArrangementEditorProps {
     presetName: string,
     existingPresetId?: string,
   ) => Promise<ArrangementEditorSaveResult>
+  onSaveToPreset?: (draft: ArrangementDraft) => Promise<ArrangementEditorSaveResult>
   onRefreshPresetOptions?: () => Promise<void>
 }

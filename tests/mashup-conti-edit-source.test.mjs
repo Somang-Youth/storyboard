@@ -31,6 +31,22 @@ test("mashup conti editor hides single-song preset controls and saves to the gro
   assert.doesNotMatch(editor, /onSaveAsPreset/)
 })
 
+test("mashup conti editor can save changes back to the shared mashup preset", async () => {
+  const editor = await read("components/contis/conti-mashup-editor.tsx")
+
+  // Saves to the shared mashup preset (updateSongPreset) in addition to conti.
+  assert.match(editor, /onSaveToPreset/)
+  assert.match(editor, /updateSongPreset/)
+})
+
+test("arrangement editor renders a secondary save-to-preset action when provided", async () => {
+  const editor = await read("components/shared/arrangement-editor/arrangement-editor.tsx")
+
+  assert.match(editor, /onSaveToPreset && \(/)
+  assert.match(editor, /handleSaveToPreset/)
+  assert.match(editor, /saveToPresetLabel/)
+})
+
 test("repository updates both grouped rows without touching presetId", async () => {
   const repository = await read("lib/repositories/storyboard/turso-repository.ts")
 
