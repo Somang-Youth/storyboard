@@ -5,6 +5,7 @@ import {
   mergePresetOverlays,
 } from "@/lib/utils/pdf-export-helpers";
 import { buildArrangementItems } from "@/lib/utils/arrangement-items";
+import { combineArrangementItemSheetMusic } from "@/lib/utils/arrangement-item-sheet-music";
 import { getSheetMusicAssetUrl } from "@/lib/sheet-music-assets";
 import { getPdfPageCount, renderPdfPageToDataUrl } from "@/lib/utils/pdfjs";
 import { applySavedCrop } from "../utils";
@@ -93,7 +94,12 @@ export function useEditorPages(
         const item = arrangementItems[itemIndex];
         const contiSong = item.primarySong as typeof conti.songs[number];
         const legacySongIndex = conti.songs.findIndex((song) => song.id === contiSong.id);
-        const sheetMusic = contiSong.sheetMusic;
+        // A mashup item spans two conti songs; include every member song's sheet
+        // music, not just the primary (front) song's, so the exported PDF holds
+        // both songs' sheets.
+        const sheetMusic = combineArrangementItemSheetMusic(
+          item.songs as typeof conti.songs,
+        );
         const pageBase = {
           songIndex: itemIndex,
           arrangementItemKey: item.key,
