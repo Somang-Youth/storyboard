@@ -2,72 +2,114 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('create-thread cron dryRun returns before Discord write side effects', async () => {
-  const source = await readFile(
-    new URL('../app/api/cron/discord/create-thread/route.ts', import.meta.url),
-    'utf8',
-  );
+const CREATE_THREAD_ROUTE = new URL('../app/api/cron/discord/create-thread/route.ts', import.meta.url);
 
-  const dryRunIndex = source.indexOf('if (dryRun)');
-  const archiveThreadIndex = source.indexOf('await archiveThread');
-  const createThreadIndex = source.indexOf('await createForumThread');
-  const sheetReadIndex = source.indexOf('await readRoleOptionsFromSheet');
-  const dropdownIndex = source.indexOf('await sendDropdownMessage');
+async function readCreateThreadRoute() {
+  const source = await readFile(CREATE_THREAD_ROUTE, 'utf8');
+  return { source, body: source.slice(source.indexOf('export async function GET')) };
+}
 
-  assert.notEqual(dryRunIndex, -1);
-  assert.notEqual(archiveThreadIndex, -1);
-  assert.notEqual(createThreadIndex, -1);
-  assert.notEqual(sheetReadIndex, -1);
-  assert.notEqual(dropdownIndex, -1);
-  assert.ok(dryRunIndex < archiveThreadIndex);
-  assert.ok(dryRunIndex < createThreadIndex);
-  assert.ok(dryRunIndex < sheetReadIndex);
-  assert.ok(dryRunIndex < dropdownIndex);
+function createThreadStepIndexes(body) {
+  return {
+    dryRun: body.indexOf('if (dryRun)'),
+    optionsRead: body.lastIndexOf('await readRoleOptions()'),
+    create: body.indexOf('await createForumThread'),
+    archive: body.indexOf('await archivePreviousThread'),
+    dropdowns: body.indexOf('await sendRoleDropdowns'),
+  };
+}
 
-  const firstWriteSideEffectIndex = Math.min(archiveThreadIndex, createThreadIndex, sheetReadIndex, dropdownIndex);
-  const dryRunGuard = source.slice(dryRunIndex, firstWriteSideEffectIndex);
+test('create-thread cron dryRun returns before any Discord write', async () => {
+  const { body } = await readCreateThreadRoute();
+  const step = createThreadStepIndexes(body);
+
+  for (const [name, index] of Object.entries(step)) {
+    assert.notEqual(index, -1, `missing step: ${name}`);
+  }
+
+  assert.ok(step.dryRun < step.create);
+  assert.ok(step.dryRun < step.archive);
+  assert.ok(step.dryRun < step.dropdowns);
+
+  const dryRunGuard = body.slice(step.dryRun, Math.min(step.create, step.archive, step.dropdowns));
   assert.match(dryRunGuard, /return NextResponse\.json/);
-  assert.doesNotMatch(dryRunGuard, /archiveThread|createForumThread|sendDropdownMessage|readRoleOptionsFromSheet/);
+  assert.doesNotMatch(dryRunGuard, /archivePreviousThread|createForumThread|sendRoleDropdowns|sendDropdownMessage/);
   assert.match(dryRunGuard, /wouldArchiveThread/);
 });
 
-test('create-thread cron archives previous worship thread before creating the new one', async () => {
-  const source = await readFile(
-    new URL('../app/api/cron/discord/create-thread/route.ts', import.meta.url),
-    'utf8',
-  );
+test('create-thread cron dryRun exercises the role options read', async () => {
+  // A dry run that skipped the Sheets call could not detect the stalled request
+  // that cost a full week's thread, which is the whole point of having one.
+  const { body } = await readCreateThreadRoute();
+  const step = createThreadStepIndexes(body);
+  const dryRunGuard = body.slice(step.dryRun, Math.min(step.create, step.archive, step.dropdowns));
 
-  assert.match(source, /archiveThread/);
-  assert.match(source, /selectPreviousWorshipThread/);
-
-  const body = source.slice(source.indexOf('export async function GET'));
-  const archiveThreadIndex = body.indexOf('await archiveThread');
-  const createThreadIndex = body.indexOf('await createForumThread');
-
-  assert.notEqual(archiveThreadIndex, -1);
-  assert.notEqual(createThreadIndex, -1);
-  assert.ok(archiveThreadIndex < createThreadIndex);
+  assert.match(dryRunGuard, /await readRoleOptions\(\)/);
+  assert.match(dryRunGuard, /roleOptionCount/);
+  assert.match(dryRunGuard, /roleOptionsError/);
 });
 
-test('create-thread cron validates role options before Discord write side effects', async () => {
-  const source = await readFile(
-    new URL('../app/api/cron/discord/create-thread/route.ts', import.meta.url),
-    'utf8',
+test('create-thread cron creates the thread before archiving the previous one', async () => {
+  // Archiving last week's thread is cleanup. Doing it first meant an archive
+  // failure aborted the run and left the week with no thread at all.
+  const { body } = await readCreateThreadRoute();
+  const step = createThreadStepIndexes(body);
+
+  assert.ok(step.create < step.archive);
+  assert.ok(step.create < step.dropdowns);
+});
+
+test('create-thread cron never lets the role options read abort thread creation', async () => {
+  const { source, body } = await readCreateThreadRoute();
+  const step = createThreadStepIndexes(body);
+
+  assert.match(source, /readRoleOptionsWithFallback/);
+  assert.doesNotMatch(source, /readRoleOptionsFromSheet/);
+
+  const helper = source.slice(
+    source.indexOf('async function readRoleOptions('),
+    source.indexOf('async function archivePreviousThread'),
   );
+  assert.match(helper, /try \{/);
+  assert.match(helper, /catch \(error\)/);
+  assert.match(helper, /options: \[\]/);
 
-  const body = source.slice(source.indexOf('export async function GET'));
-  const dryRunIndex = body.indexOf('if (dryRun)');
-  const sheetReadIndex = body.indexOf('await readRoleOptionsFromSheet');
-  const archiveThreadIndex = body.indexOf('await archiveThread');
-  const createThreadIndex = body.indexOf('await createForumThread');
+  assert.ok(step.optionsRead < step.create);
+  const betweenReadAndCreate = body.slice(step.optionsRead, step.create);
+  assert.doesNotMatch(betweenReadAndCreate, /\breturn\b|\bthrow\b/);
+});
 
-  assert.notEqual(dryRunIndex, -1);
-  assert.notEqual(sheetReadIndex, -1);
-  assert.notEqual(archiveThreadIndex, -1);
-  assert.notEqual(createThreadIndex, -1);
-  assert.ok(dryRunIndex < sheetReadIndex);
-  assert.ok(sheetReadIndex < archiveThreadIndex);
-  assert.ok(sheetReadIndex < createThreadIndex);
+test('create-thread cron contains archive and dropdown failures', async () => {
+  const { source } = await readCreateThreadRoute();
+
+  const archiveHelper = source.slice(
+    source.indexOf('async function archivePreviousThread'),
+    source.indexOf('async function sendRoleDropdowns'),
+  );
+  assert.match(archiveHelper, /catch \(error\)/);
+
+  const dropdownHelper = source.slice(
+    source.indexOf('async function sendRoleDropdowns'),
+    source.indexOf('async function reportWarningsToThread'),
+  );
+  assert.match(dropdownHelper, /catch \(error\)/);
+});
+
+test('create-thread cron skips creation when the week already has a thread', async () => {
+  const { body } = await readCreateThreadRoute();
+  const step = createThreadStepIndexes(body);
+
+  assert.match(body, /selectWorshipThreadBySundayDate/);
+  const existingGuard = body.indexOf('if (existingThread)');
+  assert.notEqual(existingGuard, -1);
+  assert.ok(existingGuard < step.create);
+});
+
+test('create-thread cron reports partial failures into the thread', async () => {
+  const { body } = await readCreateThreadRoute();
+
+  assert.match(body, /const warnings = /);
+  assert.match(body, /await reportWarningsToThread\(thread\.id, warnings\)/);
 });
 
 test('manual worship thread action validates and initializes before setting active thread', async () => {
@@ -90,11 +132,33 @@ test('manual worship thread action validates and initializes before setting acti
   assert.notEqual(firstDropdownIndex, -1);
   assert.notEqual(markProcessedIndex, -1);
   assert.notEqual(setActiveThreadIndex, -1);
-  assert.ok(optionsReadIndex < archiveThreadIndex);
   assert.ok(optionsReadIndex < createThreadIndex);
-  assert.ok(archiveThreadIndex < createThreadIndex);
+  // Create first, then archive: cleanup must never cost this week's thread.
+  assert.ok(createThreadIndex < archiveThreadIndex);
   assert.ok(createThreadIndex < firstDropdownIndex);
   assert.ok(markProcessedIndex < setActiveThreadIndex);
+});
+
+test('manual worship thread action swallows archive failures and skips duplicates', async () => {
+  const source = await readFile(
+    new URL('../lib/actions/worship-prep.ts', import.meta.url),
+    'utf8',
+  );
+
+  const body = source.slice(
+    source.indexOf('export async function createWeeklyWorshipThread'),
+    source.indexOf('export async function parseActiveWorshipThreadComments'),
+  );
+
+  assert.match(body, /selectWorshipThreadBySundayDate/);
+  assert.match(body, /if \(existingThread\)/);
+
+  const archiveBlock = body.slice(
+    body.indexOf('for (const previousThread of previousThreads)'),
+    body.indexOf('const messageIds'),
+  );
+  assert.match(archiveBlock, /try \{/);
+  assert.match(archiveBlock, /catch \(error\)/);
 });
 
 test('send-week-dropdown requires cron authorization before Discord side effects', async () => {
@@ -369,4 +433,87 @@ test('conti actions check worship prep readiness after create and update', async
   assert.notEqual(updateRevalidateIndex, -1);
   assert.notEqual(updateNotifyIndex, -1);
   assert.ok(updateRevalidateIndex < updateNotifyIndex);
+});
+
+test('discord and sheets clients bound every outbound request', async () => {
+  // The 260906 thread was lost to a Sheets GET that was accepted and never
+  // answered: it held the invocation open until Vercel killed it at maxDuration,
+  // so archiving and thread creation never ran. A bare fetch here brings that back.
+  for (const relativePath of ['../lib/discord-sync/discord-client.ts', '../lib/discord-sync/google-sheets.ts']) {
+    const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
+
+    assert.match(source, /fetchWithTimeout/, `${relativePath} should use fetchWithTimeout`);
+    assert.doesNotMatch(source, /await fetch\(/, `${relativePath} has an unbounded fetch`);
+    assert.doesNotMatch(source, /=\s*fetch\(/, `${relativePath} has an unbounded fetch`);
+  }
+});
+
+test('discord write helpers never retry, so a retry cannot duplicate a thread', async () => {
+  const source = await readFile(new URL('../lib/discord-sync/discord-client.ts', import.meta.url), 'utf8');
+
+  for (const label of ['Create forum thread', 'Send dropdown message', 'Send thread message', 'Archive thread']) {
+    const callIndex = source.indexOf(`label: '${label}'`);
+    assert.notEqual(callIndex, -1, `missing bounded call for ${label}`);
+
+    const optionsStart = source.lastIndexOf('{', callIndex);
+    assert.doesNotMatch(source.slice(optionsStart, callIndex), /retries:/, `${label} must not retry`);
+  }
+});
+
+test('select options stay inside Discord component limits', async () => {
+  const source = await readFile(new URL('../lib/discord-sync/discord-client.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /MAX_SELECT_OPTIONS = 25/);
+  assert.match(source, /MAX_SELECT_FIELD_LENGTH = 100/);
+  assert.match(source, /options: toSelectOptions\(options\)/);
+});
+
+test('the spell checker cannot hold the parse cron open', async () => {
+  const source = await readFile(new URL('../lib/discord-sync/spell-checker.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /AbortSignal\.timeout\(SPELLER_TIMEOUT_MS\)/);
+});
+
+test('create-thread cron closes earlier worship threads only after the new one exists', async () => {
+  // Closing is a PATCH to archived: true — the post stays readable and can be
+  // reopened. It must never run unless this week's thread was actually created.
+  const { source, body } = await readCreateThreadRoute();
+  const step = createThreadStepIndexes(body);
+
+  assert.match(body, /selectPreviousWorshipThreads\(activeThreads, yymmdd\)/);
+  assert.match(body, /await archivePreviousThreads\(previousThreads\)/);
+  assert.ok(step.create < step.archive);
+
+  const helper = source.slice(
+    source.indexOf('async function archivePreviousThreads'),
+    source.indexOf('async function sendRoleDropdowns'),
+  );
+  assert.match(helper, /for \(const thread of threads\)/);
+  assert.match(helper, /await archiveThread\(thread\.id\)/);
+  assert.doesNotMatch(helper, /locked|delete|DELETE/);
+});
+
+test('create-thread cron reports which threads it closed', async () => {
+  const { body } = await readCreateThreadRoute();
+
+  assert.match(body, /closedThreadIds: closedIds/);
+  assert.match(body, /wouldCloseThreads/);
+});
+
+test('manual worship thread action closes every earlier thread after creating', async () => {
+  const source = await readFile(
+    new URL('../lib/actions/worship-prep.ts', import.meta.url),
+    'utf8',
+  );
+
+  const body = source.slice(
+    source.indexOf('export async function createWeeklyWorshipThread'),
+    source.indexOf('export async function parseActiveWorshipThreadComments'),
+  );
+
+  assert.match(body, /selectPreviousWorshipThreads\(activeThreads, yymmdd\)/);
+  const createIndex = body.indexOf('await createForumThread');
+  const closeIndex = body.indexOf('for (const previousThread of previousThreads)');
+  assert.notEqual(closeIndex, -1);
+  assert.ok(createIndex < closeIndex);
 });

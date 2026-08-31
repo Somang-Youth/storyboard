@@ -1,3 +1,20 @@
+import { fetchWithTimeout } from '@/lib/http/fetch-with-timeout';
+
+// Google occasionally accepts a connection and then never answers. Without a
+// deadline that stalls until the serverless function's own maxDuration kills the
+// whole invocation, so every later step (thread creation included) never runs.
+const SHEETS_READ_TIMEOUT_MS = 8000;
+const SHEETS_WRITE_TIMEOUT_MS = 10000;
+const TOKEN_TIMEOUT_MS = 8000;
+const ACCESS_TOKEN_TTL_MS = 55 * 60 * 1000;
+
+interface CachedAccessToken {
+  token: string;
+  expiresAt: number;
+}
+
+let cachedAccessToken: CachedAccessToken | null = null;
+
 function getServiceAccountCredentials(): { clientEmail: string; privateKey: string } {
   const rawJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (rawJson) {
@@ -56,6 +73,10 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
 }
 
 async function getGoogleAccessToken(): Promise<string> {
+  if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now()) {
+    return cachedAccessToken.token;
+  }
+
   const { clientEmail, privateKey } = getServiceAccountCredentials();
   const now = Math.floor(Date.now() / 1000);
 
@@ -83,18 +104,24 @@ async function getGoogleAccessToken(): Promise<string> {
   const sig = btoa(String.fromCharCode(...sigBytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const jwt = `${unsignedToken}.${sig}`;
 
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-  });
+  const tokenResponse = await fetchWithTimeout(
+    'https://oauth2.googleapis.com/token',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+    },
+    { timeoutMs: TOKEN_TIMEOUT_MS, retries: 1, label: 'Google token exchange' },
+  );
 
   const tokenData = await tokenResponse.json();
   if (!tokenResponse.ok || !tokenData.access_token) {
     throw new Error(`Google token exchange failed: ${JSON.stringify(tokenData)}`);
   }
 
-  return tokenData.access_token as string;
+  const accessToken = tokenData.access_token as string;
+  cachedAccessToken = { token: accessToken, expiresAt: Date.now() + ACCESS_TOKEN_TTL_MS };
+  return accessToken;
 }
 
 export async function readRoleOptionsFromSheet(sheetName = 'DB_Options'): Promise<string[]> {
@@ -102,9 +129,11 @@ export async function readRoleOptionsFromSheet(sheetName = 'DB_Options'): Promis
   const accessToken = await getGoogleAccessToken();
   const range = encodeURIComponent(`${sheetName}!A:A`);
 
-  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const response = await fetchWithTimeout(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    { timeoutMs: SHEETS_READ_TIMEOUT_MS, retries: 1, label: `Sheet options read (${sheetName})` },
+  );
 
   const data = await response.json();
   if (!response.ok) {
@@ -182,9 +211,11 @@ async function readValues(range: string): Promise<string[][]> {
   const sheetId = getGoogleSheetId();
   const accessToken = await getGoogleAccessToken();
 
-  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const response = await fetchWithTimeout(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    { timeoutMs: SHEETS_READ_TIMEOUT_MS, retries: 1, label: `Sheet values read (${range})` },
+  );
 
   const data = await response.json();
   if (!response.ok) {
@@ -254,9 +285,11 @@ export async function findRowByDate(sheetName: string, formattedDate: string): P
   const accessToken = await getGoogleAccessToken();
   const range = encodeURIComponent(`${sheetName}!B:B`);
 
-  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const response = await fetchWithTimeout(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    { timeoutMs: SHEETS_READ_TIMEOUT_MS, retries: 1, label: `Sheet date column read (${sheetName})` },
+  );
 
   const data = await response.json();
   if (!response.ok) {
@@ -295,7 +328,7 @@ export async function updateRoleSelectionInSheet(customId: string, selectedValue
   const column = roleColumnByCustomId(customId);
   const range = encodeURIComponent(`${sheetName}!${column}${row}`);
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`,
     {
       method: 'PUT',
@@ -308,7 +341,8 @@ export async function updateRoleSelectionInSheet(customId: string, selectedValue
         majorDimension: 'ROWS',
         values: [[selectedValue]],
       }),
-    }
+    },
+    { timeoutMs: SHEETS_WRITE_TIMEOUT_MS, label: 'Sheet role selection update' },
   );
 
   const data = await response.json();
@@ -348,17 +382,21 @@ export async function updateWorshipData(sheetName: string, row: number, data: Sh
 
   const sheetId = getGoogleSheetId();
   const accessToken = await getGoogleAccessToken();
-  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        valueInputOption: 'USER_ENTERED',
+        data: updates,
+      }),
     },
-    body: JSON.stringify({
-      valueInputOption: 'USER_ENTERED',
-      data: updates,
-    }),
-  });
+    { timeoutMs: SHEETS_WRITE_TIMEOUT_MS, label: 'Sheet worship data update' },
+  );
 
   const result = await response.json();
   if (!response.ok) {
