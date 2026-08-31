@@ -7,6 +7,9 @@ interface NaverSpellResponse {
 }
 
 const NAVER_SPELLER_URL = 'https://m.search.naver.com/p/csearch/ocontent/util/SpellerProxy';
+// Unofficial endpoint. It is a nicety, not a dependency, so never let it hold
+// the parse cron open — on timeout we simply keep the original text.
+const SPELLER_TIMEOUT_MS = 4000;
 
 export async function correctSpelling(text: string): Promise<string> {
   if (!text || text.trim().length === 0) {
@@ -31,6 +34,7 @@ export async function correctSpelling(text: string): Promise<string> {
         Accept: 'application/json',
         Referer: 'https://m.search.naver.com/',
       },
+      signal: AbortSignal.timeout(SPELLER_TIMEOUT_MS),
     });
 
     if (!response.ok) {
