@@ -19,7 +19,7 @@ import {
   setActiveThread,
 } from '@/lib/discord-sync';
 import { parseDiscordMessages } from '@/lib/discord-parser';
-import { resolveGuildId, selectPreviousWorshipThread, selectTargetWorshipThread, selectWorshipThreadBySundayDate } from '@/lib/discord-sync/cron-state';
+import { resolveGuildId, selectPreviousWorshipThreads, selectTargetWorshipThread, selectWorshipThreadBySundayDate } from '@/lib/discord-sync/cron-state';
 import { correctSpelling } from '@/lib/discord-sync/spell-checker';
 import { findRowByDate, readRoleOptionsWithFallback, updateWorshipData } from '@/lib/discord-sync/google-sheets';
 import { checkAndSendWorshipPrepReadyNotification } from '@/lib/discord-sync/worship-prep-notifications';
@@ -99,17 +99,17 @@ export async function createWeeklyWorshipThread(): Promise<ActionResult<{ thread
       return { success: false, error: `이미 ${existingThread.name} 스레드가 있습니다` };
     }
 
-    const previousThread = selectPreviousWorshipThread(activeThreads, yymmdd);
+    const previousThreads = selectPreviousWorshipThreads(activeThreads, yymmdd);
 
-    // Create first. Archiving last week's thread is cleanup, and cleanup failing
-    // must never cost this week's thread.
+    // Create first. Closing earlier threads is cleanup, and cleanup failing must
+    // never cost this week's thread.
     const thread = await createForumThread(channelId, threadName, buildInitialMessage(sundayDate));
 
-    if (previousThread) {
+    for (const previousThread of previousThreads) {
       try {
         await archiveThread(previousThread.id);
       } catch (error) {
-        console.error('[createWeeklyWorshipThread] failed to archive previous thread', error);
+        console.error(`[createWeeklyWorshipThread] failed to close ${previousThread.name}`, error);
       }
     }
 

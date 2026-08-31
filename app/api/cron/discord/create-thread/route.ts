@@ -11,7 +11,7 @@ import {
 } from '@/lib/discord-sync/discord-client';
 import {
   resolveGuildId,
-  selectPreviousWorshipThread,
+  selectPreviousWorshipThreads,
   selectWorshipThreadBySundayDate,
   type SelectedWorshipThread,
 } from '@/lib/discord-sync/cron-state';
@@ -47,14 +47,29 @@ async function readRoleOptions(): Promise<{ options: DiscordSelectOption[]; erro
   }
 }
 
-async function archivePreviousThread(thread: SelectedWorshipThread): Promise<string | null> {
-  try {
-    await archiveThread(thread.id);
-    return null;
-  } catch (error) {
-    console.error(`${LOG_PREFIX} failed to archive ${thread.name}`, error);
-    return `Failed to archive ${thread.name}: ${toMessage(error)}`;
+/**
+ * Closes (never deletes) the worship threads of earlier Sundays. `archiveThread`
+ * only sets `archived: true`, so the posts stay readable and anyone can reopen
+ * one. Runs after the new thread exists, so a week that fails to roll over never
+ * loses its thread to the cleanup.
+ */
+async function archivePreviousThreads(
+  threads: SelectedWorshipThread[],
+): Promise<{ closedIds: string[]; errors: string[] }> {
+  const closedIds: string[] = [];
+  const errors: string[] = [];
+
+  for (const thread of threads) {
+    try {
+      await archiveThread(thread.id);
+      closedIds.push(thread.id);
+    } catch (error) {
+      console.error(`${LOG_PREFIX} failed to close ${thread.name}`, error);
+      errors.push(`Failed to close ${thread.name}: ${toMessage(error)}`);
+    }
   }
+
+  return { closedIds, errors };
 }
 
 async function sendRoleDropdowns(threadId: string, options: DiscordSelectOption[]): Promise<string[]> {
@@ -123,7 +138,7 @@ export async function GET(request: NextRequest) {
 
     const activeThreads = await getActiveForumThreads(guildId, channelId);
     const existingThread = selectWorshipThreadBySundayDate(activeThreads, yymmdd);
-    const previousThread = selectPreviousWorshipThread(activeThreads, yymmdd);
+    const previousThreads = selectPreviousWorshipThreads(activeThreads, yymmdd);
 
     if (dryRun) {
       // Reads only — the point of a dry run is to prove every dependency answers,
@@ -139,7 +154,8 @@ export async function GET(request: NextRequest) {
           sundayDate: yymmdd,
           dryRun: true,
           threadAlreadyExists: Boolean(existingThread),
-          wouldArchiveThread: previousThread ? { id: previousThread.id, name: previousThread.name } : null,
+          wouldArchiveThread: previousThreads[0] ? { id: previousThreads[0].id, name: previousThreads[0].name } : null,
+          wouldCloseThreads: previousThreads.map((thread) => ({ id: thread.id, name: thread.name })),
           wouldCreateThread: !existingThread,
           wouldSendDropdowns: options.length > 0,
           roleOptionCount: options.length,
@@ -167,10 +183,10 @@ export async function GET(request: NextRequest) {
     // worth losing the thread over.
     const thread = await createForumThread(channelId, threadName, buildInitialMessage(sundayDate));
 
-    const archiveError = previousThread ? await archivePreviousThread(previousThread) : null;
+    const { closedIds, errors: archiveErrors } = await archivePreviousThreads(previousThreads);
     const dropdownErrors = options.length > 0 ? await sendRoleDropdowns(thread.id, options) : [];
 
-    const warnings = [roleOptionsError, archiveError, ...dropdownErrors].filter(
+    const warnings = [roleOptionsError, ...archiveErrors, ...dropdownErrors].filter(
       (warning): warning is string => Boolean(warning),
     );
     await reportWarningsToThread(thread.id, warnings);
@@ -183,7 +199,7 @@ export async function GET(request: NextRequest) {
         threadName,
         sundayDate: yymmdd,
         created: true,
-        archivedThreadId: previousThread && !archiveError ? previousThread.id : null,
+        closedThreadIds: closedIds,
         warnings,
       },
     });

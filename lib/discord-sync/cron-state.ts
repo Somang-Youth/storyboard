@@ -135,11 +135,17 @@ export function selectWorshipThreadBySundayDate(
   };
 }
 
-export function selectPreviousWorshipThread(
+/**
+ * Every still-open worship thread for a Sunday before the target one, nearest
+ * first. Returns all of them rather than just last week's: a week whose cron
+ * failed leaves its thread open forever otherwise, which is exactly what
+ * happened when the 260906 run timed out.
+ */
+export function selectPreviousWorshipThreads(
   threads: ActiveForumThread[],
   targetSundayDate: string,
-): SelectedWorshipThread | null {
-  const candidates = threads
+): SelectedWorshipThread[] {
+  return threads
     .map((thread) => {
       const sundayDate = parseWorshipThreadName(thread.name);
       if (!sundayDate) return null;
@@ -150,19 +156,20 @@ export function selectPreviousWorshipThread(
       return { ...thread, sundayDate, diff };
     })
     .filter((thread): thread is SelectedWorshipThread & { diff: number } => thread !== null)
-    .sort((a, b) => a.diff - b.diff);
+    .sort((a, b) => a.diff - b.diff)
+    .map((thread) => ({
+      id: thread.id,
+      name: thread.name,
+      parent_id: thread.parent_id,
+      sundayDate: thread.sundayDate,
+    }));
+}
 
-  const selected = candidates[0];
-  if (!selected) {
-    return null;
-  }
-
-  return {
-    id: selected.id,
-    name: selected.name,
-    parent_id: selected.parent_id,
-    sundayDate: selected.sundayDate,
-  };
+export function selectPreviousWorshipThread(
+  threads: ActiveForumThread[],
+  targetSundayDate: string,
+): SelectedWorshipThread | null {
+  return selectPreviousWorshipThreads(threads, targetSundayDate)[0] ?? null;
 }
 
 export function hasProcessedReaction(message: DiscordMessageReactionState): boolean {

@@ -153,7 +153,10 @@ test('manual worship thread action swallows archive failures and skips duplicate
   assert.match(body, /selectWorshipThreadBySundayDate/);
   assert.match(body, /if \(existingThread\)/);
 
-  const archiveBlock = body.slice(body.indexOf('if (previousThread)'), body.indexOf('const messageIds'));
+  const archiveBlock = body.slice(
+    body.indexOf('for (const previousThread of previousThreads)'),
+    body.indexOf('const messageIds'),
+  );
   assert.match(archiveBlock, /try \{/);
   assert.match(archiveBlock, /catch \(error\)/);
 });
@@ -469,4 +472,48 @@ test('the spell checker cannot hold the parse cron open', async () => {
   const source = await readFile(new URL('../lib/discord-sync/spell-checker.ts', import.meta.url), 'utf8');
 
   assert.match(source, /AbortSignal\.timeout\(SPELLER_TIMEOUT_MS\)/);
+});
+
+test('create-thread cron closes earlier worship threads only after the new one exists', async () => {
+  // Closing is a PATCH to archived: true — the post stays readable and can be
+  // reopened. It must never run unless this week's thread was actually created.
+  const { source, body } = await readCreateThreadRoute();
+  const step = createThreadStepIndexes(body);
+
+  assert.match(body, /selectPreviousWorshipThreads\(activeThreads, yymmdd\)/);
+  assert.match(body, /await archivePreviousThreads\(previousThreads\)/);
+  assert.ok(step.create < step.archive);
+
+  const helper = source.slice(
+    source.indexOf('async function archivePreviousThreads'),
+    source.indexOf('async function sendRoleDropdowns'),
+  );
+  assert.match(helper, /for \(const thread of threads\)/);
+  assert.match(helper, /await archiveThread\(thread\.id\)/);
+  assert.doesNotMatch(helper, /locked|delete|DELETE/);
+});
+
+test('create-thread cron reports which threads it closed', async () => {
+  const { body } = await readCreateThreadRoute();
+
+  assert.match(body, /closedThreadIds: closedIds/);
+  assert.match(body, /wouldCloseThreads/);
+});
+
+test('manual worship thread action closes every earlier thread after creating', async () => {
+  const source = await readFile(
+    new URL('../lib/actions/worship-prep.ts', import.meta.url),
+    'utf8',
+  );
+
+  const body = source.slice(
+    source.indexOf('export async function createWeeklyWorshipThread'),
+    source.indexOf('export async function parseActiveWorshipThreadComments'),
+  );
+
+  assert.match(body, /selectPreviousWorshipThreads\(activeThreads, yymmdd\)/);
+  const createIndex = body.indexOf('await createForumThread');
+  const closeIndex = body.indexOf('for (const previousThread of previousThreads)');
+  assert.notEqual(closeIndex, -1);
+  assert.ok(createIndex < closeIndex);
 });
